@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<actions>
+        <action>
+            <actionName>CUSTOM-deploy</actionName>
+            <displayName>deploy</displayName>
+            <goals>
+                <goal>deploy</goal>
+            </goals>
+        </action>
+        <action>
+            <actionName>CUSTOM-change version</actionName>
+            <displayName>change version</displayName>
+            <goals>
+                <goal>versions:set</goal>
+            </goals>
+            <properties>
+                <newVersion>1.5.0-ALPHA</newVersion>
+            </properties>
+        </action>
+        <action>
+            <actionName>CUSTOM-versions:commit</actionName>
+            <displayName>versions:commit</displayName>
+            <goals>
+                <goal>versions:commit</goal>
+            </goals>
+        </action>
+        <action>
+            <actionName>CUSTOM-clean install findbugs:check</actionName>
+            <displayName>clean install findbugs:check</displayName>
+            <goals>
+                <goal>clean</goal>
+                <goal>install</goal>
+                <goal>findbugs:check</goal>
+            </goals>
+        </action>
+    </actions>
