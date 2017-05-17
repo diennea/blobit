@@ -28,7 +28,7 @@ import org.blobit.core.cluster.HerdDBMetadataStorageManager;
  *
  * @author enrico.olivelli
  */
-public class DataManagerFactory {
+public class ObjectManagerFactory {
 
     /**
      * Create a new Database. You need to close it in order to release resources
@@ -36,12 +36,12 @@ public class DataManagerFactory {
      * @param configuration
      * @param datasource
      * @return
-     * @throws DataManagerException
-     * @see DataManager#close()
+     * @throws ObjectManagerException
+     * @see ObjectManager#close()
      */
-    public static DataManager createDataManager(Configuration configuration, DataSource datasource) throws DataManagerException {
+    public static ObjectManager createObjectManager(Configuration configuration, DataSource datasource) throws ObjectManagerException {
 
-        DataManager result;
+        ObjectManager result;
         switch (configuration.getType()) {
             case Configuration.TYPE_BOOKKEEPER: {
                 HerdDBMetadataStorageManager metadataStorageManager = new HerdDBMetadataStorageManager(datasource,

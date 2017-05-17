@@ -30,25 +30,25 @@ public interface MetadataManager {
 
     public void createBucket(String name,
         String bucketTableSpaceName,
-        BucketConfiguration configuration) throws DataManagerException;
+        BucketConfiguration configuration) throws ObjectManagerException;
 
-    public void init() throws DataManagerException;
+    public void init() throws ObjectManagerException;
 
-    public Collection<BucketMetadata> listBuckets() throws DataManagerException;
+    public Collection<BucketMetadata> listBuckets() throws ObjectManagerException;
 
-    public void registerLedger(String bucketId, long ledgerId) throws DataManagerException;
+    public void registerLedger(String bucketId, long ledgerId) throws ObjectManagerException;
 
-    public void deleteLedger(String bucketId, long ledgerId) throws DataManagerException;
+    public void deleteLedger(String bucketId, long ledgerId) throws ObjectManagerException;
 
-    public void registerObject(String bucketId, long ledgerId, long entryId, long lastEntryId, long size) throws DataManagerException;
+    public void registerObject(String bucketId, long ledgerId, long entryId, long lastEntryId, long size) throws ObjectManagerException;
 
-    public void deleteObject(String bucketId, long ledgerId, long entryId) throws DataManagerException;
+    public void deleteObject(String bucketId, long ledgerId, long entryId) throws ObjectManagerException;
 
-    public Collection<Long> listDeletableLedgers(String bucketId) throws DataManagerException;
+    public Collection<Long> listDeletableLedgers(String bucketId) throws ObjectManagerException;
 
-    public Collection<LedgerMetadata> listLedgersbyBucketId(String bucketId) throws DataManagerException;
+    public Collection<LedgerMetadata> listLedgersbyBucketId(String bucketId) throws ObjectManagerException;
 
-    public Collection<ObjectMetadata> listBlobsByLedger(String bucketId, long ledgerId) throws DataManagerException;
+    public Collection<ObjectMetadata> listBlobsByLedger(String bucketId, long ledgerId) throws ObjectManagerException;
 
     public default void close() {
     }

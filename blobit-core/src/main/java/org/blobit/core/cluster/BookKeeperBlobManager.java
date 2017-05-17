@@ -39,17 +39,17 @@ import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.apache.zookeeper.KeeperException;
-import org.blobit.core.api.DataManagerException;
+import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.Configuration;
-import org.blobit.core.api.DataManager;
 import org.blobit.core.api.MetadataManager;
+import org.blobit.core.api.ObjectManager;
 
 /**
  * Stores Objects on Apache BookKeeper
  *
  * @author enrico.olivelli
  */
-public class BookKeeperBlobManager implements DataManager {
+public class BookKeeperBlobManager implements ObjectManager {
 
     private static final Logger LOG = Logger.getLogger(BookKeeperBlobManager.class.getName());
 
@@ -84,7 +84,7 @@ public class BookKeeperBlobManager implements DataManager {
 
     private <T> Future<T> wrapGenericException(Exception err) {
         CompletableFuture<T> error = new CompletableFuture<>();
-        error.completeExceptionally(new DataManagerException(err));
+        error.completeExceptionally(new ObjectManagerException(err));
         return error;
     }
 
@@ -113,7 +113,7 @@ public class BookKeeperBlobManager implements DataManager {
             BKEntryId bk = BKEntryId.parseId(id);
             metadataStorageManager.deleteObject(bucketId, bk.ledgerId, bk.firstEntryId);
             result.complete(null);
-        } catch (DataManagerException ex) {
+        } catch (ObjectManagerException ex) {
             result.completeExceptionally(ex);
         }
         return result;
@@ -183,7 +183,7 @@ public class BookKeeperBlobManager implements DataManager {
         }
     }
 
-    public BookKeeperBlobManager(Configuration configuration, MetadataManager metadataStorageManager) throws DataManagerException {
+    public BookKeeperBlobManager(Configuration configuration, MetadataManager metadataStorageManager) throws ObjectManagerException {
         try {
             this.lifeCycleManager = new LedgerLifeCycleManager(metadataStorageManager, this);
             this.replicationFactor = configuration.getReplicationFactor();
@@ -217,11 +217,11 @@ public class BookKeeperBlobManager implements DataManager {
                 .forConfig(clientConfiguration)
                 .build();
         } catch (IOException | InterruptedException | KeeperException ex) {
-            throw new DataManagerException(ex);
+            throw new ObjectManagerException(ex);
         }
     }
 
-    public boolean dropLedger(long idledger) throws DataManagerException {
+    public boolean dropLedger(long idledger) throws ObjectManagerException {
         if (activeWriters.containsKey(idledger)) {
             return false;
         }
@@ -232,7 +232,7 @@ public class BookKeeperBlobManager implements DataManager {
         } catch (BKException.BKNoSuchLedgerExistsException ok) {
             return true;
         } catch (BKException err) {
-            throw new DataManagerException(err);
+            throw new ObjectManagerException(err);
         } catch (InterruptedException err) {
             Thread.currentThread().interrupt();
             return false;
@@ -288,7 +288,7 @@ public class BookKeeperBlobManager implements DataManager {
     public void gc(String bucketId) {
         try {
             lifeCycleManager.gcBucket(bucketId);
-        } catch (DataManagerException ex) {
+        } catch (ObjectManagerException ex) {
             Logger.getLogger(BookKeeperBlobManager.class.getName()).log(Level.SEVERE, null, ex);
         }
     }

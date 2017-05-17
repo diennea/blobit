@@ -24,20 +24,20 @@ package org.blobit.core.api;
  *
  * @author enrico.olivelli
  */
-public class DataManagerException extends Exception {
+public class ObjectManagerException extends Exception {
 
-    public DataManagerException() {
+    public ObjectManagerException() {
     }
 
-    public DataManagerException(String message) {
+    public ObjectManagerException(String message) {
         super(message);
     }
 
-    public DataManagerException(String message, Throwable cause) {
+    public ObjectManagerException(String message, Throwable cause) {
         super(message, cause);
     }
 
-    public DataManagerException(Throwable cause) {
+    public ObjectManagerException(Throwable cause) {
         super(cause);
     }
 

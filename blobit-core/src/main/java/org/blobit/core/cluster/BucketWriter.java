@@ -29,7 +29,7 @@ import org.apache.bookkeeper.client.BKException;
 import org.apache.bookkeeper.client.BKException.BKLedgerClosedException;
 import org.apache.bookkeeper.client.BookKeeper;
 import org.apache.bookkeeper.client.LedgerHandle;
-import org.blobit.core.api.DataManagerException;
+import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.MetadataManager;
 
 /**
@@ -56,7 +56,7 @@ public class BucketWriter {
         int replicationFactor,
         long maxBytesPerLedger,
         MetadataManager metadataStorageManager,
-        BookKeeperBlobManager blobManager) throws DataManagerException {
+        BookKeeperBlobManager blobManager) throws ObjectManagerException {
         try {
             this.blobManager = blobManager;
             this.maxBytesPerLedger = maxBytesPerLedger;
@@ -71,7 +71,7 @@ public class BucketWriter {
             metadataStorageManager.registerLedger(bucketId, this.id);
             LOG.log(Level.INFO, "Created new writer replicationFactor " + replicationFactor + ", for {0}: ledgerId {1}", new Object[]{bucketId, lh.getId()});
         } catch (InterruptedException | BKException ex) {
-            throw new DataManagerException(ex);
+            throw new ObjectManagerException(ex);
         }
 
     }
@@ -120,7 +120,7 @@ public class BucketWriter {
                         lh.asyncAddEntry(this.entryId + 1, data, nextEntryOffset, nextEntryEnd - nextEntryOffset,
                             new AddEntryCallback(this.entryId + 1, result, data, nextEntryOffset, nextEntryEnd, blobId), null);
                     }
-                } catch (DataManagerException | BKException err) {
+                } catch (ObjectManagerException | BKException err) {
                     LOG.log(Level.SEVERE, "bad error while scheduling next add entry " + (this.entryId + 1), err);
                     result.completeExceptionally(err);
                 }

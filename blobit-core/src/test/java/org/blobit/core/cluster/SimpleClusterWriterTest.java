@@ -26,13 +26,13 @@ import java.util.List;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.Future;
-import org.blobit.core.api.DataManagerFactory;
+import org.blobit.core.api.ObjectManagerFactory;
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.Configuration;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import org.blobit.core.api.DataManager;
+import org.blobit.core.api.ObjectManager;
 
 public class SimpleClusterWriterTest {
 
@@ -78,7 +78,7 @@ public class SimpleClusterWriterTest {
                     .setType(Configuration.TYPE_BOOKKEEPER)
                     .setConcurrentWriters(10)
                     .setZookeeperUrl(env.getAddress());
-            try (DataManager blobManager = DataManagerFactory.createDataManager(configuration, datasource);) {
+            try (ObjectManager blobManager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
 
                 blobManager.getMetadataStorageManager().createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);

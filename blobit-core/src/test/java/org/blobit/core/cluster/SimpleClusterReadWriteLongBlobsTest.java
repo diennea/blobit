@@ -30,7 +30,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import org.blobit.core.api.DataManagerFactory;
+import org.blobit.core.api.ObjectManagerFactory;
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.Configuration;
 import org.junit.Assert;
@@ -38,7 +38,7 @@ import static org.junit.Assert.assertTrue;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import org.blobit.core.api.DataManager;
+import org.blobit.core.api.ObjectManager;
 
 public class SimpleClusterReadWriteLongBlobsTest {
 
@@ -66,7 +66,7 @@ public class SimpleClusterReadWriteLongBlobsTest {
                     .setConcurrentWriters(10)
                     .setZookeeperUrl(env.getAddress());
 
-            try (DataManager blobManager = DataManagerFactory.createDataManager(configuration, datasource);) {
+            try (ObjectManager blobManager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
                 List<Future<String>> batch = new ArrayList<>();
 

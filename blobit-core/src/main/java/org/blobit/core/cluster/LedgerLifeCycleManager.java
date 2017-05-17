@@ -25,7 +25,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import org.blobit.core.api.DataManagerException;
+import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.BucketMetadata;
 import org.blobit.core.api.MetadataManager;
 
@@ -56,12 +56,12 @@ public class LedgerLifeCycleManager {
                 String bucketId = bucket.getBucketId();
                 gcBucket(bucketId);
             }
-        } catch (DataManagerException ex) {
+        } catch (ObjectManagerException ex) {
             LOG.log(Level.SEVERE, "Error during ledger management", ex);
         }
     }
 
-    public void gcBucket(String bucketId) throws DataManagerException {
+    public void gcBucket(String bucketId) throws ObjectManagerException {
         Collection<Long> ledgers = metadataStorageManager.listDeletableLedgers(bucketId);
         LOG.log(Level.SEVERE, "There are " + ledgers.size() + " deletable ledgers");
         for (long idledger : ledgers) {

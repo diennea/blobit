@@ -31,7 +31,7 @@ import org.apache.bookkeeper.client.BKException;
 import org.apache.bookkeeper.client.BookKeeper;
 import org.apache.bookkeeper.client.LedgerEntry;
 import org.apache.bookkeeper.client.LedgerHandle;
-import org.blobit.core.api.DataManagerException;
+import org.blobit.core.api.ObjectManagerException;
 
 /**
  * Writes all data for a given bucket
@@ -47,7 +47,7 @@ public class BucketReader {
     private static final byte[] DUMMY_PWD = new byte[0];
 
     public BucketReader(long ledgerId, BookKeeper bookKeeper,
-        BookKeeperBlobManager blobManager) throws DataManagerException {
+        BookKeeperBlobManager blobManager) throws ObjectManagerException {
         try {
             this.blobManager = blobManager;
             this.lh = bookKeeper.openLedgerNoRecovery(ledgerId,
@@ -55,7 +55,7 @@ public class BucketReader {
             valid = true;
             LOG.log(Level.INFO, "Created new reader for ledgerId {0} lac {1}", new Object[]{lh.getId(), lh.readLastConfirmed()});
         } catch (InterruptedException | BKException ex) {
-            throw new DataManagerException(ex);
+            throw new ObjectManagerException(ex);
         }
     }
 

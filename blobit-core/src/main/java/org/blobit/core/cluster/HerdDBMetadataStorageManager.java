@@ -35,7 +35,7 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.sql.DataSource;
-import org.blobit.core.api.DataManagerException;
+import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectMetadata;
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.BucketMetadata;
@@ -127,7 +127,7 @@ public class HerdDBMetadataStorageManager implements MetadataManager {
     @Override
     public void createBucket(String name,
         String bucketTableSpaceName,
-        BucketConfiguration configuration) throws DataManagerException {
+        BucketConfiguration configuration) throws ObjectManagerException {
         try (Connection connection = datasource.getConnection();
             PreparedStatement ps = connection.prepareStatement(SELECT_BUCKET);
             PreparedStatement psInsert = connection.prepareStatement(INSERT_BUCKET);) {
@@ -154,7 +154,7 @@ public class HerdDBMetadataStorageManager implements MetadataManager {
 
             reloadBuckets();
         } catch (SQLException err) {
-            throw new DataManagerException(err);
+            throw new ObjectManagerException(err);
         }
 
     }
@@ -222,20 +222,20 @@ public class HerdDBMetadataStorageManager implements MetadataManager {
     }
 
     @Override
-    public void init() throws DataManagerException {
+    public void init() throws ObjectManagerException {
         try {
             ensureTablespace(bucketsTablespace, bucketsTableSpacesReplicaCount);
             ensureTable(bucketsTablespace, BUCKETS_TABLE, CREATE_BUCKETS_TABLE);
             reloadBuckets();
         } catch (SQLException err) {
-            throw new DataManagerException(err);
+            throw new ObjectManagerException(err);
         }
 
     }
 
     @Override
     public void registerObject(String bucketId,
-        long ledgerId, long entryId, long lastEntryId, long size) throws DataManagerException {
+        long ledgerId, long entryId, long lastEntryId, long size) throws ObjectManagerException {
 
         try (Connection connection = getConnectionForBucket(bucketId);
             PreparedStatement ps = connection.prepareStatement(REGISTER_BLOB)) {
@@ -247,12 +247,12 @@ public class HerdDBMetadataStorageManager implements MetadataManager {
             ps.setLong(i++, size);
             ps.executeUpdate();
         } catch (SQLException err) {
-            throw new DataManagerException(err);
+            throw new ObjectManagerException(err);
         }
     }
 
     @Override
-    public void deleteObject(String bucketId, long ledgerId, long entryId) throws DataManagerException {
+    public void deleteObject(String bucketId, long ledgerId, long entryId) throws ObjectManagerException {
 
         try (Connection connection = getConnectionForBucket(bucketId);
             PreparedStatement ps = connection.prepareStatement(DELETE_BLOB)) {
@@ -262,23 +262,23 @@ public class HerdDBMetadataStorageManager implements MetadataManager {
             ps.setLong(i++, entryId);
             ps.executeUpdate();
         } catch (SQLException err) {
-            throw new DataManagerException(err);
+            throw new ObjectManagerException(err);
         }
     }
     private static final Logger LOG = Logger.getLogger(HerdDBMetadataStorageManager.class.getName());
 
     @Override
-    public Collection<BucketMetadata> listBuckets() throws DataManagerException {
+    public Collection<BucketMetadata> listBuckets() throws ObjectManagerException {
         try {
             reloadBuckets();
             return new ArrayList<>(buckets.values());
         } catch (SQLException err) {
-            throw new DataManagerException(err);
+            throw new ObjectManagerException(err);
         }
     }
 
     @Override
-    public Collection<Long> listDeletableLedgers(String bucketId) throws DataManagerException {
+    public Collection<Long> listDeletableLedgers(String bucketId) throws ObjectManagerException {
 
         try (Connection connection = getConnectionForBucket(bucketId);
             PreparedStatement ps = connection.prepareStatement(LIST_DELETABLE_LEDGERS);
@@ -289,12 +289,12 @@ public class HerdDBMetadataStorageManager implements MetadataManager {
             }
             return res;
         } catch (SQLException err) {
-            throw new DataManagerException(err);
+            throw new ObjectManagerException(err);
         }
     }
 
     @Override
-    public void registerLedger(String bucketId, long ledgerId) throws DataManagerException {
+    public void registerLedger(String bucketId, long ledgerId) throws ObjectManagerException {
 
         try (Connection connection = getConnectionForBucket(bucketId);
             PreparedStatement ps = connection.prepareStatement(REGISTER_LEDGER);) {
@@ -304,23 +304,23 @@ public class HerdDBMetadataStorageManager implements MetadataManager {
             ps.setTimestamp(i++, new java.sql.Timestamp(System.currentTimeMillis()));
             ps.executeUpdate();
         } catch (SQLException err) {
-            throw new DataManagerException(err);
+            throw new ObjectManagerException(err);
         }
     }
 
     @Override
-    public void deleteLedger(String bucketId, long ledgerId) throws DataManagerException {
+    public void deleteLedger(String bucketId, long ledgerId) throws ObjectManagerException {
 
         try (Connection connection = getConnectionForBucket(bucketId);
             PreparedStatement ps = connection.prepareStatement(DELETE_LEDGER);) {
             ps.setLong(1, ledgerId);
             ps.executeUpdate();
         } catch (SQLException err) {
-            throw new DataManagerException(err);
+            throw new ObjectManagerException(err);
         }
     }
 
-    private Connection getConnectionForBucket(String bucketId) throws SQLException, DataManagerException {
+    private Connection getConnectionForBucket(String bucketId) throws SQLException, ObjectManagerException {
         BucketMetadata bucket = getBucket(bucketId);
         Connection con = datasource.getConnection();
         if (useTablespaces) {
@@ -330,7 +330,7 @@ public class HerdDBMetadataStorageManager implements MetadataManager {
     }
 
     @Override
-    public Collection<ObjectMetadata> listBlobsByLedger(String id, long ledgerId) throws DataManagerException {
+    public Collection<ObjectMetadata> listBlobsByLedger(String id, long ledgerId) throws ObjectManagerException {
 
         try (Connection connection = getConnectionForBucket(id);
             PreparedStatement ps = connection.prepareStatement(LIST_BLOBS_BY_LEDGER);) {
@@ -351,12 +351,12 @@ public class HerdDBMetadataStorageManager implements MetadataManager {
                 return res;
             }
         } catch (SQLException err) {
-            throw new DataManagerException(err);
+            throw new ObjectManagerException(err);
         }
     }
 
     @Override
-    public Collection<LedgerMetadata> listLedgersbyBucketId(String id) throws DataManagerException {
+    public Collection<LedgerMetadata> listLedgersbyBucketId(String id) throws ObjectManagerException {
         try (Connection connection = getConnectionForBucket(id);
             PreparedStatement ps = connection.prepareStatement(LIST_LEDGERS_BY_BUCKET);) {
 
@@ -370,7 +370,7 @@ public class HerdDBMetadataStorageManager implements MetadataManager {
                 return res;
             }
         } catch (SQLException err) {
-            throw new DataManagerException(err);
+            throw new ObjectManagerException(err);
         }
     }
 
@@ -378,7 +378,7 @@ public class HerdDBMetadataStorageManager implements MetadataManager {
     public void close() {
     }
 
-    private BucketMetadata getBucket(String bucketId) throws DataManagerException {
+    private BucketMetadata getBucket(String bucketId) throws ObjectManagerException {
         try {
             BucketMetadata bucket = buckets.get(bucketId);
             if (bucket != null) {
@@ -387,11 +387,11 @@ public class HerdDBMetadataStorageManager implements MetadataManager {
             reloadBuckets();
             bucket = buckets.get(bucketId);
             if (bucket == null) {
-                throw new DataManagerException("No such bucket " + bucketId + ", only " + buckets.keySet());
+                throw new ObjectManagerException("No such bucket " + bucketId + ", only " + buckets.keySet());
             }
             return bucket;
         } catch (SQLException err) {
-            throw new DataManagerException(err);
+            throw new ObjectManagerException(err);
         }
     }
 

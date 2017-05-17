@@ -26,7 +26,7 @@ import java.util.concurrent.Future;
  *
  * @author enrico.olivelli
  */
-public interface DataManager extends AutoCloseable {
+public interface ObjectManager extends AutoCloseable {
 
     /**
      * Writes an object. This function is async, you have to check the result of the Future in order to get the ID of
