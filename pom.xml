@@ -54,7 +54,18 @@
             <scope>provided</scope>
         </dependency>
     </dependencies>
-    
+    <distributionManagement>
+        <snapshotRepository>
+            <id>maven.sviluppo.dna</id>
+            <name>MagNews Public Repository</name>
+            <url>http://maven.sviluppo.dna/content/repositories/snapshots/</url>            
+        </snapshotRepository>
+        <repository>
+            <id>maven.sviluppo.dna</id>
+            <name>MagNews Public Repository</name>
+            <url>http://maven.sviluppo.dna/content/repositories/releases/</url>            
+        </repository>                
+    </distributionManagement>
     <repositories>
         <repository>
             <id>apache-snapshots</id>
