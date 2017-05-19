@@ -330,7 +330,7 @@ public class HerdDBMetadataStorageManager implements MetadataManager {
     }
 
     @Override
-    public Collection<ObjectMetadata> listBlobsByLedger(String id, long ledgerId) throws ObjectManagerException {
+    public Collection<ObjectMetadata> listObjectsByLedger(String id, long ledgerId) throws ObjectManagerException {
 
         try (Connection connection = getConnectionForBucket(id);
             PreparedStatement ps = connection.prepareStatement(LIST_BLOBS_BY_LEDGER);) {

@@ -48,7 +48,7 @@ public interface MetadataManager {
 
     public Collection<LedgerMetadata> listLedgersbyBucketId(String bucketId) throws ObjectManagerException;
 
-    public Collection<ObjectMetadata> listBlobsByLedger(String bucketId, long ledgerId) throws ObjectManagerException;
+    public Collection<ObjectMetadata> listObjectsByLedger(String bucketId, long ledgerId) throws ObjectManagerException;
 
     public default void close() {
     }

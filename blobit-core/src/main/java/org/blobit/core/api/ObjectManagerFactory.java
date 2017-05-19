@@ -22,6 +22,7 @@ package org.blobit.core.api;
 import javax.sql.DataSource;
 import org.blobit.core.cluster.BookKeeperBlobManager;
 import org.blobit.core.cluster.HerdDBMetadataStorageManager;
+import org.blobit.core.mem.LocalManager;
 
 /**
  * Creates DataManager instances
@@ -48,6 +49,10 @@ public class ObjectManagerFactory {
                     configuration);
                 metadataStorageManager.init();
                 result = new BookKeeperBlobManager(configuration, metadataStorageManager);
+                break;
+            }
+            case Configuration.TYPE_MEM: {
+                result = new LocalManager();
                 break;
             }
             default:

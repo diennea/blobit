@@ -34,7 +34,8 @@ public class Configuration {
     public static final String MANAGER_TYPE = "blobmanager.type";
 
     public static final String TYPE_BOOKKEEPER = "bookkeeper";
-    public static final String MANAGER_TYPE_DEFAULT = TYPE_BOOKKEEPER;
+    public static final String TYPE_MEM = "mem";
+    public static final String MANAGER_TYPE_DEFAULT = TYPE_MEM;
 
     public static final String REPLICATION_FACTOR = "replication.factor";
     public static final int REPLICATION_FACTOR_DEFAULT = 1;

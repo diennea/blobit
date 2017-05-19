@@ -38,6 +38,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.blobit.core.api.MetadataManager;
 import org.blobit.core.api.ObjectManager;
+import org.junit.Assert;
 
 public class LedgerLifeCycleNoTablespacesTest {
 
@@ -79,12 +80,13 @@ public class LedgerLifeCycleNoTablespacesTest {
 
                 metadataManager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
                 String id = blobManager.put(BUCKET_ID, TEST_DATA).get();
+                Assert.assertArrayEquals(blobManager.get(BUCKET_ID, id).get(), TEST_DATA);
 
                 {
                     Collection<LedgerMetadata> ledgers = metadataManager.listLedgersbyBucketId(BUCKET_ID);
                     for (LedgerMetadata l : ledgers) {
 //                        System.out.println("LedgerMetadata:" + l);
-                        Collection<ObjectMetadata> blobs = metadataManager.listBlobsByLedger(BUCKET_ID, l.getId());
+                        Collection<ObjectMetadata> blobs = metadataManager.listObjectsByLedger(BUCKET_ID, l.getId());
 //                        for (ObjectMetadata blob : blobs) {
 //                            System.out.println("blob: " + blob);
 //                        }
@@ -103,7 +105,7 @@ public class LedgerLifeCycleNoTablespacesTest {
                     Collection<LedgerMetadata> ledgers = metadataManager.listLedgersbyBucketId(BUCKET_ID);
                     for (LedgerMetadata l : ledgers) {
 //                        System.out.println("LedgerMetadata:" + l);
-                        Collection<ObjectMetadata> blobs = metadataManager.listBlobsByLedger(BUCKET_ID, l.getId());
+                        Collection<ObjectMetadata> blobs = metadataManager.listObjectsByLedger(BUCKET_ID, l.getId());
 //                        for (ObjectMetadata blob : blobs) {
 //                            System.out.println("blob: " + blob);
 //                        }
