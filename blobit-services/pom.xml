@@ -58,6 +58,12 @@
             <groupId>org.apache.bookkeeper.stats</groupId>
             <artifactId>codahale-metrics-provider</artifactId>
             <version>${libs.bookkeeper}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.curator</groupId>
+            <artifactId>curator-test</artifactId>         
+            <version>${libs.curator}</version>
+            <scope>test</scope>
         </dependency>                                                                               
     </dependencies>
     <build>        

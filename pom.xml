@@ -16,6 +16,7 @@
         <jetty.version>9.4.1.v20170120</jetty.version>
         <libs.jersey>2.26-b01</libs.jersey>             
         <libs.commonspool>2.4.2</libs.commonspool>
+        <libs.curator>2.12.0</libs.curator>
     </properties>
     <build>
         <plugins>
@@ -55,6 +56,12 @@
             <artifactId>annotations</artifactId>
             <version>3.0.0</version>
             <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+            <scope>test</scope>
         </dependency>
     </dependencies>
     <distributionManagement>
