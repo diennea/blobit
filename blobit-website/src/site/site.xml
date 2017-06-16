@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<project>
+    <custom>
+        <pageTitle>BlobIt - Diennea</pageTitle>
+        <navigationBar>
+            <items>
+                <item>
+                    <text>GitHub</text>
+                    <href>https://github.com/diennea/blobit</href>
+                </item>
+                <item>
+                    <text>Download</text>
+		    <href>https://github.com/diennea/blobit/releases</href>
+                </item>
+            </items>
+        </navigationBar>
+        
+        <hero>
+            <title>BlobIt</title>
+            <subtitle>A distributed large object storage</subtitle>
+            <brand>Diennea engineering</brand>
+        </hero>
+        
+        <changelog>
+            <projectNameForChangelog>BlobIt</projectNameForChangelog>
+            <releases>
+                <release>
+                    <version>1.0.0-SNAPSHOT</version>
+                    <date>Not yet</date>
+                    <href>https://github.com/diennea/blobit/releases</href>
+                    <text>This will be the first greatest release of BlobIt !</text>
+                </release>
+            </releases>
+        </changelog>
+    </custom>
+    
+    <skin>
+        <groupId>${project.groupId}</groupId>
+        <artifactId>blobit-site-skin</artifactId>
+        <version>${project.version}</version>
+    </skin>
+</project>
