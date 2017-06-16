@@ -7,11 +7,14 @@
     <packaging>pom</packaging>
     <modules>
         <module>blobit-core</module>
+        <module>blobit-services</module>
     </modules>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>                
         <libs.bookkeeper>4.5.0-SNAPSHOT</libs.bookkeeper>
-        <libs.herddb>0.0.7-BETA4</libs.herddb>
+        <libs.herddb>0.1.0</libs.herddb>   
+        <jetty.version>9.4.1.v20170120</jetty.version>
+        <libs.jersey>2.26-b01</libs.jersey>             
         <libs.commonspool>2.4.2</libs.commonspool>
     </properties>
     <build>
