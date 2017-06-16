@@ -101,13 +101,13 @@ public class BucketWriter {
 
         @Override
         public void addComplete(int rc, LedgerHandle lh1, long entryId, Object ctx) {
-            pendingWrites.decrementAndGet();
             if (rc == BKException.Code.OK) {
                 try {
                     writtenBytes.addAndGet(data.length);
                     // ISSUE: is it better to write to storage manager on other thread ?
                     boolean last = entryId == blobId.lastEntryId;
                     if (last) {
+                        pendingWrites.decrementAndGet();
                         metadataStorageManager.registerObject(bucketId, lh1.getId(),
                             blobId.firstEntryId, blobId.lastEntryId, data.length);
                         result.complete(blobId);
@@ -125,6 +125,7 @@ public class BucketWriter {
                     result.completeExceptionally(err);
                 }
             } else {
+                pendingWrites.decrementAndGet();
                 LOG.log(Level.SEVERE, "bad error while adding  entry " + (this.entryId), BKException.create(rc).fillInStackTrace());
                 result.completeExceptionally(BKException.create(rc).fillInStackTrace());
             }
@@ -132,7 +133,7 @@ public class BucketWriter {
 
     }
 
-    public CompletableFuture<BKEntryId> writeBlob(String bucketId, byte[] data) {
+    CompletableFuture<BKEntryId> writeBlob(String bucketId, byte[] data) {
         CompletableFuture<BKEntryId> result = new CompletableFuture<>();
 
         pendingWrites.incrementAndGet();
