@@ -19,15 +19,13 @@
  */
 package org.blobit.core.mem;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Future;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
+
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.BucketMetadata;
 import org.blobit.core.api.LedgerMetadata;
@@ -35,6 +33,8 @@ import org.blobit.core.api.MetadataManager;
 import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectMetadata;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * MetadataManager all in memory for unit tests
@@ -122,7 +122,17 @@ public class LocalManager implements MetadataManager, ObjectManager {
 
     @Override
     public Future<String> put(String bucketId, byte[] data) {
+        return put(bucketId, data, 0, data.length);
+    }
+
+    @Override
+    public Future<String> put(String bucketId, byte[] data, int offset, int len) {
         try {
+            if (offset != 0 && len < data.length) {
+                byte[] copy = new byte[len];
+                System.arraycopy(data, offset, copy, 0, len);
+                data = copy;
+            }
             MemEntryId res = getBucket(bucketId).getCurrentLedger().put(data);
             return CompletableFuture.completedFuture(res.toId());
         } catch (ObjectManagerException err) {

@@ -19,7 +19,6 @@
  */
 package org.blobit.core.cluster;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,6 +28,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import org.apache.bookkeeper.client.BKException;
 import org.apache.bookkeeper.client.BookKeeper;
 import org.apache.bookkeeper.client.DefaultEnsemblePlacementPolicy;
@@ -39,10 +39,12 @@ import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.apache.zookeeper.KeeperException;
-import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.MetadataManager;
 import org.blobit.core.api.ObjectManager;
+import org.blobit.core.api.ObjectManagerException;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Stores Objects on Apache BookKeeper
@@ -65,11 +67,21 @@ public class BookKeeperBlobManager implements ObjectManager {
 
     @Override
     public Future<String> put(String bucketId, byte[] data) {
+        return put(bucketId, data, 0, data.length);
+    }
+
+    @Override
+    public Future<String> put(String bucketId, byte[] data, int offset, int len) {
+
+        if (data.length < offset + len || offset < 0 || len < 0) {
+            return wrapGenericException(new IndexOutOfBoundsException());
+        }
+
         try {
             BucketWriter writer = writers.borrowObject(bucketId);
             try {
                 Future<String> result = writer
-                    .writeBlob(bucketId, data)
+                    .writeBlob(bucketId, data, offset, len)
                     .thenApply(id -> {
                         return id.toId();
                     });
