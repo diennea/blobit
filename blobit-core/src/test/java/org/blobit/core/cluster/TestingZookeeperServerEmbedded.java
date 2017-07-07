@@ -36,6 +36,10 @@ import org.apache.zookeeper.server.quorum.QuorumPeerMain;
  */
 public class TestingZookeeperServerEmbedded implements AutoCloseable {
 
+    static {
+        System.setProperty("zookeeper.admin.enableServer", "false");
+    }
+
     QuorumPeerConfig config;
     QuorumPeerMain maincluster;
     ZooKeeperServerMain mainsingle;
