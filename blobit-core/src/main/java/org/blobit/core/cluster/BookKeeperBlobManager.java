@@ -81,10 +81,7 @@ public class BookKeeperBlobManager implements ObjectManager {
             BucketWriter writer = writers.borrowObject(bucketId);
             try {
                 Future<String> result = writer
-                    .writeBlob(bucketId, data, offset, len)
-                    .thenApply(id -> {
-                        return id.toId();
-                    });
+                    .writeBlob(bucketId, data, offset, len);
                 return result;
             } finally {
                 writers.returnObject(bucketId, writer);

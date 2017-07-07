@@ -83,7 +83,7 @@ public class BucketWriter {
 
     private class AddEntryCallback implements AsyncCallback.AddCallback {
 
-        final CompletableFuture<BKEntryId> result;
+        final CompletableFuture<String> result;
         final byte[] data;
         final int offset;
         final int len;
@@ -91,7 +91,7 @@ public class BucketWriter {
         final BKEntryId blobId;
 
         public AddEntryCallback(
-                CompletableFuture<BKEntryId> result, byte[] data, int offset, int len, int chunk, BKEntryId blobId) {
+                CompletableFuture<String> result, byte[] data, int offset, int len, int chunk, BKEntryId blobId) {
             this.result = result;
             this.data = data;
             this.offset = offset;
@@ -111,7 +111,7 @@ public class BucketWriter {
                             pendingWrites.decrementAndGet();
                             metadataStorageManager.registerObject(
                                     bucketId, lh1.getId(), blobId.firstEntryId, blobId.lastEntryId, data.length);
-                            result.complete(blobId);
+                            result.complete(blobId.toId());
                         } catch (ObjectManagerException err) {
                             LOG.log(Level.SEVERE, "bad error while completing blob " + blobId, err);
                             result.completeExceptionally(err);
@@ -133,13 +133,9 @@ public class BucketWriter {
         }
 
     }
-
-    CompletableFuture<BKEntryId> writeBlob(String bucketId, byte[] data) {
-        return writeBlob(bucketId, data, 0, data.length);
-    }
-
-    CompletableFuture<BKEntryId> writeBlob(String bucketId, byte[] data, int offset, int len) {
-        CompletableFuture<BKEntryId> result = new CompletableFuture<>();
+   
+    CompletableFuture<String> writeBlob(String bucketId, byte[] data, int offset, int len) {
+        CompletableFuture<String> result = new CompletableFuture<>();
 
         pendingWrites.incrementAndGet();
 
@@ -162,7 +158,7 @@ public class BucketWriter {
         return result;
     }
 
-    private void writeBlob(CompletableFuture<BKEntryId> result, BKEntryId blobId, long entryId, byte[] data,
+    private void writeBlob(CompletableFuture<String> result, BKEntryId blobId, long entryId, byte[] data,
             int offset, int len) throws BKException {
         int write = len > MAX_ENTRY_SIZE ? MAX_ENTRY_SIZE : len;
         lh.asyncAddEntry(entryId, data, offset, write,
