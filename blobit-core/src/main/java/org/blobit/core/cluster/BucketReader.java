@@ -63,27 +63,27 @@ public class BucketReader {
         CompletableFuture<byte[]> result = new CompletableFuture<>();
 
         pendingReads.incrementAndGet();
-        lh.asyncReadUnconfirmedEntries(entryId, last, new AsyncCallback.ReadCallback() {
-            @Override
-            public void readComplete(int rc, LedgerHandle lh, Enumeration<LedgerEntry> enmrtn, Object o) {
-                pendingReads.decrementAndGet();
-                if (rc == BKException.Code.OK) {
-                    try {
-                        ByteArrayOutputStream oo = new ByteArrayOutputStream();
-                        while (enmrtn.hasMoreElements()) {
-                            oo.write(enmrtn.nextElement().getEntry());
-                        }
-                        result.complete(oo.toByteArray());
-                    } catch (IOException impossible) {
-                        valid = false;
-                        result.completeExceptionally(BKException.create(BKException.Code.ReadException).fillInStackTrace());
-                    }
-                } else {
-                    valid = false;
-                    result.completeExceptionally(BKException.create(rc).fillInStackTrace());
-                }
-            }
-        }, null);
+//        lh.asyncReadUnconfirmedEntries(entryId, last, new AsyncCallback.ReadCallback() {
+//            @Override
+//            public void readComplete(int rc, LedgerHandle lh, Enumeration<LedgerEntry> enmrtn, Object o) {
+//                pendingReads.decrementAndGet();
+//                if (rc == BKException.Code.OK) {
+//                    try {
+//                        ByteArrayOutputStream oo = new ByteArrayOutputStream();
+//                        while (enmrtn.hasMoreElements()) {
+//                            oo.write(enmrtn.nextElement().getEntry());
+//                        }
+//                        result.complete(oo.toByteArray());
+//                    } catch (IOException impossible) {
+//                        valid = false;
+//                        result.completeExceptionally(BKException.create(BKException.Code.ReadException).fillInStackTrace());
+//                    }
+//                } else {
+//                    valid = false;
+//                    result.completeExceptionally(BKException.create(rc).fillInStackTrace());
+//                }
+//            }
+//        }, null);
 
         return result;
     }

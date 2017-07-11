@@ -23,7 +23,7 @@ import java.nio.file.Path;
 import org.apache.bookkeeper.client.BookKeeperAdmin;
 import org.apache.bookkeeper.conf.ClientConfiguration;
 import org.apache.bookkeeper.conf.ServerConfiguration;
-import org.apache.bookkeeper.meta.LongHierarchicalLedgerManagerFactory;
+//import org.apache.bookkeeper.meta.LongHierarchicalLedgerManagerFactory;
 import org.apache.bookkeeper.proto.BookieServer;
 
 public class ZKTestEnv implements AutoCloseable {
@@ -49,11 +49,10 @@ public class ZKTestEnv implements AutoCloseable {
         conf.setJournalDirName(targetDir.toAbsolutePath().toString());
         conf.setFlushInterval(1000);
         conf.setJournalFlushWhenQueueEmpty(true);
-        conf.setGcWaitTime(10);
+        conf.setProperty("journalMaxGroupWaitMSec", 1); // default 200ms
+        //conf.setProperty("journalBufferedWritesThreshold", 1024);
         conf.setAutoRecoveryDaemonEnabled(false);
         conf.setEnableLocalTransport(true);
-        conf.setLedgerManagerFactoryClass(LongHierarchicalLedgerManagerFactory.class);
-
         conf.setAllowLoopback(true);
 
         ClientConfiguration adminConf = new ClientConfiguration(conf);

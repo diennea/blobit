@@ -47,7 +47,7 @@ public class Configuration {
     public static final String USE_TABLESPACES_DEFAULT = "true";
 
     public static final String MAX_BYTES_PER_LEDGER = "max.bytes.per.ledger";
-    public static final int MAX_BYTES_PER_LEDGER_DEFAULT = 1024 * 1024 * 256;
+    public static final int MAX_BYTES_PER_LEDGER_DEFAULT = 1024 * 1024 * 2;
 
     public static final String CUNCURRENT_WRITERS = "concurrent.writers";
     public static final int CUNCURRENT_WRITERS_DEFAULT = 1;

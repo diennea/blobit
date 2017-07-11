@@ -198,6 +198,7 @@ public class BookKeeperBlobManager implements ObjectManager {
             this.replicationFactor = configuration.getReplicationFactor();
             this.maxBytesPerLedger = configuration.getMaxBytesPerLedger();
             this.metadataStorageManager = metadataStorageManager;
+            int concurrentWrites = configuration.getConcurrentWriters();
             ClientConfiguration clientConfiguration = new ClientConfiguration();
             clientConfiguration.setThrottleValue(0);
             clientConfiguration.setEnsemblePlacementPolicy(DefaultEnsemblePlacementPolicy.class);
@@ -209,7 +210,6 @@ public class BookKeeperBlobManager implements ObjectManager {
             }
             clientConfiguration.setZkServers(configuration.getZookkeeperUrl());
             GenericKeyedObjectPoolConfig configWriters = new GenericKeyedObjectPoolConfig();
-            int concurrentWrites = configuration.getConcurrentWriters();
             configWriters.setMaxTotalPerKey(concurrentWrites);
             configWriters.setTestOnReturn(true);
             configWriters.setBlockWhenExhausted(true);

@@ -20,9 +20,10 @@
 package org.blobit.core.cluster;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BiFunction;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -134,7 +135,7 @@ public class BucketWriter {
         CompletableFuture<BKEntryId> result = new CompletableFuture<>();
 
         pendingWrites.incrementAndGet();
-
+        long start = System.currentTimeMillis();
         int countEntries = 1 + ((len - 1) / MAX_ENTRY_SIZE);
 
         long firstEntryId = nextEntryId.getAndAdd(countEntries);
@@ -148,7 +149,8 @@ public class BucketWriter {
             result.completeExceptionally(er);
         }
 
-        return result.handleAsync((BKEntryId blobId1, Throwable u) -> {
+        return result.handle((BKEntryId blobId1, Throwable u) -> {
+            System.out.println("finished " + blobId.toId() + " -> " + (System.currentTimeMillis() - start));
             if (u != null) {
                 throw new RuntimeException(u);
             }
