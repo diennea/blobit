@@ -59,7 +59,7 @@ public class SimpleClusterWriterTest {
     public final TemporaryFolder tmp = new TemporaryFolder();
 
     private static final String BUCKET_ID = "mybucket";
-    private static final byte[] TEST_DATA = new byte[100 * 1024];
+    private static final byte[] TEST_DATA = new byte[1 * 1024];
 
     static {
         Random random = new Random();
@@ -76,12 +76,15 @@ public class SimpleClusterWriterTest {
             Configuration configuration
                 = new Configuration()
                     .setType(Configuration.TYPE_BOOKKEEPER)
-                    .setConcurrentWriters(10)
+                    .setConcurrentWriters(4)
                     .setZookeeperUrl(env.getAddress());
             try (ObjectManager blobManager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
 
                 blobManager.getMetadataStorageManager().createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
+
+                blobManager.put(BUCKET_ID, TEST_DATA).get();
+                
                 List<Future<String>> batch = new ArrayList<>();
                 for (int i = 0; i < 1000; i++) {
                     batch.add(blobManager.put(BUCKET_ID, TEST_DATA));

@@ -61,6 +61,7 @@ public class BookKeeperBlobManager implements ObjectManager {
     private final GenericKeyedObjectPool<Long, BucketReader> readers;
     private final int replicationFactor;
     private final long maxBytesPerLedger;
+    private final ExecutorService callbacksExecutor;
     private final ExecutorService threadpool = Executors.newSingleThreadExecutor();
     private ConcurrentMap<Long, BucketWriter> activeWriters = new ConcurrentHashMap<>();
     private LedgerLifeCycleManager lifeCycleManager;
@@ -199,9 +200,11 @@ public class BookKeeperBlobManager implements ObjectManager {
             this.maxBytesPerLedger = configuration.getMaxBytesPerLedger();
             this.metadataStorageManager = metadataStorageManager;
             int concurrentWrites = configuration.getConcurrentWriters();
+            this.callbacksExecutor = Executors.newFixedThreadPool(concurrentWrites);
             ClientConfiguration clientConfiguration = new ClientConfiguration();
             clientConfiguration.setThrottleValue(0);
             clientConfiguration.setEnsemblePlacementPolicy(DefaultEnsemblePlacementPolicy.class);
+            clientConfiguration.setUseV2WireProtocol(true);
             for (String key : configuration.keys()) {
                 if (key.startsWith("bookkeeper.")) {
                     String rawKey = key.substring("bookkeeper.".length());
@@ -268,6 +271,7 @@ public class BookKeeperBlobManager implements ObjectManager {
             }
         }
         threadpool.shutdown();
+        callbacksExecutor.shutdown();
 
     }
 
@@ -281,6 +285,10 @@ public class BookKeeperBlobManager implements ObjectManager {
         return threadpool.submit(() -> {
             reader.releaseResources();
         });
+    }
+
+    public ExecutorService getCallbacksExecutor() {
+        return callbacksExecutor;
     }
 
     @Override

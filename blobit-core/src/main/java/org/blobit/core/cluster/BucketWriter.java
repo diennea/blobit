@@ -21,6 +21,7 @@ package org.blobit.core.cluster;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -42,6 +43,7 @@ import org.blobit.core.api.ObjectManagerException;
  */
 public class BucketWriter {
 
+    private final ExecutorService callbacksExecutor;
     private final String bucketId;
     private final LedgerHandle lh;
     private volatile boolean valid;
@@ -62,6 +64,7 @@ public class BucketWriter {
         BookKeeperBlobManager blobManager) throws ObjectManagerException {
         try {
             this.blobManager = blobManager;
+            this.callbacksExecutor = blobManager.getCallbacksExecutor();
             this.maxBytesPerLedger = maxBytesPerLedger;
             this.metadataStorageManager = metadataStorageManager;
             this.bucketId = bucketId;
@@ -149,8 +152,9 @@ public class BucketWriter {
             result.completeExceptionally(er);
         }
 
-        return result.handle((BKEntryId blobId1, Throwable u) -> {
-            System.out.println("finished " + blobId.toId() + " -> " + (System.currentTimeMillis() - start));
+        return result.handleAsync((BKEntryId blobId1, Throwable u) -> {
+//            long now = System.currentTimeMillis();
+            //System.out.println("finished entry  " + blobId.toId() + " -> " + (now - start) + " start " + start + " end " + now + " " + Thread.currentThread().getName());
             if (u != null) {
                 throw new RuntimeException(u);
             }
@@ -161,7 +165,7 @@ public class BucketWriter {
                 LOG.log(Level.SEVERE, "bad error while completing blob " + blobId1, err);
                 throw new RuntimeException(err);
             }
-        });
+        }, callbacksExecutor);
     }
 
     private void writeBlob(CompletableFuture<BKEntryId> result, BKEntryId blobId, long entryId, byte[] data,
