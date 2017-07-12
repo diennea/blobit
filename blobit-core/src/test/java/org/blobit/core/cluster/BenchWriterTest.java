@@ -75,8 +75,7 @@ public class BenchWriterTest {
                 = new Configuration()
                     .setType(Configuration.TYPE_BOOKKEEPER)
                     .setConcurrentWriters(concurrentwriters)
-                    .setZookeeperUrl(env.getAddress())
-                    .setProperty("bookeeper.throttle", 1000);
+                    .setZookeeperUrl(env.getAddress());
 
             LongAdder totalTime = new LongAdder();
             try (ObjectManager blobManager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
