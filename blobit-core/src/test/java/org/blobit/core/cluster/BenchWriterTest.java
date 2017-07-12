@@ -27,15 +27,16 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
 import java.util.Random;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.LongAdder;
+import java.util.logging.LogManager;
+import org.apache.log4j.Level;
+import org.apache.log4j.Logger;
 import org.blobit.core.api.ObjectManagerFactory;
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.Configuration;
-import static org.junit.Assert.assertTrue;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -44,14 +45,19 @@ import static org.junit.Assert.assertEquals;
 
 public class BenchWriterTest {
 
+    static {
+        LogManager.getLogManager().reset();
+        Logger.getRootLogger().setLevel(Level.INFO);
+    }
+
     @Rule
     public final TemporaryFolder tmp = new TemporaryFolder(new File("target").getAbsoluteFile());
 
     private static final String BUCKET_ID = "mybucket";
     private static final byte[] TEST_DATA = new byte[35 * 1024];
-    private static final int testsize = 1000;
+    private static final int TESTSIZE = 1000;
     private static final int clientwriters = 1;
-    private static final int concurrentwriters = 1;
+    private static final int concurrentwriters = 10;
 
     static {
         Random random = new Random();
@@ -69,56 +75,47 @@ public class BenchWriterTest {
                 = new Configuration()
                     .setType(Configuration.TYPE_BOOKKEEPER)
                     .setConcurrentWriters(concurrentwriters)
-                    .setZookeeperUrl(env.getAddress());
+                    .setZookeeperUrl(env.getAddress())
+                    .setProperty("bookeeper.throttle", 1000);
 
+            LongAdder totalTime = new LongAdder();
             try (ObjectManager blobManager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
-                Collection<Future<String>> batch = new ConcurrentLinkedQueue<>();
 
                 blobManager.getMetadataStorageManager().createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
 
-                blobManager.put(BUCKET_ID, TEST_DATA).get();
+                for (int j = 0; j < 10; j++) {
 
-                ExecutorService exec = Executors.newFixedThreadPool(clientwriters);
-
-                for (int i = 0; i < testsize; i++) {
-                    Future<String> res = blobManager.put(BUCKET_ID, TEST_DATA);
-                    if (res == null) {
-                        throw new NullPointerException();
+                    Collection<Future<String>> batch = new ConcurrentLinkedQueue<>();
+                    for (int i = 0; i < TESTSIZE; i++) {
+                        long _entrystart = System.currentTimeMillis();
+                        CompletableFuture<String> res = blobManager.put(BUCKET_ID, TEST_DATA);
+                        res.handle((a, b) -> {
+                            totalTime.add(System.currentTimeMillis() - _entrystart);
+                            return a;
+                        });
+                        batch.add(res);
                     }
-                    exec.submit(new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                Future<String> res = blobManager.put(BUCKET_ID, TEST_DATA);
-                                if (res == null) {
-                                    throw new NullPointerException();
-                                }
-                                batch.add(res);
-                            } catch (Throwable t) {
-                                t.printStackTrace();
-                            }
-                        }
-                    });
-                }
-                exec.shutdown();
-                assertTrue(exec.awaitTermination(1, TimeUnit.MINUTES));
 
-                assertEquals(testsize, batch.size());
-                List<String> ids = new ArrayList<>();
-                for (Future<String> f : batch) {
-                    ids.add(f.get());
+                    assertEquals(TESTSIZE, batch.size());
+                    List<String> ids = new ArrayList<>();
+                    for (Future<String> f : batch) {
+                        ids.add(f.get());
+                    }
+                    for (Future f : batch) {
+                        f.get();
+                    }
+                    long _stop = System.currentTimeMillis();
+                    double delta = _stop - _start;
+                    System.out.printf("#" + j + " Total wall clock time: " + delta + " ms, "
+                        + "total callbacks time: " + totalTime.sum() + " ms, "
+                        + "entry size %.3f MB -> %.2f ms per entry (latency),"
+                        + "%.1f ms per entry (throughput) %.1f MB/s throughput%n",
+                        (TEST_DATA.length / (1024 * 1024d)),
+                        (totalTime.sum() * 1d / TESTSIZE),
+                        (delta / TESTSIZE),
+                        ((((TESTSIZE * TEST_DATA.length) / (1024 * 1024d))) / (delta / 1000d)));
                 }
-
-//                for (String id : ids) {
-//                    System.out.println("waiting for id " + id);
-//                    Assert.assertArrayEquals(TEST_DATA, blobManager.get(null, id).get());
-//                }
-                long _stop = System.currentTimeMillis();
-                double speed = (int) (batch.size() * 60_000.0 / (_stop - _start));
-                double band = speed * TEST_DATA.length;
-                long total = (batch.size() * TEST_DATA.length * 1L) / (1024 * 1024);
-                System.out.println("TEST TIME: " + (_stop - _start) + " ms for " + batch.size() + " blobs, total " + total + " MBs, " + speed + " blobs/h, " + speed * 24 + " blobs/day " + (band / (1e6 * 6000)) + " Mbytes/s");
             }
         }
     }
