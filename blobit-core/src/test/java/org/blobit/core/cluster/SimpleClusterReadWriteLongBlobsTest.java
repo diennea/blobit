@@ -23,12 +23,14 @@ import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import org.blobit.core.api.ObjectManagerFactory;
 import org.blobit.core.api.BucketConfiguration;
@@ -68,7 +70,7 @@ public class SimpleClusterReadWriteLongBlobsTest {
 
             try (ObjectManager blobManager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
-                List<Future<String>> batch = new ArrayList<>();
+                Collection<Future<String>> batch = new LinkedBlockingQueue<>();
 
                 blobManager.getMetadataStorageManager().createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
                 ExecutorService exec = Executors.newFixedThreadPool(4);
