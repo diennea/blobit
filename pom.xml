@@ -27,7 +27,7 @@
                     <forkCount>1</forkCount>
                     <reuseForks>false</reuseForks>
                     <forkedProcessTimeoutInSeconds>300</forkedProcessTimeoutInSeconds>
-                    <argLine>-Xmx2G -Djava.io.tmpdir=${basedir}/target -XX:+UseG1GC -XX:+PrintGC -Xloggc:target/gc.log</argLine>
+                    <argLine>-Xms2G -Xmx2G -Djava.io.tmpdir=${basedir}/target -XX:+UseG1GC -XX:+PrintGC -Xloggc:target/gc.log</argLine>
                 </configuration>
             </plugin>
             <plugin>                       

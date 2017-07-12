@@ -80,11 +80,11 @@ public class BenchWriterTest {
 
             LongAdder totalTime = new LongAdder();
             try (ObjectManager blobManager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
-                long _start = System.currentTimeMillis();
 
                 blobManager.getMetadataStorageManager().createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
 
-                for (int j = 0; j < 10; j++) {
+                for (int j = 0; j < 100; j++) {
+                    long _start = System.currentTimeMillis();
 
                     Collection<Future<String>> batch = new ConcurrentLinkedQueue<>();
                     for (int i = 0; i < TESTSIZE; i++) {
@@ -101,9 +101,6 @@ public class BenchWriterTest {
                     List<String> ids = new ArrayList<>();
                     for (Future<String> f : batch) {
                         ids.add(f.get());
-                    }
-                    for (Future f : batch) {
-                        f.get();
                     }
                     long _stop = System.currentTimeMillis();
                     double delta = _stop - _start;
