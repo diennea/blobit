@@ -67,12 +67,12 @@ public class BookKeeperBlobManager implements ObjectManager {
     private LedgerLifeCycleManager lifeCycleManager;
 
     @Override
-    public Future<String> put(String bucketId, byte[] data) {
+    public CompletableFuture<String> put(String bucketId, byte[] data) {
         return put(bucketId, data, 0, data.length);
     }
 
     @Override
-    public Future<String> put(String bucketId, byte[] data, int offset, int len) {
+    public CompletableFuture<String> put(String bucketId, byte[] data, int offset, int len) {
 
         if (data.length < offset + len || offset < 0 || len < 0) {
             return wrapGenericException(new IndexOutOfBoundsException());
@@ -81,7 +81,7 @@ public class BookKeeperBlobManager implements ObjectManager {
         try {
             BucketWriter writer = writers.borrowObject(bucketId);
             try {
-                Future<String> result = writer
+                CompletableFuture<String> result = writer
                     .writeBlob(bucketId, data, offset, len);
                 return result;
             } finally {
@@ -92,19 +92,19 @@ public class BookKeeperBlobManager implements ObjectManager {
         }
     }
 
-    private <T> Future<T> wrapGenericException(Exception err) {
+    private <T> CompletableFuture<T> wrapGenericException(Exception err) {
         CompletableFuture<T> error = new CompletableFuture<>();
         error.completeExceptionally(new ObjectManagerException(err));
         return error;
     }
 
     @Override
-    public Future<byte[]> get(String bucketId, String id) {
+    public CompletableFuture<byte[]> get(String bucketId, String id) {
         try {
             BKEntryId entry = BKEntryId.parseId(id);
             BucketReader reader = readers.borrowObject(entry.ledgerId);
             try {
-                Future<byte[]> result = reader
+                CompletableFuture<byte[]> result = reader
                     .readObject(entry.firstEntryId, entry.lastEntryId);
                 return result;
             } finally {
@@ -117,7 +117,7 @@ public class BookKeeperBlobManager implements ObjectManager {
 
     @Override
     @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
-    public Future<Void> delete(String bucketId, String id) {
+    public CompletableFuture<Void> delete(String bucketId, String id) {
         CompletableFuture<Void> result = new CompletableFuture<>();
         try {
             BKEntryId bk = BKEntryId.parseId(id);

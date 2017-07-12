@@ -19,7 +19,7 @@
  */
 package org.blobit.core.api;
 
-import java.util.concurrent.Future;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * This is the entry point of Blobit
@@ -36,7 +36,7 @@ public interface ObjectManager extends AutoCloseable {
      * @param data
      * @return the value returned from the future will be an opaque 'printable' id useful for retrival
      */
-    public Future<String> put(String bucketId, byte[] data);
+    public CompletableFuture<String> put(String bucketId, byte[] data);
 
     /**
      * Writes an object. This function is async, you have to check the result of the Future in order to get the ID of
@@ -48,7 +48,7 @@ public interface ObjectManager extends AutoCloseable {
      * @param len      number of bytes to write
      * @return the value returned from the future will be an opaque 'printable' id useful for retrival
      */
-    public Future<String> put(String bucketId, byte[] data, int offset, int len);
+    public CompletableFuture<String> put(String bucketId, byte[] data, int offset, int len);
 
     /**
      * Retrieves the contents of an object. This function is async, you have to check the result of the Future in order
@@ -58,7 +58,7 @@ public interface ObjectManager extends AutoCloseable {
      * @param objectId
      * @return the java.util.concurrent.Future<byte[]>
      */
-    public Future<byte[]> get(String bucketId, String objectId);
+    public CompletableFuture<byte[]> get(String bucketId, String objectId);
 
     /**
      * Marks an object for deletion. Space will not be released immediately
@@ -69,7 +69,7 @@ public interface ObjectManager extends AutoCloseable {
      * @see #gc()
      * @see #gc(java.lang.String)
      */
-    public abstract Future<Void> delete(String bucketId, String objectId);
+    public abstract CompletableFuture<Void> delete(String bucketId, String objectId);
 
     public default void start() {
     }

@@ -23,7 +23,6 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Future;
 import java.util.stream.Collectors;
 
 import org.blobit.core.api.BucketConfiguration;
@@ -121,12 +120,12 @@ public class LocalManager implements MetadataManager, ObjectManager {
     }
 
     @Override
-    public Future<String> put(String bucketId, byte[] data) {
+    public CompletableFuture<String> put(String bucketId, byte[] data) {
         return put(bucketId, data, 0, data.length);
     }
 
     @Override
-    public Future<String> put(String bucketId, byte[] data, int offset, int len) {
+    public CompletableFuture<String> put(String bucketId, byte[] data, int offset, int len) {
         try {
             if (offset != 0 && len < data.length) {
                 byte[] copy = new byte[len];
@@ -143,7 +142,7 @@ public class LocalManager implements MetadataManager, ObjectManager {
     }
 
     @Override
-    public Future<byte[]> get(String bucketId, String objectId) {
+    public CompletableFuture<byte[]> get(String bucketId, String objectId) {
         try {
             MemEntryId id = MemEntryId.parseId(objectId);
             byte[] res = getBucket(bucketId).getLedger(id.ledgerId).get(id.firstEntryId);
@@ -157,7 +156,7 @@ public class LocalManager implements MetadataManager, ObjectManager {
 
     @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
     @Override
-    public Future<Void> delete(String bucketId, String objectId) {
+    public CompletableFuture<Void> delete(String bucketId, String objectId) {
         try {
             MemEntryId id = MemEntryId.parseId(objectId);
             getBucket(bucketId).getLedger(id.ledgerId).delete(id.firstEntryId);
