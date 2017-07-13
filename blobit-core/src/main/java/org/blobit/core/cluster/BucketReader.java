@@ -26,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import org.apache.bookkeeper.client.AsyncCallback;
 import org.apache.bookkeeper.client.BKException;
 import org.apache.bookkeeper.client.BookKeeper;
@@ -53,7 +54,6 @@ public class BucketReader {
             this.lh = bookKeeper.openLedgerNoRecovery(ledgerId,
                 BookKeeper.DigestType.CRC32, DUMMY_PWD);
             valid = true;
-            LOG.log(Level.INFO, "Created new reader for ledgerId {0} lac {1}", new Object[]{lh.getId(), lh.readLastConfirmed()});
         } catch (InterruptedException | BKException ex) {
             throw new ObjectManagerException(ex);
         }
