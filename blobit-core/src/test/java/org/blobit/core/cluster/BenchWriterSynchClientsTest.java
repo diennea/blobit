@@ -24,12 +24,20 @@ import herddb.server.ServerConfiguration;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.logging.LogManager;
 import org.apache.log4j.Level;
@@ -43,7 +51,7 @@ import org.junit.rules.TemporaryFolder;
 import org.blobit.core.api.ObjectManager;
 import static org.junit.Assert.assertEquals;
 
-public class BenchWriterTest {
+public class BenchWriterSynchClientsTest {
 
     static {
         LogManager.getLogManager().reset();
@@ -56,7 +64,7 @@ public class BenchWriterTest {
     private static final String BUCKET_ID = "mybucket";
     private static final byte[] TEST_DATA = new byte[35 * 1024];
     private static final int TESTSIZE = 1000;
-    private static final int clientwriters = 1;
+    private static final int clientwriters = 10;
     private static final int concurrentwriters = 10;
 
     static {
@@ -83,24 +91,43 @@ public class BenchWriterTest {
                 blobManager.getMetadataStorageManager().createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
 
                 for (int j = 0; j < 10; j++) {
+                    AtomicInteger totalDone = new AtomicInteger();
                     long _start = System.currentTimeMillis();
+                    Map<String, AtomicInteger> numMessagesPerClient = new ConcurrentHashMap<>();
 
-                    Collection<Future<String>> batch = new ConcurrentLinkedQueue<>();
-                    for (int i = 0; i < TESTSIZE; i++) {
-                        long _entrystart = System.currentTimeMillis();
-                        CompletableFuture<String> res = blobManager.put(BUCKET_ID, TEST_DATA);
-                        res.handle((a, b) -> {
-                            totalTime.add(System.currentTimeMillis() - _entrystart);
-                            return a;
-                        });
-                        batch.add(res);
+                    Thread[] clients = new Thread[clientwriters];
+                    for (int tname = 0; tname < clients.length; tname++) {
+                        final String name = "client-" + tname;
+                        final AtomicInteger counter = new AtomicInteger();
+                        numMessagesPerClient.put(name, counter);
+                        Thread tr = new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                try {
+                                    for (int i = 0; i < TESTSIZE / clientwriters; i++) {
+                                        writeData(blobManager, counter, totalTime);
+                                        totalDone.incrementAndGet();
+                                    }
+                                } catch (Throwable t) {
+                                    t.printStackTrace();
+                                }
+                            }
+                        }, name);
+                        clients[tname] = tr;
+                    }
+                    for (Thread t : clients) {
+                        t.start();
                     }
 
-                    assertEquals(TESTSIZE, batch.size());
-                    List<String> ids = new ArrayList<>();
-                    for (Future<String> f : batch) {
-                        ids.add(f.get());
+                    for (Thread t : clients) {
+                        t.join();
                     }
+
+                    for (Map.Entry<String, AtomicInteger> entry : numMessagesPerClient.entrySet()) {
+                        assertEquals("bad count for " + entry.getKey(), TESTSIZE / clientwriters, entry.getValue().get());
+                    }
+                    assertEquals(TESTSIZE, totalDone.get());
+
                     long _stop = System.currentTimeMillis();
                     double delta = _stop - _start;
                     System.out.printf("#" + j + " Wall clock time: " + delta + " ms, "
@@ -114,5 +141,20 @@ public class BenchWriterTest {
                 }
             }
         }
+    }
+
+    private void writeData(ObjectManager blobManager, AtomicInteger counter, LongAdder totalTime) throws InterruptedException, ExecutionException {
+        String tName = Thread.currentThread().getName();
+        long _entrystart = System.currentTimeMillis();
+        CompletableFuture<String> res = blobManager.put(BUCKET_ID, TEST_DATA);
+        res.handle((a, b) -> {
+            long time = System.currentTimeMillis() - _entrystart;
+            totalTime.add(time);
+
+            int actualCount = counter.incrementAndGet();
+//            System.out.println("client " + tName + " wrote entry " + a + " " + time + " ms #" + actualCount);
+
+            return a;
+        }).get();
     }
 }

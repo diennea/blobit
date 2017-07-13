@@ -50,7 +50,7 @@ public class BookKeeperWriteTest {
         Logger.getRootLogger().setLevel(Level.INFO);
     }
 
-    private static final byte[] TEST_DATA = new byte[35 * 1024];
+    private static final byte[] TEST_DATA = new byte[35*1024];
     private static final int TESTSIZE = 1000;
 
     @Rule
@@ -63,7 +63,7 @@ public class BookKeeperWriteTest {
             ClientConfiguration clientConfiguration = new ClientConfiguration();
 
             // this is like (sleep(1)) in the loop below
-            clientConfiguration.setThrottleValue(1000);
+            clientConfiguration.setThrottleValue(0);
 
             clientConfiguration.setZkServers(env.getAddress());
 
@@ -109,9 +109,9 @@ public class BookKeeperWriteTest {
                         }
                         long _stop = System.currentTimeMillis();
                         double delta = _stop - _start;
-                        System.out.printf("#" + j + " Total wall clock time: " + delta + " ms, "
-                            + "total callbacks time: " + totalTime.sum() + " ms, "
-                            + "entry size %.3f MB -> %.2f ms per entry (latency),"
+                        System.out.printf("#" + j + " Wall clock time: " + delta + " ms, "
+                            // + "total callbacks time: " + totalTime.sum() + " ms, "
+                            + "size %.3f MB -> %.2f ms per entry (latency),"
                             + "%.1f ms per entry (throughput) %.1f MB/s throughput%n",
                             (TEST_DATA.length / (1024 * 1024d)),
                             (totalTime.sum() * 1d / TESTSIZE),

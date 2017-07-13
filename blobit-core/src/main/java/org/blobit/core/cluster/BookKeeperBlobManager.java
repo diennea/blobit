@@ -202,7 +202,7 @@ public class BookKeeperBlobManager implements ObjectManager {
             int concurrentWrites = configuration.getConcurrentWriters();
             this.callbacksExecutor = Executors.newFixedThreadPool(concurrentWrites);
             ClientConfiguration clientConfiguration = new ClientConfiguration();
-            clientConfiguration.setThrottleValue(1000);
+            clientConfiguration.setThrottleValue(0);
             clientConfiguration.setEnsemblePlacementPolicy(DefaultEnsemblePlacementPolicy.class);
             clientConfiguration.setUseV2WireProtocol(true);
             for (String key : configuration.keys()) {
