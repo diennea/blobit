@@ -88,7 +88,9 @@ public class BenchWriterSynchClientsTest {
             LongAdder totalTime = new LongAdder();
             try (ObjectManager blobManager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
 
-                blobManager.getMetadataStorageManager().createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
+                for (int i = 0; i < clientwriters; i++) {
+                    blobManager.getMetadataStorageManager().createBucket(BUCKET_ID + i, BUCKET_ID + i, BucketConfiguration.DEFAULT);
+                }
 
                 for (int j = 0; j < 1000; j++) {
                     AtomicInteger totalDone = new AtomicInteger();
@@ -98,6 +100,7 @@ public class BenchWriterSynchClientsTest {
                     Thread[] clients = new Thread[clientwriters];
                     for (int tname = 0; tname < clients.length; tname++) {
                         final String name = "client-" + tname;
+                        final int _tname = tname;
                         final AtomicInteger counter = new AtomicInteger();
                         numMessagesPerClient.put(name, counter);
                         Thread tr = new Thread(new Runnable() {
@@ -105,7 +108,7 @@ public class BenchWriterSynchClientsTest {
                             public void run() {
                                 try {
                                     for (int i = 0; i < TESTSIZE / clientwriters; i++) {
-                                        writeData(blobManager, counter, totalTime);
+                                        writeData(_tname, blobManager, counter, totalTime);
                                         totalDone.incrementAndGet();
                                     }
                                 } catch (Throwable t) {
@@ -143,16 +146,16 @@ public class BenchWriterSynchClientsTest {
         }
     }
 
-    private void writeData(ObjectManager blobManager, AtomicInteger counter, LongAdder totalTime) throws InterruptedException, ExecutionException {
+    private void writeData(int tname, ObjectManager blobManager, AtomicInteger counter, LongAdder totalTime) throws InterruptedException, ExecutionException {
         String tName = Thread.currentThread().getName();
         long _entrystart = System.currentTimeMillis();
-        CompletableFuture<String> res = blobManager.put(BUCKET_ID, TEST_DATA);
+        CompletableFuture<String> res = blobManager.put(BUCKET_ID + tname, TEST_DATA);
         res.handle((a, b) -> {
             long time = System.currentTimeMillis() - _entrystart;
             totalTime.add(time);
 
             int actualCount = counter.incrementAndGet();
-//            System.out.println("client " + tName + " wrote entry " + a + " " + time + " ms #" + actualCount);
+//            System.out.println("client " + tName + " wrote entry " + a + " on " + BUCKET_ID + tname + "," + time + " ms #" + actualCount+", "+b);
 
             return a;
         }).get();
