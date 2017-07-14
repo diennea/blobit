@@ -33,6 +33,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.blobit.core.api.ObjectManager;
+import org.blobit.core.api.PutPromise;
 
 public class SimpleClusterWriterTest {
 
@@ -85,12 +86,12 @@ public class SimpleClusterWriterTest {
 
                 blobManager.put(BUCKET_ID, TEST_DATA).get();
 
-                List<Future> batch = new ArrayList<>();
+                List<PutPromise> batch = new ArrayList<>();
                 for (int i = 0; i < 1000; i++) {
-                    batch.add(blobManager.put(BUCKET_ID, TEST_DATA).future);
+                    batch.add(blobManager.put(BUCKET_ID, TEST_DATA));
                 }
                 List<String> ids = new ArrayList<>();
-                for (Future<String> f : batch) {
+                for (PutPromise f : batch) {
                     ids.add(f.get());
                 }
                 for (String id : ids) {

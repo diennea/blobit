@@ -32,9 +32,9 @@ import java.util.concurrent.TimeoutException;
 public final class PutPromise {
 
     public final String id;
-    public final CompletableFuture<Void> future;
+    public final CompletableFuture<?> future;
 
-    public PutPromise(String id, CompletableFuture<Void> future) {
+    public PutPromise(String id, CompletableFuture<?> future) {
         this.id = id;
         this.future = future;
     }

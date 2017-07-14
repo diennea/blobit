@@ -78,7 +78,7 @@ public class BookKeeperWriteSynchClientsTest {
 
             try (BookKeeper bk = new BookKeeper(clientConfiguration);) {
 
-                for (int j = 0; j < 1000; j++) {
+                for (int j = 0; j < 10; j++) {
 
                     LongAdder totalTime = new LongAdder();
                     long _start = System.currentTimeMillis();

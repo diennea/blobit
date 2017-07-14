@@ -75,7 +75,7 @@ public class BookKeeperWriteTest {
 
             try (BookKeeper bk = new BookKeeper(clientConfiguration);) {
 
-                for (int j = 0; j < 1000; j++) {
+                for (int j = 0; j < 10; j++) {
                     try (
                         LedgerHandle lh = bk.createLedger(1, 1, 1, BookKeeper.DigestType.CRC32, new byte[0])) {
                         LongAdder totalTime = new LongAdder();

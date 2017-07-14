@@ -91,7 +91,7 @@ public class BenchWriterSynchClientsTest {
                     blobManager.getMetadataStorageManager().createBucket(BUCKET_ID + i, BUCKET_ID + i, BucketConfiguration.DEFAULT);
                 }
 
-                for (int j = 0; j < 1000; j++) {
+                for (int j = 0; j < 10; j++) {
                     LongAdder totalTime = new LongAdder();
                     AtomicInteger totalDone = new AtomicInteger();
                     long _start = System.currentTimeMillis();
