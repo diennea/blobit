@@ -90,7 +90,7 @@ public class BenchWriterSynchClientsTest {
 
                 blobManager.getMetadataStorageManager().createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
 
-                for (int j = 0; j < 10; j++) {
+                for (int j = 0; j < 1000; j++) {
                     AtomicInteger totalDone = new AtomicInteger();
                     long _start = System.currentTimeMillis();
                     Map<String, AtomicInteger> numMessagesPerClient = new ConcurrentHashMap<>();

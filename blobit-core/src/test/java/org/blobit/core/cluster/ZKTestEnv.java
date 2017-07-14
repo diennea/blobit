@@ -25,6 +25,10 @@ import org.apache.bookkeeper.conf.ClientConfiguration;
 import org.apache.bookkeeper.conf.ServerConfiguration;
 //import org.apache.bookkeeper.meta.LongHierarchicalLedgerManagerFactory;
 import org.apache.bookkeeper.proto.BookieServer;
+import org.apache.bookkeeper.stats.CodahaleMetricsProvider;
+import org.apache.bookkeeper.stats.CodahaleStatsLogger;
+import org.apache.bookkeeper.stats.StatsProvider;
+import org.apache.bookkeeper.util.ReflectionUtils;
 
 public class ZKTestEnv implements AutoCloseable {
 
@@ -50,15 +54,21 @@ public class ZKTestEnv implements AutoCloseable {
         conf.setFlushInterval(1000);
         conf.setJournalFlushWhenQueueEmpty(true);
 //        conf.setSkipListSizeLimit(1024*1024*1024);
-        conf.setProperty("journalMaxGroupWaitMSec", 5); // default 200ms
+        conf.setProperty("journalMaxGroupWaitMSec", 50);
         //conf.setProperty("journalBufferedWritesThreshold", 1024);
         conf.setAutoRecoveryDaemonEnabled(false);
         conf.setEnableLocalTransport(true);
         conf.setAllowLoopback(true);
+        conf.setProperty("codahaleStatsJmxEndpoint", "Bookie");
+        conf.setStatsProviderClass(CodahaleMetricsProvider.class);
 
         ClientConfiguration adminConf = new ClientConfiguration(conf);
         BookKeeperAdmin.format(adminConf, false, true);
-        this.bookie = new BookieServer(conf);
+        Class<? extends StatsProvider> statsProviderClass
+            = conf.getStatsProviderClass();
+        StatsProvider statsProvider = ReflectionUtils.newInstance(statsProviderClass);
+        statsProvider.start(conf);
+        this.bookie = new BookieServer(conf, statsProvider.getStatsLogger(""));
         this.bookie.start();
     }
 
