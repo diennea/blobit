@@ -85,7 +85,7 @@ public class BenchWriterSynchClientsTest {
                     .setConcurrentWriters(concurrentwriters)
                     .setZookeeperUrl(env.getAddress());
 
-            LongAdder totalTime = new LongAdder();
+            
             try (ObjectManager blobManager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
 
                 for (int i = 0; i < clientwriters; i++) {
@@ -93,6 +93,7 @@ public class BenchWriterSynchClientsTest {
                 }
 
                 for (int j = 0; j < 1000; j++) {
+                    LongAdder totalTime = new LongAdder();
                     AtomicInteger totalDone = new AtomicInteger();
                     long _start = System.currentTimeMillis();
                     Map<String, AtomicInteger> numMessagesPerClient = new ConcurrentHashMap<>();

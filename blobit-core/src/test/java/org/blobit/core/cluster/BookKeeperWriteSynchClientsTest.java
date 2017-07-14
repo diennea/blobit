@@ -76,9 +76,6 @@ public class BookKeeperWriteSynchClientsTest {
             // this reduce most of GC
             clientConfiguration.setUseV2WireProtocol(true);
 
-            ByteBuf data = Unpooled.directBuffer(TEST_DATA.length);
-            data.writeBytes(TEST_DATA);
-
             try (BookKeeper bk = new BookKeeper(clientConfiguration);) {
 
                 for (int j = 0; j < 1000; j++) {
@@ -86,58 +83,56 @@ public class BookKeeperWriteSynchClientsTest {
                     LongAdder totalTime = new LongAdder();
                     long _start = System.currentTimeMillis();
 
-                    for (int i = 0; i < TESTSIZE; i++) {
+                    AtomicInteger totalDone = new AtomicInteger();
 
-                        AtomicInteger totalDone = new AtomicInteger();
+                    Map<String, AtomicInteger> numMessagesPerClient = new ConcurrentHashMap<>();
 
-                        Map<String, AtomicInteger> numMessagesPerClient = new ConcurrentHashMap<>();
-
-                        Thread[] clients = new Thread[clientwriters];
-                        for (int tname = 0; tname < clients.length; tname++) {
-                            final String name = "client-" + tname;
-                            final int _tname = tname;
-                            final AtomicInteger counter = new AtomicInteger();
-                            numMessagesPerClient.put(name, counter);
-                            Thread tr = new Thread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    try (
-                                        LedgerHandle lh = bk.createLedger(1, 1, 1, BookKeeper.DigestType.CRC32, new byte[0])) {
-                                        for (int i = 0; i < TESTSIZE / clientwriters; i++) {
-                                            writeData(_tname, lh, counter, totalTime);
-                                            totalDone.incrementAndGet();
-                                        }
-                                    } catch (Throwable t) {
-                                        t.printStackTrace();
+                    Thread[] clients = new Thread[clientwriters];
+                    for (int tname = 0; tname < clients.length; tname++) {
+                        final String name = "client-" + tname;
+                        final int _tname = tname;
+                        final AtomicInteger counter = new AtomicInteger();
+                        numMessagesPerClient.put(name, counter);
+                        Thread tr = new Thread(new Runnable() {
+                            @Override
+                            public void run() {
+                                try (
+                                    LedgerHandle lh = bk.createLedger(1, 1, 1, BookKeeper.DigestType.CRC32, new byte[0])) {
+                                    for (int i = 0; i < TESTSIZE / clientwriters; i++) {
+                                        writeData(_tname, lh, counter, totalTime);
+                                        totalDone.incrementAndGet();
                                     }
+                                } catch (Throwable t) {
+                                    t.printStackTrace();
                                 }
-                            }, name);
-                            clients[tname] = tr;
-                        }
-                        for (Thread t : clients) {
-                            t.start();
-                        }
-
-                        for (Thread t : clients) {
-                            t.join();
-                        }
-
-                        for (Map.Entry<String, AtomicInteger> entry : numMessagesPerClient.entrySet()) {
-                            assertEquals("bad count for " + entry.getKey(), TESTSIZE / clientwriters, entry.getValue().get());
-                        }
-                        assertEquals(TESTSIZE, totalDone.get());
-
-                        long _stop = System.currentTimeMillis();
-                        double delta = _stop - _start;
-                        System.out.printf("#" + j + " Wall clock time: " + delta + " ms, "
-                            // + "total callbacks time: " + totalTime.sum() + " ms, "
-                            + "size %.3f MB -> %.2f ms per entry (latency),"
-                            + "%.1f ms per entry (throughput) %.1f MB/s throughput%n",
-                            (TEST_DATA.length / (1024 * 1024d)),
-                            (totalTime.sum() * 1d / TESTSIZE),
-                            (delta / TESTSIZE),
-                            ((((TESTSIZE * TEST_DATA.length) / (1024 * 1024d))) / (delta / 1000d)));
+                            }
+                        }, name);
+                        clients[tname] = tr;
                     }
+                    for (Thread t : clients) {
+                        t.start();
+                    }
+
+                    for (Thread t : clients) {
+                        t.join();
+                    }
+
+                    for (Map.Entry<String, AtomicInteger> entry : numMessagesPerClient.entrySet()) {
+                        assertEquals("bad count for " + entry.getKey(), TESTSIZE / clientwriters, entry.getValue().get());
+                    }
+                    assertEquals(TESTSIZE, totalDone.get());
+
+                    long _stop = System.currentTimeMillis();
+                    double delta = _stop - _start;
+                    System.out.printf("#" + j + " Wall clock time: " + delta + " ms, "
+                        // + "total callbacks time: " + totalTime.sum() + " ms, "
+                        + "size %.3f MB -> %.2f ms per entry (latency),"
+                        + "%.1f ms per entry (throughput) %.1f MB/s throughput%n",
+                        (TEST_DATA.length / (1024 * 1024d)),
+                        (totalTime.sum() * 1d / TESTSIZE),
+                        (delta / TESTSIZE),
+                        ((((TESTSIZE * TEST_DATA.length) / (1024 * 1024d))) / (delta / 1000d)));
+
                 }
             }
 
