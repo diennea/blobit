@@ -53,7 +53,7 @@ public class BucketWriter {
     private final MetadataManager metadataStorageManager;
     private final BookKeeperBlobManager blobManager;
     private static final byte[] DUMMY_PWD = new byte[0];
-    private static final int MAX_ENTRY_SIZE = 1024 * 1024;
+    private static final int MAX_ENTRY_SIZE = 10 * 1024;
     private final Long id;
     private AtomicLong nextEntryId = new AtomicLong();
 
@@ -86,48 +86,56 @@ public class BucketWriter {
         return id;
     }
 
-    private class AddEntryCallback implements AsyncCallback.AddCallback {
+    private class AddEntryOperation implements AsyncCallback.AddCallback {
 
+        final long entryId;
         final CompletableFuture<Void> result;
         final byte[] data;
         final int offset;
         final int len;
-        final int chunk;
         final BKEntryId blobId;
+        final AtomicInteger countRemaining;
 
-        public AddEntryCallback(
-            CompletableFuture<Void> result, byte[] data, int offset, int len, int chunk, BKEntryId blobId) {
+        public AddEntryOperation(
+            long entryId,
+            CompletableFuture<Void> result, AtomicInteger countRemaining,
+            byte[] data, int offset, int len, BKEntryId blobId) {
+            this.entryId = entryId;
             this.result = result;
             this.data = data;
             this.offset = offset;
             this.len = len;
-            this.chunk = chunk;
             this.blobId = blobId;
+            this.countRemaining = countRemaining;
         }
 
         @Override
         public void addComplete(int rc, LedgerHandle lh1, long entryId, Object ctx) {
+            boolean last = countRemaining.decrementAndGet() == 0;
             if (rc == BKException.Code.OK) {
-                writtenBytes.addAndGet(chunk);
-                // ISSUE: is it better to write to storage manager on other thread ?
-                boolean last = entryId == blobId.lastEntryId;
+                writtenBytes.addAndGet(len);
                 if (last) {
                     pendingWrites.decrementAndGet();
                     result.complete(null);
-                } else {
-                    long nextEntry = entryId + 1;
-                    try {
-                        writeBlob(result, blobId, nextEntry, data, offset + chunk, len - chunk);
-                    } catch (BKException err) {
-                        LOG.log(Level.SEVERE, "bad error while scheduling next add entry " + nextEntry, err);
-                        result.completeExceptionally(err);
-                    }
                 }
             } else {
+                // TODO ? fail other writes?
                 pendingWrites.decrementAndGet();
                 LOG.log(Level.SEVERE, "bad error while adding  entry " + entryId, BKException.create(rc).fillInStackTrace());
                 result.completeExceptionally(BKException.create(rc).fillInStackTrace());
             }
+        }
+
+        private void initiate(LedgerHandle lh) {
+            try {
+                lh.asyncAddEntry(entryId, data, offset, len, this, null);
+            } catch (BKException neverThrown) {
+            }
+        }
+
+        @Override
+        public String toString() {
+            return "AddEntryCallback{data=" + data + ", offset=" + offset + ", len=" + len + ", countDone=" + countRemaining + '}';
         }
 
     }
@@ -136,19 +144,45 @@ public class BucketWriter {
         CompletableFuture<Void> result = new CompletableFuture<>();
 
         pendingWrites.incrementAndGet();
-        long start = System.currentTimeMillis();
-        int countEntries = 1 + ((len - 1) / MAX_ENTRY_SIZE);
 
-        long firstEntryId = nextEntryId.getAndAdd(countEntries);
-        long lastEntryId = firstEntryId + countEntries - 1;
+        int numEntries = 1 + ((len - 1) / MAX_ENTRY_SIZE);
+
+        long firstEntryId = nextEntryId.getAndAdd(numEntries);
+        long lastEntryId = firstEntryId + numEntries - 1;
 
         BKEntryId blobId = new BKEntryId(lh.getId(), firstEntryId, lastEntryId);
-        try {
-            writeBlob(result, blobId, firstEntryId, data, offset, len);
-        } catch (BKException er) {
-            LOG.log(Level.SEVERE, "bad error while adding first entry " + firstEntryId, er);
-            result.completeExceptionally(er);
-            return new PutPromise(blobId.toId(), result);
+
+        if (len == 0) {
+            result.complete(null);
+            return new PutPromise(bucketId, result);
+        }
+
+        int chunkStartOffSet = 0;
+        int chunkLen = MAX_ENTRY_SIZE;
+        int written = 0;
+        long entryId = firstEntryId;
+        AtomicInteger remaining = new AtomicInteger(numEntries);
+        for (int i = 0; i < numEntries; i++) {
+
+            if (len <= MAX_ENTRY_SIZE) {
+                // very small entry
+                chunkLen = len;
+            } else if (written + MAX_ENTRY_SIZE >= len) {
+                // last
+                chunkLen = len - written;
+            }
+            AddEntryOperation addEntry = new AddEntryOperation(entryId,
+                result,
+                remaining,
+                data,
+                chunkStartOffSet,
+                chunkLen,
+                blobId);
+            chunkStartOffSet += chunkLen;
+            written += chunkLen;
+
+            addEntry.initiate(lh);
+            entryId++;
         }
 
         CompletableFuture<Void> afterMetadata = result.handleAsync(
@@ -169,9 +203,7 @@ public class BucketWriter {
 
     private void writeBlob(CompletableFuture<Void> result, BKEntryId blobId, long entryId, byte[] data,
         int offset, int len) throws BKException {
-        int write = len > MAX_ENTRY_SIZE ? MAX_ENTRY_SIZE : len;
-        lh.asyncAddEntry(entryId, data, offset, write,
-            new AddEntryCallback(result, data, offset, len, write, blobId), null);
+
     }
 
     public boolean isValid() {
