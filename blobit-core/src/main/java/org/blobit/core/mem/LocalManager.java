@@ -34,6 +34,7 @@ import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectMetadata;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.blobit.core.api.PutPromise;
 
 /**
  * MetadataManager all in memory for unit tests
@@ -120,12 +121,12 @@ public class LocalManager implements MetadataManager, ObjectManager {
     }
 
     @Override
-    public CompletableFuture<String> put(String bucketId, byte[] data) {
+    public PutPromise put(String bucketId, byte[] data) {
         return put(bucketId, data, 0, data.length);
     }
 
     @Override
-    public CompletableFuture<String> put(String bucketId, byte[] data, int offset, int len) {
+    public PutPromise put(String bucketId, byte[] data, int offset, int len) {
         try {
             if (offset != 0 && len < data.length) {
                 byte[] copy = new byte[len];
@@ -133,11 +134,11 @@ public class LocalManager implements MetadataManager, ObjectManager {
                 data = copy;
             }
             MemEntryId res = getBucket(bucketId).getCurrentLedger().put(data);
-            return CompletableFuture.completedFuture(res.toId());
+            return new PutPromise(res.toId(), CompletableFuture.<Void>completedFuture(null));
         } catch (ObjectManagerException err) {
-            CompletableFuture<String> res = new CompletableFuture<>();
+            CompletableFuture<Void> res = new CompletableFuture<>();
             res.completeExceptionally(err);
-            return res;
+            return new PutPromise(null, res);
         }
     }
 

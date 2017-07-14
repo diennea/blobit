@@ -85,7 +85,6 @@ public class BenchWriterSynchClientsTest {
                     .setConcurrentWriters(concurrentwriters)
                     .setZookeeperUrl(env.getAddress());
 
-            
             try (ObjectManager blobManager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
 
                 for (int i = 0; i < clientwriters; i++) {
@@ -150,7 +149,7 @@ public class BenchWriterSynchClientsTest {
     private void writeData(int tname, ObjectManager blobManager, AtomicInteger counter, LongAdder totalTime) throws InterruptedException, ExecutionException {
         String tName = Thread.currentThread().getName();
         long _entrystart = System.currentTimeMillis();
-        CompletableFuture<String> res = blobManager.put(BUCKET_ID + tname, TEST_DATA);
+        CompletableFuture res = blobManager.put(BUCKET_ID + tname, TEST_DATA).future;
         res.handle((a, b) -> {
             long time = System.currentTimeMillis() - _entrystart;
             totalTime.add(time);

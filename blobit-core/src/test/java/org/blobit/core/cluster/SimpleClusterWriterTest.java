@@ -84,10 +84,10 @@ public class SimpleClusterWriterTest {
                 blobManager.getMetadataStorageManager().createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
 
                 blobManager.put(BUCKET_ID, TEST_DATA).get();
-                
-                List<Future<String>> batch = new ArrayList<>();
+
+                List<Future> batch = new ArrayList<>();
                 for (int i = 0; i < 1000; i++) {
-                    batch.add(blobManager.put(BUCKET_ID, TEST_DATA));
+                    batch.add(blobManager.put(BUCKET_ID, TEST_DATA).future);
                 }
                 List<String> ids = new ArrayList<>();
                 for (Future<String> f : batch) {

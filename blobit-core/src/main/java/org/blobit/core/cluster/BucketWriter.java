@@ -20,11 +20,10 @@
 package org.blobit.core.cluster;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiFunction;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -35,6 +34,7 @@ import org.apache.bookkeeper.client.BookKeeper;
 import org.apache.bookkeeper.client.LedgerHandle;
 import org.blobit.core.api.MetadataManager;
 import org.blobit.core.api.ObjectManagerException;
+import org.blobit.core.api.PutPromise;
 
 /**
  * Writes all data for a given bucket
@@ -88,7 +88,7 @@ public class BucketWriter {
 
     private class AddEntryCallback implements AsyncCallback.AddCallback {
 
-        final CompletableFuture<BKEntryId> result;
+        final CompletableFuture<Void> result;
         final byte[] data;
         final int offset;
         final int len;
@@ -96,7 +96,7 @@ public class BucketWriter {
         final BKEntryId blobId;
 
         public AddEntryCallback(
-            CompletableFuture<BKEntryId> result, byte[] data, int offset, int len, int chunk, BKEntryId blobId) {
+            CompletableFuture<Void> result, byte[] data, int offset, int len, int chunk, BKEntryId blobId) {
             this.result = result;
             this.data = data;
             this.offset = offset;
@@ -112,10 +112,8 @@ public class BucketWriter {
                 // ISSUE: is it better to write to storage manager on other thread ?
                 boolean last = entryId == blobId.lastEntryId;
                 if (last) {
-
                     pendingWrites.decrementAndGet();
-
-                    result.complete(blobId);
+                    result.complete(null);
                 } else {
                     long nextEntry = entryId + 1;
                     try {
@@ -134,8 +132,8 @@ public class BucketWriter {
 
     }
 
-    CompletableFuture<String> writeBlob(String bucketId, byte[] data, int offset, int len) {
-        CompletableFuture<BKEntryId> result = new CompletableFuture<>();
+    PutPromise writeBlob(String bucketId, byte[] data, int offset, int len) {
+        CompletableFuture<Void> result = new CompletableFuture<>();
 
         pendingWrites.incrementAndGet();
         long start = System.currentTimeMillis();
@@ -150,25 +148,26 @@ public class BucketWriter {
         } catch (BKException er) {
             LOG.log(Level.SEVERE, "bad error while adding first entry " + firstEntryId, er);
             result.completeExceptionally(er);
+            return new PutPromise(blobId.toId(), result);
         }
 
-        return result.handleAsync((BKEntryId blobId1, Throwable u) -> {
-//            long now = System.currentTimeMillis();
-            //System.out.println("finished entry  " + blobId.toId() + " -> " + (now - start) + " start " + start + " end " + now + " " + Thread.currentThread().getName());
-            if (u != null) {
-                throw new RuntimeException(u);
-            }
-            try {
-                metadataStorageManager.registerObject(bucketId, blobId1.ledgerId, blobId1.firstEntryId, blobId1.lastEntryId, data.length);
-                return blobId1.toId();
-            } catch (Throwable err) {
-                LOG.log(Level.SEVERE, "bad error while completing blob " + blobId1, err);
-                throw new RuntimeException(err);
-            }
-        }, callbacksExecutor);
+        CompletableFuture<Void> afterMetadata = result.handleAsync(
+            (Void v, Throwable u) -> {
+                if (u != null) {
+                    throw new RuntimeException(u);
+                }
+                try {
+                    metadataStorageManager.registerObject(bucketId, blobId.ledgerId, blobId.firstEntryId, blobId.lastEntryId, data.length);
+                    return (Void) null;
+                } catch (Throwable err) {
+                    LOG.log(Level.SEVERE, "bad error while completing blob " + blobId, err);
+                    throw new RuntimeException(err);
+                }
+            }, callbacksExecutor);
+        return new PutPromise(blobId.toId(), afterMetadata);
     }
 
-    private void writeBlob(CompletableFuture<BKEntryId> result, BKEntryId blobId, long entryId, byte[] data,
+    private void writeBlob(CompletableFuture<Void> result, BKEntryId blobId, long entryId, byte[] data,
         int offset, int len) throws BKException {
         int write = len > MAX_ENTRY_SIZE ? MAX_ENTRY_SIZE : len;
         lh.asyncAddEntry(entryId, data, offset, write,

@@ -41,6 +41,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.blobit.core.api.ObjectManager;
+import org.blobit.core.api.PutPromise;
 
 public class SimpleClusterReadWriteLongBlobsTest {
 
@@ -70,7 +71,7 @@ public class SimpleClusterReadWriteLongBlobsTest {
 
             try (ObjectManager blobManager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
-                Collection<Future<String>> batch = new LinkedBlockingQueue<>();
+                Collection<PutPromise> batch = new LinkedBlockingQueue<>();
 
                 blobManager.getMetadataStorageManager().createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
                 ExecutorService exec = Executors.newFixedThreadPool(4);
@@ -88,7 +89,7 @@ public class SimpleClusterReadWriteLongBlobsTest {
                 assertTrue(exec.awaitTermination(1, TimeUnit.MINUTES));
 
                 List<String> ids = new ArrayList<>();
-                for (Future<String> f : batch) {
+                for (PutPromise f : batch) {
                     ids.add(f.get());
                 }
 

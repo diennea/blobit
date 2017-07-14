@@ -88,7 +88,7 @@ public class BenchWriterTest {
                     Collection<Future<String>> batch = new ConcurrentLinkedQueue<>();
                     for (int i = 0; i < TESTSIZE; i++) {
                         long _entrystart = System.currentTimeMillis();
-                        CompletableFuture<String> res = blobManager.put(BUCKET_ID, TEST_DATA);
+                        CompletableFuture res = blobManager.put(BUCKET_ID, TEST_DATA).future;
                         res.handle((a, b) -> {
                             totalTime.add(System.currentTimeMillis() - _entrystart);
                             return a;

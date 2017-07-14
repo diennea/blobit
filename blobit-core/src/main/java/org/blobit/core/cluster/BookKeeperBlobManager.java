@@ -45,6 +45,7 @@ import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerException;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.blobit.core.api.PutPromise;
 
 /**
  * Stores Objects on Apache BookKeeper
@@ -67,28 +68,25 @@ public class BookKeeperBlobManager implements ObjectManager {
     private LedgerLifeCycleManager lifeCycleManager;
 
     @Override
-    public CompletableFuture<String> put(String bucketId, byte[] data) {
+    public PutPromise put(String bucketId, byte[] data) {
         return put(bucketId, data, 0, data.length);
     }
 
     @Override
-    public CompletableFuture<String> put(String bucketId, byte[] data, int offset, int len) {
-
+    public PutPromise put(String bucketId, byte[] data, int offset, int len) {
         if (data.length < offset + len || offset < 0 || len < 0) {
-            return wrapGenericException(new IndexOutOfBoundsException());
+            throw new IndexOutOfBoundsException();
         }
-
         try {
             BucketWriter writer = writers.borrowObject(bucketId);
             try {
-                CompletableFuture<String> result = writer
+                return writer
                     .writeBlob(bucketId, data, offset, len);
-                return result;
             } finally {
                 writers.returnObject(bucketId, writer);
             }
         } catch (Exception err) {
-            return wrapGenericException(err);
+            return new PutPromise(null, wrapGenericException(err));
         }
     }
 
