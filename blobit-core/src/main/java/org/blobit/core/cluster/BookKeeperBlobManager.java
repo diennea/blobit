@@ -266,6 +266,7 @@ public class BookKeeperBlobManager implements ObjectManager {
             this.maxBytesPerLedger = configuration.getMaxBytesPerLedger();
             this.metadataStorageManager = metadataStorageManager;
             int concurrentWrites = configuration.getConcurrentWriters();
+            int concurrentReaders = configuration.getConcurrentReaders();
             this.callbacksExecutor = Executors.newFixedThreadPool(concurrentWrites);
             ClientConfiguration clientConfiguration = new ClientConfiguration();
             clientConfiguration.setThrottleValue(0);
@@ -285,7 +286,7 @@ public class BookKeeperBlobManager implements ObjectManager {
             this.writers = new GenericKeyedObjectPool<>(new WritersFactory(), configWriters);
 
             GenericKeyedObjectPoolConfig configReaders = new GenericKeyedObjectPoolConfig();
-            configReaders.setMaxTotalPerKey(concurrentWrites);
+            configReaders.setMaxTotalPerKey(concurrentReaders);
             configReaders.setTestOnReturn(true);
             configReaders.setBlockWhenExhausted(true);
 

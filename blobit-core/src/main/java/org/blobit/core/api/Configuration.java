@@ -52,6 +52,9 @@ public class Configuration {
     public static final String CUNCURRENT_WRITERS = "concurrent.writers";
     public static final int CUNCURRENT_WRITERS_DEFAULT = 1;
 
+    public static final String CUNCURRENT_READERS = "concurrent.readers";
+    public static final int CUNCURRENT_READERS_DEFAULT = 1;
+
     public static final String ZOOKEEPER_URL = "zookeeper.url";
     public static final String ZOOKEEPER_URL_DEFAULT = "localhost:1821";
 
@@ -136,6 +139,10 @@ public class Configuration {
 
     public int getConcurrentWriters() {
         return Integer.parseInt(properties.getProperty(CUNCURRENT_WRITERS, CUNCURRENT_WRITERS_DEFAULT + ""));
+    }
+
+    public int getConcurrentReaders() {
+        return Integer.parseInt(properties.getProperty(CUNCURRENT_READERS, CUNCURRENT_READERS_DEFAULT + ""));
     }
 
     public Collection<String> keys() {
