@@ -118,7 +118,7 @@ public class BucketReader {
 
     @Override
     public String toString() {
-        return "BucketWriter{" + "ledgerId=" + lh.getId() + '}';
+        return "BucketReader{" + "ledgerId=" + lh.getId() + '}';
     }
 
 }
