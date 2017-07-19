@@ -23,7 +23,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.BiFunction;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -42,6 +41,8 @@ import org.blobit.core.api.PutPromise;
  * @author enrico.olivelli
  */
 public class BucketWriter {
+
+    private static final Logger LOG = Logger.getLogger(BucketWriter.class.getName());
 
     private final ExecutorService callbacksExecutor;
     private final String bucketId;
@@ -62,6 +63,9 @@ public class BucketWriter {
         long maxBytesPerLedger,
         MetadataManager metadataStorageManager,
         BookKeeperBlobManager blobManager) throws ObjectManagerException {
+
+        LOG.log(Level.FINE, "Opening BucketWriter for bucket {0}", bucketId);
+
         try {
             this.blobManager = blobManager;
             this.callbacksExecutor = blobManager.getCallbacksExecutor();
@@ -75,10 +79,11 @@ public class BucketWriter {
             valid = true;
             this.id = lh.getId();
             metadataStorageManager.registerLedger(bucketId, this.id);
-            LOG.log(Level.INFO, "Created new writer replicationFactor " + replicationFactor + ", for {0}: ledgerId {1}", new Object[]{bucketId, lh.getId()});
         } catch (InterruptedException | BKException ex) {
             throw new ObjectManagerException(ex);
         }
+
+        LOG.log(Level.INFO, "Opened BucketWriter for bucket {0}: ledger {1}, replication factor {2}", new Object[] {bucketId, id, replicationFactor});
 
     }
 
@@ -192,7 +197,7 @@ public class BucketWriter {
                 }
                 try {
                     metadataStorageManager.registerObject(bucketId, blobId.ledgerId, blobId.firstEntryId, blobId.lastEntryId, data.length);
-                    return (Void) null;
+                    return null;
                 } catch (Throwable err) {
                     LOG.log(Level.SEVERE, "bad error while completing blob " + blobId, err);
                     throw new RuntimeException(err);
@@ -231,13 +236,9 @@ public class BucketWriter {
         }
     }
 
-    private static final Logger LOG = Logger.getLogger(BucketWriter.class.getName());
-
-    private static final byte[] empty = new byte[0];
-
     @Override
     public String toString() {
-        return "BucketWriter{" + "bucketId=" + bucketId + ", id=" + id + '}';
+        return "BucketWriter{" + "bucketId=" + bucketId + ", ledgerId=" + id + '}';
     }
 
 }

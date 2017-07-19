@@ -41,6 +41,8 @@ import org.blobit.core.api.ObjectManagerException;
  */
 public class BucketReader {
 
+    private static final Logger LOG = Logger.getLogger(BucketReader.class.getName());
+
     private final LedgerHandle lh;
     private volatile boolean valid;
     private AtomicInteger pendingReads = new AtomicInteger();
@@ -49,6 +51,9 @@ public class BucketReader {
 
     public BucketReader(long ledgerId, BookKeeper bookKeeper,
         BookKeeperBlobManager blobManager) throws ObjectManagerException {
+
+        LOG.log(Level.FINE, "Opening BucketReader for ledger {0}", ledgerId);
+
         try {
             this.blobManager = blobManager;
             this.lh = bookKeeper.openLedgerNoRecovery(ledgerId,
@@ -57,6 +62,8 @@ public class BucketReader {
         } catch (InterruptedException | BKException ex) {
             throw new ObjectManagerException(ex);
         }
+
+        LOG.log(Level.INFO, "Opened BucketReader for ledger {0}", ledgerId);
     }
 
     public CompletableFuture<byte[]> readObject(long entryId, long last) {
@@ -109,6 +116,9 @@ public class BucketReader {
         }
     }
 
-    private static final Logger LOG = Logger.getLogger(BucketReader.class.getName());
+    @Override
+    public String toString() {
+        return "BucketWriter{" + "ledgerId=" + lh.getId() + '}';
+    }
 
 }

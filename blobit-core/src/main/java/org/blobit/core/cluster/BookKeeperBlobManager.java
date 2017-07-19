@@ -26,6 +26,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -43,9 +45,9 @@ import org.blobit.core.api.Configuration;
 import org.blobit.core.api.MetadataManager;
 import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerException;
+import org.blobit.core.api.PutPromise;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.blobit.core.api.PutPromise;
 
 /**
  * Stores Objects on Apache BookKeeper
@@ -127,16 +129,14 @@ public class BookKeeperBlobManager implements ObjectManager {
         return result;
     }
 
-    private class WritersFactory implements KeyedPooledObjectFactory<String, BucketWriter> {
+    private final class WritersFactory implements KeyedPooledObjectFactory<String, BucketWriter> {
 
         @Override
         public PooledObject<BucketWriter> makeObject(String bucketId) throws Exception {
             BucketWriter writer = new BucketWriter(bucketId,
                 bookKeeper, replicationFactor, maxBytesPerLedger, metadataStorageManager, BookKeeperBlobManager.this);
             activeWriters.put(writer.getId(), writer);
-            DefaultPooledObject<BucketWriter> be = new DefaultPooledObject(
-                writer
-            );
+            DefaultPooledObject<BucketWriter> be = new DefaultPooledObject<>(writer);
             return be;
         }
 
@@ -160,19 +160,87 @@ public class BookKeeperBlobManager implements ObjectManager {
         }
     }
 
-    private class ReadersFactory implements KeyedPooledObjectFactory<Long, BucketReader> {
+    private static final class BucketReaderInstance {
+
+        private int count;
+        private boolean retired;
+        private final BucketReader reader;
+
+        public BucketReaderInstance(BucketReader reader) {
+            super();
+            this.reader = reader;
+            this.count = 0;
+            this.retired = false;
+        }
+
+    }
+
+    @SuppressWarnings("serial")
+    private static final class LambdaWrapperException extends RuntimeException {
+        public LambdaWrapperException(Throwable cause) {
+            super(cause);
+        }
+    }
+
+    private final class ReadersFactory implements KeyedPooledObjectFactory<Long, BucketReader> {
+
+        private final Lock lock = new ReentrantLock();
+        private final ConcurrentMap<Long,BucketReaderInstance> instances = new ConcurrentHashMap<>();
 
         @Override
         public PooledObject<BucketReader> makeObject(Long ledgerId) throws Exception {
-            DefaultPooledObject<BucketReader> be = new DefaultPooledObject(
-                new BucketReader(ledgerId, bookKeeper, BookKeeperBlobManager.this)
-            );
-            return be;
+
+            BucketReaderInstance instance;
+
+            while(true) {
+
+                try {
+                    instance = instances.computeIfAbsent(ledgerId, k -> {
+
+                        /* Serialize reader creations */
+                        lock.lock();
+
+                        BucketReader reader;
+                        try {
+                            reader = new BucketReader(ledgerId, bookKeeper, BookKeeperBlobManager.this);
+                        } catch (ObjectManagerException e) {
+                            throw new LambdaWrapperException(e);
+                        } finally {
+                            lock.unlock();
+                        }
+
+                        return new BucketReaderInstance(reader);
+
+                    });
+
+                } catch (LambdaWrapperException e) {
+                    throw (Exception) e.getCause();
+                }
+
+                synchronized (instance) {
+                    if (!instance.retired) {
+                        instance.count++;
+                        break;
+                    }
+                }
+            }
+
+            return new DefaultPooledObject<>(instance.reader);
         }
 
         @Override
         public void destroyObject(Long ledgerId, PooledObject<BucketReader> po) throws Exception {
-            po.getObject().close();
+
+            BucketReaderInstance instance = instances.get(ledgerId);
+
+            synchronized (instance) {
+                if (--instance.count == 0) {
+                    instance.retired = true;
+                    instances.remove(ledgerId, instance);
+
+                    instance.reader.close();
+                }
+            }
         }
 
         @Override
@@ -214,14 +282,14 @@ public class BookKeeperBlobManager implements ObjectManager {
             configWriters.setMaxTotalPerKey(concurrentWrites);
             configWriters.setTestOnReturn(true);
             configWriters.setBlockWhenExhausted(true);
-            this.writers = new GenericKeyedObjectPool(new WritersFactory(), configWriters);
+            this.writers = new GenericKeyedObjectPool<>(new WritersFactory(), configWriters);
 
             GenericKeyedObjectPoolConfig configReaders = new GenericKeyedObjectPoolConfig();
-            configReaders.setMaxTotalPerKey(2);
+            configReaders.setMaxTotalPerKey(concurrentWrites);
             configReaders.setTestOnReturn(true);
             configReaders.setBlockWhenExhausted(true);
 
-            this.readers = new GenericKeyedObjectPool(new ReadersFactory(), configReaders);
+            this.readers = new GenericKeyedObjectPool<>(new ReadersFactory(), configReaders);
 
             this.bookKeeper = BookKeeper
                 .forConfig(clientConfiguration)
@@ -273,13 +341,13 @@ public class BookKeeperBlobManager implements ObjectManager {
 
     }
 
-    Future scheduleWriterDisposal(BucketWriter writer) {
+    Future<?> scheduleWriterDisposal(BucketWriter writer) {
         return threadpool.submit(() -> {
             writer.releaseResources();
         });
     }
 
-    Future scheduleReaderDisposal(BucketReader reader) {
+    Future<?> scheduleReaderDisposal(BucketReader reader) {
         return threadpool.submit(() -> {
             reader.releaseResources();
         });
