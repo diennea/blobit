@@ -40,6 +40,16 @@ class BKEntryId {
         return ledgerId + "-" + firstEntryId + "-" + lastEntryId;
     }
 
+    static String formatId(long id, long firstEntryId, long lastEntryId) {
+        StringBuilder res = new StringBuilder();
+        res.append(id);
+        res.append('-');
+        res.append(firstEntryId);
+        res.append('-');
+        res.append(lastEntryId);
+        return res.toString();
+    }
+
     public static BKEntryId parseId(String id) {
         String[] split = id.split("-");
         return new BKEntryId(

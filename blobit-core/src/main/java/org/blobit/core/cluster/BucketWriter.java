@@ -83,7 +83,7 @@ public class BucketWriter {
             throw new ObjectManagerException(ex);
         }
 
-        LOG.log(Level.INFO, "Opened BucketWriter for bucket {0}: ledger {1}, replication factor {2}", new Object[] {bucketId, id, replicationFactor});
+        LOG.log(Level.INFO, "Opened BucketWriter for bucket {0}: ledger {1}, replication factor {2}", new Object[]{bucketId, id, replicationFactor});
 
     }
 
@@ -93,24 +93,14 @@ public class BucketWriter {
 
     private class AddEntryOperation implements AsyncCallback.AddCallback {
 
-        final long entryId;
         final CompletableFuture<Void> result;
-        final byte[] data;
-        final int offset;
-        final int len;
-        final BKEntryId blobId;
         final AtomicInteger countRemaining;
+        final int len;
 
         public AddEntryOperation(
-            long entryId,
-            CompletableFuture<Void> result, AtomicInteger countRemaining,
-            byte[] data, int offset, int len, BKEntryId blobId) {
-            this.entryId = entryId;
+            CompletableFuture<Void> result, AtomicInteger countRemaining, int len) {
             this.result = result;
-            this.data = data;
-            this.offset = offset;
             this.len = len;
-            this.blobId = blobId;
             this.countRemaining = countRemaining;
         }
 
@@ -126,21 +116,10 @@ public class BucketWriter {
             } else {
                 // TODO ? fail other writes?
                 pendingWrites.decrementAndGet();
-                LOG.log(Level.SEVERE, "bad error while adding  entry " + entryId, BKException.create(rc).fillInStackTrace());
-                result.completeExceptionally(BKException.create(rc).fillInStackTrace());
+                BKException err = BKException.create(rc);
+                LOG.log(Level.SEVERE, "bad error while adding  entry " + entryId, err);
+                result.completeExceptionally(err);
             }
-        }
-
-        private void initiate(LedgerHandle lh) {
-            try {
-                lh.asyncAddEntry(entryId, data, offset, len, this, null);
-            } catch (BKException neverThrown) {
-            }
-        }
-
-        @Override
-        public String toString() {
-            return "AddEntryCallback{data=" + data + ", offset=" + offset + ", len=" + len + ", countDone=" + countRemaining + '}';
         }
 
     }
@@ -154,8 +133,6 @@ public class BucketWriter {
 
         long firstEntryId = nextEntryId.getAndAdd(numEntries);
         long lastEntryId = firstEntryId + numEntries - 1;
-
-        BKEntryId blobId = new BKEntryId(lh.getId(), firstEntryId, lastEntryId);
 
         if (len == 0) {
             result.complete(null);
@@ -176,17 +153,20 @@ public class BucketWriter {
                 // last
                 chunkLen = len - written;
             }
-            AddEntryOperation addEntry = new AddEntryOperation(entryId,
+
+            AddEntryOperation addEntry = new AddEntryOperation(
                 result,
                 remaining,
-                data,
-                chunkStartOffSet,
-                chunkLen,
-                blobId);
+                chunkLen);
+
+            try {
+                lh.asyncAddEntry(entryId, data, chunkStartOffSet, chunkLen, addEntry, null);
+            } catch (BKException neverThrown) {
+            }
+
             chunkStartOffSet += chunkLen;
             written += chunkLen;
 
-            addEntry.initiate(lh);
             entryId++;
         }
 
@@ -196,19 +176,15 @@ public class BucketWriter {
                     throw new RuntimeException(u);
                 }
                 try {
-                    metadataStorageManager.registerObject(bucketId, blobId.ledgerId, blobId.firstEntryId, blobId.lastEntryId, data.length);
+                    metadataStorageManager.registerObject(bucketId, id, firstEntryId, lastEntryId, data.length);
                     return null;
                 } catch (Throwable err) {
-                    LOG.log(Level.SEVERE, "bad error while completing blob " + blobId, err);
+                    LOG.log(Level.SEVERE, "bad error while completing blob " + BKEntryId.formatId(lh.getId(), firstEntryId, lastEntryId), err);
                     throw new RuntimeException(err);
                 }
             }, callbacksExecutor);
-        return new PutPromise(blobId.toId(), afterMetadata);
-    }
-
-    private void writeBlob(CompletableFuture<Void> result, BKEntryId blobId, long entryId, byte[] data,
-        int offset, int len) throws BKException {
-
+        return new PutPromise(BKEntryId
+            .formatId(lh.getId(), firstEntryId, lastEntryId), afterMetadata);
     }
 
     public boolean isValid() {

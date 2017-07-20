@@ -22,21 +22,12 @@ package org.blobit.core.cluster;
 import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.logging.LogManager;
@@ -50,6 +41,7 @@ import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.blobit.core.api.ObjectManager;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 public class BenchWriterSynchClientsTest {
 
@@ -112,7 +104,7 @@ public class BenchWriterSynchClientsTest {
                                         totalDone.incrementAndGet();
                                     }
                                 } catch (Throwable t) {
-                                    t.printStackTrace();
+                                    fail("error " + t);
                                 }
                             }
                         }, name);
