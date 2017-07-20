@@ -281,12 +281,14 @@ public class BookKeeperBlobManager implements ObjectManager {
             clientConfiguration.setZkServers(configuration.getZookkeeperUrl());
             GenericKeyedObjectPoolConfig configWriters = new GenericKeyedObjectPoolConfig();
             configWriters.setMaxTotalPerKey(concurrentWrites);
+            configWriters.setMaxIdlePerKey(concurrentWrites);
             configWriters.setTestOnReturn(true);
             configWriters.setBlockWhenExhausted(true);
             this.writers = new GenericKeyedObjectPool<>(new WritersFactory(), configWriters);
 
             GenericKeyedObjectPoolConfig configReaders = new GenericKeyedObjectPoolConfig();
             configReaders.setMaxTotalPerKey(concurrentReaders);
+            configReaders.setMaxIdlePerKey(concurrentReaders);
             configReaders.setTestOnReturn(true);
             configReaders.setBlockWhenExhausted(true);
 
