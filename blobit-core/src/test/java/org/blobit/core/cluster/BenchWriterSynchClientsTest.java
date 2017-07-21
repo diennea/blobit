@@ -29,6 +29,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.logging.LogManager;
 import org.apache.log4j.Level;
@@ -66,6 +67,7 @@ public class BenchWriterSynchClientsTest {
 
     @Test
     public void testWrite() throws Exception {
+        AtomicReference<Throwable> error = new AtomicReference<>();
         Properties dsProperties = new Properties();
         dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
         try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
@@ -105,6 +107,7 @@ public class BenchWriterSynchClientsTest {
                                     }
                                 } catch (Throwable t) {
                                     fail("error " + t);
+                                    error.set(t);
                                 }
                             }
                         }, name);
@@ -116,6 +119,10 @@ public class BenchWriterSynchClientsTest {
 
                     for (Thread t : clients) {
                         t.join();
+                    }
+
+                    if (error.get() != null) {
+                        fail(error.get().toString());
                     }
 
                     for (Map.Entry<String, AtomicInteger> entry : numMessagesPerClient.entrySet()) {
@@ -141,8 +148,11 @@ public class BenchWriterSynchClientsTest {
     private void writeData(int tname, ObjectManager blobManager, AtomicInteger counter, LongAdder totalTime) throws InterruptedException, ExecutionException {
         String tName = Thread.currentThread().getName();
         long _entrystart = System.currentTimeMillis();
-        CompletableFuture res = blobManager.put(BUCKET_ID + tname, TEST_DATA).future;
+        CompletableFuture<?> res = blobManager.put(BUCKET_ID + tname, TEST_DATA).future;
         res.handle((a, b) -> {
+            if (b != null) {
+                throw new RuntimeException((Throwable) b);
+            }
             long time = System.currentTimeMillis() - _entrystart;
             totalTime.add(time);
 

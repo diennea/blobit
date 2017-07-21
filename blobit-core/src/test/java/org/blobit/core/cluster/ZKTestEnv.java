@@ -50,7 +50,7 @@ public class ZKTestEnv implements AutoCloseable {
         Path targetDir = path.resolve("bookie_data");
         conf.setZkServers("localhost:1282");
         conf.setLedgerDirNames(new String[]{targetDir.toAbsolutePath().toString()});
-        int numJournals = 100;
+        int numJournals = 1;
         String[] journals = new String[numJournals];
         for (int i = 0; i < journals.length; i++) {
             Path jpath = targetDir.resolve("journal-" + i);
