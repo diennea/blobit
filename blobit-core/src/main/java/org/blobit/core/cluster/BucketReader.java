@@ -19,9 +19,9 @@
  */
 package org.blobit.core.cluster;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.util.Enumeration;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -33,6 +33,8 @@ import org.apache.bookkeeper.client.BookKeeper;
 import org.apache.bookkeeper.client.LedgerEntry;
 import org.apache.bookkeeper.client.LedgerHandle;
 import org.blobit.core.api.ObjectManagerException;
+
+import io.netty.buffer.ByteBuf;
 
 /**
  * Writes all data for a given bucket
@@ -75,16 +77,24 @@ public class BucketReader {
             public void readComplete(int rc, LedgerHandle lh, Enumeration<LedgerEntry> enmrtn, Object o) {
                 pendingReads.decrementAndGet();
                 if (rc == BKException.Code.OK) {
-                    try {
-                        ByteArrayOutputStream oo = new ByteArrayOutputStream();
-                        while (enmrtn.hasMoreElements()) {
-                            oo.write(enmrtn.nextElement().getEntry());
-                        }
-                        result.complete(oo.toByteArray());
-                    } catch (IOException impossible) {
-                        valid = false;
-                        result.completeExceptionally(BKException.create(BKException.Code.ReadException).fillInStackTrace());
+                    int size = 0;
+                    List<ByteBuf> buffers = new LinkedList<>();
+                    while (enmrtn.hasMoreElements()) {
+                        ByteBuf buf = enmrtn.nextElement().getEntryBuffer();
+                        size += buf.readableBytes();
+                        buffers.add(buf);
                     }
+
+                    final byte[] data = new byte[size];
+                    int offset = 0;
+                    for(ByteBuf buf : buffers) {
+                        int readable = buf.readableBytes();
+                        buf.readBytes(data, offset, readable);
+                        offset += readable;
+                        buf.release();
+                    }
+
+                    result.complete(data);
                 } else {
                     valid = false;
                     result.completeExceptionally(BKException.create(rc).fillInStackTrace());
