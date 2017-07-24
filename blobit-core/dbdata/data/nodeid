@@ -1,9 +1,0 @@
-# This file contains the id of this node
-# Do not change the contents of this file, otherwise the beheaviour of the system will
-# lead eventually to data loss
-# 
-# Any line which starts with '#' and and blank line will be ignored
-# The system will consider the first non-blank line as node id, making it lowercase
-
-
-gatto
