@@ -29,6 +29,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import org.apache.bookkeeper.bookie.Bookie;
 import org.apache.bookkeeper.client.BookKeeperAdmin;
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory;
@@ -73,10 +74,10 @@ public class EmbeddedBookie implements AutoCloseable {
                 LOG.log(Level.SEVERE, "As configuration parameter "
                     + ServerConfiguration.PROPERTY_BOOKKEEPER_BOOKIE_PORT + " is {0},I have choosen to listen on port {1}."
                     + " Set to a positive number in order to use a fixed port", new Object[]{Integer.toString(port), Integer.toString(_port)});
-                persistLocalBookiePort(bookie_dir, _port);                
+                persistLocalBookiePort(bookie_dir, _port);
             }
             port = _port;
-        }        
+        }
         conf.setBookiePort(port);
         Files.createDirectories(bookie_dir);
         Path bookie_data_dir = bookie_dir.resolve("bookie_data").toAbsolutePath();
@@ -89,7 +90,7 @@ public class EmbeddedBookie implements AutoCloseable {
         conf.setMaxBackupJournals(5);
         conf.setMaxJournalSizeMB(1048);
         conf.setEnableLocalTransport(true);
-        conf.setProperty("journalMaxGroupWaitMSec", (long) 10L); // default 200ms
+        conf.setProperty("journalMaxGroupWaitMSec", 10L); // default 200ms
         conf.setJournalFlushWhenQueueEmpty(true);
         conf.setAutoRecoveryDaemonEnabled(true);
         conf.setLedgerManagerFactoryClass(HierarchicalLedgerManagerFactory.class);
@@ -194,7 +195,6 @@ public class EmbeddedBookie implements AutoCloseable {
             }
             List<String> lines = Files.readAllLines(file, StandardCharsets.UTF_8);
             for (String line : lines) {
-                line = line.trim().toLowerCase();
                 // skip comments and empty lines
                 if (line.startsWith("#") || line.isEmpty()) {
                     continue;

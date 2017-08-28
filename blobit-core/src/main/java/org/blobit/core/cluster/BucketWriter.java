@@ -37,6 +37,8 @@ import org.apache.bookkeeper.client.LedgerHandle;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.PutPromise;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 /**
  * Writes all data for a given bucket
  *
@@ -107,12 +109,14 @@ public class BucketWriter {
         }
 
         @Override
+        @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
         public void addComplete(int rc, LedgerHandle lh1, long entryId, Object ctx) {
             boolean last = countRemaining.decrementAndGet() == 0;
             if (rc == BKException.Code.OK) {
                 writtenBytes.addAndGet(len);
                 if (last) {
                     pendingWrites.decrementAndGet();
+                    /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
                     result.complete(null);
                 }
             } else {
@@ -126,6 +130,7 @@ public class BucketWriter {
 
     }
 
+    @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
     PutPromise writeBlob(String bucketId, byte[] data, int offset, int len) {
         CompletableFuture<Void> result = new CompletableFuture<>();
 
@@ -137,6 +142,7 @@ public class BucketWriter {
         long lastEntryId = firstEntryId + numEntries - 1;
 
         if (len == 0) {
+            /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
             result.complete(null);
             return new PutPromise(bucketId, result);
         }
@@ -240,17 +246,25 @@ public class BucketWriter {
         } else {
             LOG.log(Level.INFO, "Disposing {0}", this);
             closeLock.lock();
-
             try {
-                if (!closed) {
-                    lh.close();
+                try {
+                    if (!closed) {
+                        lh.close();
 
-                    LOG.log(Level.INFO, "Disposed {0}", this);
-                    return true;
-                } else {
-                    LOG.log(Level.INFO, "Already disposed {0}", this);
+                        LOG.log(Level.INFO, "Disposed {0}", this);
+                        return true;
+                    } else {
+                        LOG.log(Level.INFO, "Already disposed {0}", this);
+                    }
+                } finally {
+                    /* Change closing state */
+                    closed = true;
+
+                    LOG.log(Level.FINE, "Signalling disposed {0}", this);
+
+                    /* Signal that close finished to eventual waiters */
+                    closeCompleted.signalAll();
                 }
-
                 return false;
             } catch (BKLedgerClosedException err) {
                 LOG.log(Level.FINE, "error while closing ledger " + lh.getId(), err);
@@ -259,14 +273,6 @@ public class BucketWriter {
                 LOG.log(Level.SEVERE, "error while closing ledger " + lh.getId(), err);
                 return true;
             } finally {
-                /* Change closing state */
-                closed = true;
-
-                LOG.log(Level.FINE, "Signalling disposed {0}", this);
-
-                /* Signal that close finished to eventual waiters */
-                closeCompleted.signalAll();
-
                 closeLock.unlock();
             }
         }

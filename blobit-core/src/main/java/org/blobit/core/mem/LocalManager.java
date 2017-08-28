@@ -65,30 +65,12 @@ public class LocalManager implements ObjectManager {
             .collect(Collectors.toList());
     }
 
-    private void registerLedger(String bucketId, long ledgerId) throws ObjectManagerException {
-        MemBucket bucket = getBucket(bucketId);
-        bucket.registerLedger(ledgerId);
-    }
-
-    private void deleteLedger(String bucketId, long ledgerId) throws ObjectManagerException {
-        MemBucket bucket = getBucket(bucketId);
-        bucket.deleteLedger(ledgerId);
-    }
-
     private MemBucket getBucket(String bucketId) throws ObjectManagerException {
         MemBucket bucket = buckets.get(bucketId);
         if (bucket == null) {
             throw new ObjectManagerException("bucket " + bucketId + " does not exist");
         }
         return bucket;
-    }
-
-    private void registerObject(String bucketId, long ledgerId, long entryId, long lastEntryId, long size) throws ObjectManagerException {
-        getBucket(bucketId).getLedger(ledgerId).registerObject(entryId, lastEntryId, size);
-    }
-
-    private void deleteObject(String bucketId, long ledgerId, long entryId) throws ObjectManagerException {
-        getBucket(bucketId).getLedger(ledgerId).deleteObject(entryId);
     }
 
     Collection<Long> listDeletableLedgers(String bucketId) throws ObjectManagerException {
@@ -114,6 +96,7 @@ public class LocalManager implements ObjectManager {
     }
 
     @Override
+    @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
     public PutPromise put(String bucketId, byte[] data, int offset, int len) {
         try {
             if (offset != 0 && len < data.length) {
@@ -122,6 +105,7 @@ public class LocalManager implements ObjectManager {
                 data = copy;
             }
             MemEntryId res = getBucket(bucketId).getCurrentLedger().put(data);
+            /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
             return new PutPromise(res.toId(), CompletableFuture.<Void>completedFuture(null));
         } catch (ObjectManagerException err) {
             CompletableFuture<Void> res = new CompletableFuture<>();
@@ -131,10 +115,12 @@ public class LocalManager implements ObjectManager {
     }
 
     @Override
+    @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
     public CompletableFuture<byte[]> get(String bucketId, String objectId) {
         try {
             MemEntryId id = MemEntryId.parseId(objectId);
             byte[] res = getBucket(bucketId).getLedger(id.ledgerId).get(id.firstEntryId);
+            /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
             return CompletableFuture.completedFuture(res);
         } catch (ObjectManagerException err) {
             CompletableFuture<byte[]> res = new CompletableFuture<>();
@@ -149,6 +135,7 @@ public class LocalManager implements ObjectManager {
         try {
             MemEntryId id = MemEntryId.parseId(objectId);
             getBucket(bucketId).getLedger(id.ledgerId).delete(id.firstEntryId);
+            /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
             return CompletableFuture.completedFuture(null);
         } catch (ObjectManagerException err) {
             CompletableFuture<Void> res = new CompletableFuture<>();

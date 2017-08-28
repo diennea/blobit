@@ -19,34 +19,41 @@
  */
 package blobit.server;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
 import org.apache.commons.io.IOUtils;
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerException;
+
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
+
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Emulates the Swift Object API, only for using the CosBench
  *
  * @author enrico.olivelli
  */
+@SuppressWarnings("serial")
+@SuppressFBWarnings("SE_NO_SERIALVERSIONID")
 public class SwiftAPIAdapter extends HttpServlet {
 
     private static final Logger LOG = Logger.getLogger(SwiftAPIAdapter.class.getName());
     private static final String API_PATH = "/api/";
 
+    @SuppressFBWarnings("SE_BAD_FIELD")
     private final ObjectManager objectManager;
 
     private final Cache<String, String> mapping = CacheBuilder
@@ -106,8 +113,7 @@ public class SwiftAPIAdapter extends HttpServlet {
                 try {
                     int slash = remainingPath.indexOf('/');
                     if (slash <= 0) {
-                        objectManager.getMetadataStorageManager()
-                            .createBucket(remainingPath, remainingPath, BucketConfiguration.DEFAULT);
+                        objectManager.createBucket(remainingPath, remainingPath, BucketConfiguration.DEFAULT);
 //                        System.out.println("[SWIFT] create bucket " + remainingPath);
                         resp.setStatus(HttpServletResponse.SC_CREATED, "OK created bucket " + remainingPath);
                     } else {

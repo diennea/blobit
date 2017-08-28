@@ -185,10 +185,9 @@ public class HerdDBMetadataStorageManager {
 
         try (Connection connection = getConnectionForBucket(bucketId);
             PreparedStatement ps = connection.prepareStatement(REGISTER_LEDGER);) {
-            int i = 1;
-            ps.setString(i++, bucketId);
-            ps.setLong(i++, ledgerId);
-            ps.setTimestamp(i++, new java.sql.Timestamp(System.currentTimeMillis()));
+            ps.setString(1, bucketId);
+            ps.setLong(2, ledgerId);
+            ps.setTimestamp(3, new java.sql.Timestamp(System.currentTimeMillis()));
             ps.executeUpdate();
         } catch (SQLException err) {
             throw new ObjectManagerException(err);
@@ -244,12 +243,10 @@ public class HerdDBMetadataStorageManager {
 
         try (Connection connection = getConnectionForBucket(bucketId);
             PreparedStatement ps = connection.prepareStatement(REGISTER_BLOB)) {
-
-            int i = 1;
-            ps.setLong(i++, ledgerId);
-            ps.setLong(i++, entryId);
-            ps.setLong(i++, lastEntryId);
-            ps.setLong(i++, size);
+            ps.setLong(1, ledgerId);
+            ps.setLong(2, entryId);
+            ps.setLong(3, lastEntryId);
+            ps.setLong(4, size);
             ps.executeUpdate();
         } catch (SQLException err) {
             throw new ObjectManagerException(err);
@@ -260,10 +257,8 @@ public class HerdDBMetadataStorageManager {
 
         try (Connection connection = getConnectionForBucket(bucketId);
             PreparedStatement ps = connection.prepareStatement(DELETE_BLOB)) {
-
-            int i = 1;
-            ps.setLong(i++, ledgerId);
-            ps.setLong(i++, entryId);
+            ps.setLong(1, ledgerId);
+            ps.setLong(2, entryId);
             ps.executeUpdate();
         } catch (SQLException err) {
             throw new ObjectManagerException(err);

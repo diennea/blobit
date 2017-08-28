@@ -24,6 +24,7 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Properties;
+
 import org.apache.curator.test.TestingServer;
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.Configuration;
@@ -79,7 +80,7 @@ public class SimpleClusterTest {
                 }
 
                 ObjectManager client = ServerMain.getRunningInstance().getClient();
-                client.getMetadataStorageManager().createBucket("mybucket", "mybucket", BucketConfiguration.DEFAULT);
+                client.createBucket("mybucket", "mybucket", BucketConfiguration.DEFAULT);
                 String id = client.put("mybucket", "test".getBytes(StandardCharsets.UTF_8)).get();
                 client.get("mybucket", id).get();
 

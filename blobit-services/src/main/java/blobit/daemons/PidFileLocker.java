@@ -28,7 +28,6 @@ import java.nio.file.StandardOpenOption;
 import java.util.Arrays;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -42,13 +41,11 @@ public class PidFileLocker implements AutoCloseable {
     private final byte[] pid;
     private volatile boolean closed;
     private final static String PIDFILE = System.getProperty("pidfile", "");
-    private final ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor(new ThreadFactory() {
-        @Override
-        public Thread newThread(Runnable r) {
-            Thread t = new Thread(r, "pid-file-locker");
-            t.setDaemon(true);
-            return t;
-        }
+
+    private final ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor(runnable -> {
+        Thread thread = new Thread(runnable, "pid-file-locker");
+        thread.setDaemon(true);
+        return thread;
     });
 
     public PidFileLocker(Path basePath) {

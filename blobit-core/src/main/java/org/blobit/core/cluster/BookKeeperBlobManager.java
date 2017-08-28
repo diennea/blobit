@@ -150,8 +150,12 @@ public class BookKeeperBlobManager implements AutoCloseable {
 
     @SuppressWarnings("serial")
     private static final class LambdaWrapperException extends RuntimeException {
-        public LambdaWrapperException(Throwable cause) {
-            super(cause);
+
+        private final Exception wrapped;
+
+        public LambdaWrapperException(Exception wrapped) {
+            super();
+            this.wrapped = wrapped;
         }
     }
 
@@ -187,7 +191,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
                     });
 
                 } catch (LambdaWrapperException e) {
-                    throw (Exception) e.getCause();
+                    throw e.wrapped;
                 }
 
                 synchronized (instance) {
