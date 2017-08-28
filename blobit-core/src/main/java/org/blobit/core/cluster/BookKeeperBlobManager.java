@@ -116,7 +116,6 @@ public class BookKeeperBlobManager implements AutoCloseable {
 
         @Override
         public void destroyObject(String k, PooledObject<BucketWriter> po) throws Exception {
-            activeWriters.remove(po.getObject().getId());
             po.getObject().close();
         }
 
@@ -295,8 +294,21 @@ public class BookKeeperBlobManager implements AutoCloseable {
 
     @Override
     public void close() {
+
         writers.close();
         readers.close();
+
+        for(BucketWriter writer : activeWriters.values()) {
+            writer.awaitTermination();
+        }
+
+        while(!activeWriters.isEmpty()) {
+            for(BucketWriter writer : activeWriters.values()) {
+                scheduleWriterDisposal(writer);
+                writer.awaitTermination();
+            }
+        }
+
 
         if (bookKeeper != null) {
             try {
@@ -311,7 +323,9 @@ public class BookKeeperBlobManager implements AutoCloseable {
 
     Future<?> scheduleWriterDisposal(BucketWriter writer) {
         return threadpool.submit(() -> {
-            writer.releaseResources();
+            if( writer.releaseResources() ) {
+                activeWriters.remove(writer.getId(), writer);
+            }
         });
     }
 

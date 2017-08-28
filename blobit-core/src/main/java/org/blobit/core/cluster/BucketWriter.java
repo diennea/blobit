@@ -23,6 +23,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -191,22 +194,80 @@ public class BucketWriter {
             && maxBytesPerLedger >= writtenBytes.get();
     }
 
+
+    private volatile boolean closed = false;
+    private final Lock closeLock = new ReentrantLock();
+    private final Condition closeCompleted = closeLock.newCondition();
+
+
     public void close() {
         LOG.log(Level.SEVERE, "closing {0}", this);
         blobManager.scheduleWriterDisposal(this);
     }
 
-    void releaseResources() {
+    public void awaitTermination() {
+
+        closeLock.lock();
+        try {
+            /* Check if the facility was closed prior to obtain the lock */
+            LOG.log(Level.FINE, "Awaiting dispose {0}", this);
+
+            while(!closed)  {
+
+                /*
+                 * Virtually release the lock to permit the real close process to take place and signal back
+                 * termination
+                 */
+                closeCompleted.awaitUninterruptibly();
+
+                LOG.log(Level.FINE, "Wake up on dispose {0}", this);
+            }
+        } finally {
+            closeLock.unlock();
+        }
+
+    }
+
+    /**
+     * Release resources or schedule them to release.
+     * @return {@code true} if really released, {@code false} otherwise (rescheduled or already closed)
+     */
+    boolean releaseResources() {
         if (pendingWrites.get() > 0) {
+            LOG.log(Level.FINE, "Rescheduling for dispose {0}", this);
             blobManager.scheduleWriterDisposal(this);
+            return false;
         } else {
             LOG.log(Level.INFO, "Disposing {0}", this);
+            closeLock.lock();
+
             try {
-                lh.close();
+                if (!closed) {
+                    lh.close();
+
+                    LOG.log(Level.INFO, "Disposed {0}", this);
+                    return true;
+                } else {
+                    LOG.log(Level.INFO, "Already disposed {0}", this);
+                }
+
+                return false;
             } catch (BKLedgerClosedException err) {
                 LOG.log(Level.FINE, "error while closing ledger " + lh.getId(), err);
+                return true;
             } catch (BKException | InterruptedException err) {
                 LOG.log(Level.SEVERE, "error while closing ledger " + lh.getId(), err);
+                return true;
+            } finally {
+                /* Change closing state */
+                closed = true;
+
+                LOG.log(Level.FINE, "Signalling disposed {0}", this);
+
+                /* Signal that close finished to eventual waiters */
+                closeCompleted.signalAll();
+
+                closeLock.unlock();
             }
         }
     }
