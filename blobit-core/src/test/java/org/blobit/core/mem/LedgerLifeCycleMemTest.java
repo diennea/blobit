@@ -17,28 +17,26 @@
  under the License.
 
  */
-package org.blobit.core.cluster;
+package org.blobit.core.mem;
 
-import herddb.jdbc.HerdDBEmbeddedDataSource;
-import herddb.server.ServerConfiguration;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.util.Collection;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
-import org.blobit.core.api.ObjectManagerFactory;
-import org.blobit.core.api.ObjectMetadata;
+
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.LedgerMetadata;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
-import org.blobit.core.api.MetadataManager;
-import org.blobit.core.api.ObjectManager;
+import org.blobit.core.api.ObjectManagerFactory;
+import org.blobit.core.api.ObjectMetadata;
 import org.junit.Assert;
+import org.junit.Test;
+
+import herddb.server.ServerConfiguration;
 
 public class LedgerLifeCycleMemTest {
 
@@ -59,27 +57,25 @@ public class LedgerLifeCycleMemTest {
             = new Configuration()
                 .setType(Configuration.TYPE_MEM)
                 .setConcurrentWriters(10);
-        try (ObjectManager blobManager = ObjectManagerFactory.createObjectManager(configuration, null);) {
+        try (LocalManager manager = (LocalManager) ObjectManagerFactory.createObjectManager(configuration, null);) {
             long _start = System.currentTimeMillis();
 
-            MetadataManager metadataManager = blobManager.getMetadataStorageManager();
-
             try {
-                blobManager.put(BUCKET_ID, TEST_DATA).get();
+                manager.put(BUCKET_ID, TEST_DATA).get();
                 fail();
             } catch (ExecutionException ok) {
                 ok.printStackTrace();
             }
 
-            metadataManager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
-            String id = blobManager.put(BUCKET_ID, TEST_DATA).get();
-            Assert.assertArrayEquals(blobManager.get(BUCKET_ID, id).get(), TEST_DATA);
+            manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
+            String id = manager.put(BUCKET_ID, TEST_DATA).get();
+            Assert.assertArrayEquals(manager.get(BUCKET_ID, id).get(), TEST_DATA);
 
             {
-                Collection<LedgerMetadata> ledgers = metadataManager.listLedgersbyBucketId(BUCKET_ID);
+                Collection<LedgerMetadata> ledgers = manager.listLedgersbyBucketId(BUCKET_ID);
                 for (LedgerMetadata l : ledgers) {
                     System.out.println("LedgerMetadata:" + l);
-                    Collection<ObjectMetadata> blobs = metadataManager.listObjectsByLedger(BUCKET_ID, l.getId());
+                    Collection<ObjectMetadata> blobs = manager.listObjectsByLedger(BUCKET_ID, l.getId());
 //                        for (ObjectMetadata blob : blobs) {
 //                            System.out.println("blob: " + blob);
 //                        }
@@ -88,17 +84,17 @@ public class LedgerLifeCycleMemTest {
                 assertTrue(ledgers.size() >= 1);
             }
 
-            blobManager.gc();
+            manager.gc();
 
-            assertEquals(0, metadataManager.listDeletableLedgers(BUCKET_ID).size());
+            assertEquals(0, manager.listDeletableLedgers(BUCKET_ID).size());
 
-            blobManager.delete(BUCKET_ID, id).get();
+            manager.delete(BUCKET_ID, id).get();
 
             {
-                Collection<LedgerMetadata> ledgers = metadataManager.listLedgersbyBucketId(BUCKET_ID);
+                Collection<LedgerMetadata> ledgers = manager.listLedgersbyBucketId(BUCKET_ID);
                 for (LedgerMetadata l : ledgers) {
 //                        System.out.println("LedgerMetadata:" + l);
-                    Collection<ObjectMetadata> blobs = metadataManager.listObjectsByLedger(BUCKET_ID, l.getId());
+                    Collection<ObjectMetadata> blobs = manager.listObjectsByLedger(BUCKET_ID, l.getId());
 //                        for (ObjectMetadata blob : blobs) {
 //                            System.out.println("blob: " + blob);
 //                        }
@@ -107,11 +103,11 @@ public class LedgerLifeCycleMemTest {
                 assertTrue(ledgers.size() >= 1);
             }
 
-            assertEquals(1, metadataManager.listDeletableLedgers(BUCKET_ID).size());
+            assertEquals(1, manager.listDeletableLedgers(BUCKET_ID).size());
 
-            blobManager.gc();
+            manager.gc();
 
-            assertEquals(0, metadataManager.listDeletableLedgers(BUCKET_ID).size());
+            assertEquals(0, manager.listDeletableLedgers(BUCKET_ID).size());
 
         }
     }

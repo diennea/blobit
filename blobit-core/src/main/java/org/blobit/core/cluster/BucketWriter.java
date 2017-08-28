@@ -31,7 +31,6 @@ import org.apache.bookkeeper.client.BKException;
 import org.apache.bookkeeper.client.BKException.BKLedgerClosedException;
 import org.apache.bookkeeper.client.BookKeeper;
 import org.apache.bookkeeper.client.LedgerHandle;
-import org.blobit.core.api.MetadataManager;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.PutPromise;
 
@@ -51,7 +50,7 @@ public class BucketWriter {
     private AtomicLong writtenBytes = new AtomicLong();
     private AtomicInteger pendingWrites = new AtomicInteger();
     private long maxBytesPerLedger;
-    private final MetadataManager metadataStorageManager;
+    private final HerdDBMetadataStorageManager metadataStorageManager;
     private final BookKeeperBlobManager blobManager;
     private static final byte[] DUMMY_PWD = new byte[0];
     private static final int MAX_ENTRY_SIZE = 10 * 1024;
@@ -61,7 +60,7 @@ public class BucketWriter {
     public BucketWriter(String bucketId, BookKeeper bookKeeper,
         int replicationFactor,
         long maxBytesPerLedger,
-        MetadataManager metadataStorageManager,
+        HerdDBMetadataStorageManager metadataStorageManager,
         BookKeeperBlobManager blobManager) throws ObjectManagerException {
 
         LOG.log(Level.FINE, "Opening BucketWriter for bucket {0}", bucketId);

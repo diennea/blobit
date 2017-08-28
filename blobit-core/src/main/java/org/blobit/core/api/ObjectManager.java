@@ -19,6 +19,7 @@
  */
 package org.blobit.core.api;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -61,7 +62,7 @@ public interface ObjectManager extends AutoCloseable {
     public CompletableFuture<byte[]> get(String bucketId, String objectId);
 
     /**
-     * Marks an object for deletion. Space will not be released immediately
+     * Marks an object for deletion. Space will not be released immediately.
      *
      * @param bucketId
      * @param objectId
@@ -71,35 +72,51 @@ public interface ObjectManager extends AutoCloseable {
      */
     public abstract CompletableFuture<Void> delete(String bucketId, String objectId);
 
-    public default void start() {
-    }
+    /**
+     * Creates a new bucket to store data
+     *
+     * @param bucketId
+     * @param tablespaceName
+     * @param configuration
+     *
+     * @throws ObjectManagerException
+     */
+    public void createBucket(String bucketId, String tablespaceName, BucketConfiguration configuration) throws ObjectManagerException;
 
-    @Override
-    public default void close() {
-    }
+//    /**
+//     * Marks an existing bucket for deletion. Space will not be released immediately.
+//     *
+//     * @param bucketId
+//     * @throws ObjectManagerException
+//     */
+//    public void deleteBucket(String bucketId) throws ObjectManagerException;
+
+    /**
+     * List every existing bucket.
+     *
+     * @return
+     * @throws ObjectManagerException
+     */
+    public List<BucketMetadata> listBuckets() throws ObjectManagerException;
 
     /**
      * Release resources allocated by a bucket but no more in use
      *
      * @param bucketId
      */
-    public default void gc(String bucketId) {
-    }
+    public void gc(String bucketId);
 
     /**
      * Loops over every bucket and performs {@link #gc(java.lang.String) }
      *
      * @see #gc(java.lang.String)
      */
-    public default void gc() {
-    }
+    public void gc();
 
-    /**
-     * Access to underlying MetadataStorageManager
-     *
-     * @return
-     */
-    public abstract MetadataManager getMetadataStorageManager();
+    public void start() throws ObjectManagerException;
+
+    @Override
+    public void close();
 
 
 }

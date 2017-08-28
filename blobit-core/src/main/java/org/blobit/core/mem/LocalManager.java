@@ -20,6 +20,7 @@
 package org.blobit.core.mem;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,20 +29,19 @@ import java.util.stream.Collectors;
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.BucketMetadata;
 import org.blobit.core.api.LedgerMetadata;
-import org.blobit.core.api.MetadataManager;
 import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectMetadata;
+import org.blobit.core.api.PutPromise;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import org.blobit.core.api.PutPromise;
 
 /**
  * MetadataManager all in memory for unit tests
  *
  * @author enrico.olivelli
  */
-public class LocalManager implements MetadataManager, ObjectManager {
+public class LocalManager implements ObjectManager {
 
     private final Map<String, MemBucket> buckets = new ConcurrentHashMap<>();
 
@@ -57,12 +57,7 @@ public class LocalManager implements MetadataManager, ObjectManager {
     }
 
     @Override
-    public void init() throws ObjectManagerException {
-
-    }
-
-    @Override
-    public Collection<BucketMetadata> listBuckets() throws ObjectManagerException {
+    public List<BucketMetadata> listBuckets() throws ObjectManagerException {
         return buckets
             .values()
             .stream()
@@ -70,14 +65,12 @@ public class LocalManager implements MetadataManager, ObjectManager {
             .collect(Collectors.toList());
     }
 
-    @Override
-    public void registerLedger(String bucketId, long ledgerId) throws ObjectManagerException {
+    private void registerLedger(String bucketId, long ledgerId) throws ObjectManagerException {
         MemBucket bucket = getBucket(bucketId);
         bucket.registerLedger(ledgerId);
     }
 
-    @Override
-    public void deleteLedger(String bucketId, long ledgerId) throws ObjectManagerException {
+    private void deleteLedger(String bucketId, long ledgerId) throws ObjectManagerException {
         MemBucket bucket = getBucket(bucketId);
         bucket.deleteLedger(ledgerId);
     }
@@ -90,28 +83,23 @@ public class LocalManager implements MetadataManager, ObjectManager {
         return bucket;
     }
 
-    @Override
-    public void registerObject(String bucketId, long ledgerId, long entryId, long lastEntryId, long size) throws ObjectManagerException {
+    private void registerObject(String bucketId, long ledgerId, long entryId, long lastEntryId, long size) throws ObjectManagerException {
         getBucket(bucketId).getLedger(ledgerId).registerObject(entryId, lastEntryId, size);
     }
 
-    @Override
-    public void deleteObject(String bucketId, long ledgerId, long entryId) throws ObjectManagerException {
+    private void deleteObject(String bucketId, long ledgerId, long entryId) throws ObjectManagerException {
         getBucket(bucketId).getLedger(ledgerId).deleteObject(entryId);
     }
 
-    @Override
-    public Collection<Long> listDeletableLedgers(String bucketId) throws ObjectManagerException {
+    Collection<Long> listDeletableLedgers(String bucketId) throws ObjectManagerException {
         return getBucket(bucketId).listDeletableLedgers();
     }
 
-    @Override
-    public Collection<LedgerMetadata> listLedgersbyBucketId(String bucketId) throws ObjectManagerException {
+    Collection<LedgerMetadata> listLedgersbyBucketId(String bucketId) throws ObjectManagerException {
         return getBucket(bucketId).listLedgers();
     }
 
-    @Override
-    public Collection<ObjectMetadata> listObjectsByLedger(String bucketId, long ledgerId) throws ObjectManagerException {
+    Collection<ObjectMetadata> listObjectsByLedger(String bucketId, long ledgerId) throws ObjectManagerException {
         return getBucket(bucketId).getLedger(ledgerId).listObjects();
     }
 
@@ -186,10 +174,4 @@ public class LocalManager implements MetadataManager, ObjectManager {
     public void gc() {
         buckets.values().forEach(MemBucket::gc);
     }
-
-    @Override
-    public MetadataManager getMetadataStorageManager() {
-        return this;
-    }
-
 }

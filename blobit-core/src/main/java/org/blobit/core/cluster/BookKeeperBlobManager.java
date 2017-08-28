@@ -42,23 +42,19 @@ import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.apache.zookeeper.KeeperException;
 import org.blobit.core.api.Configuration;
-import org.blobit.core.api.MetadataManager;
-import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.PutPromise;
-
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 /**
  * Stores Objects on Apache BookKeeper
  *
  * @author enrico.olivelli
  */
-public class BookKeeperBlobManager implements ObjectManager {
+public class BookKeeperBlobManager implements AutoCloseable {
 
     private static final Logger LOG = Logger.getLogger(BookKeeperBlobManager.class.getName());
 
-    private final MetadataManager metadataStorageManager;
+    private final HerdDBMetadataStorageManager metadataStorageManager;
     private final BookKeeper bookKeeper;
     private final GenericKeyedObjectPool<String, BucketWriter> writers;
     private final GenericKeyedObjectPool<Long, BucketReader> readers;
@@ -67,14 +63,7 @@ public class BookKeeperBlobManager implements ObjectManager {
     private final ExecutorService callbacksExecutor;
     private final ExecutorService threadpool = Executors.newSingleThreadExecutor();
     private ConcurrentMap<Long, BucketWriter> activeWriters = new ConcurrentHashMap<>();
-    private LedgerLifeCycleManager lifeCycleManager;
 
-    @Override
-    public PutPromise put(String bucketId, byte[] data) {
-        return put(bucketId, data, 0, data.length);
-    }
-
-    @Override
     public PutPromise put(String bucketId, byte[] data, int offset, int len) {
         if (data.length < offset + len || offset < 0 || len < 0) {
             throw new IndexOutOfBoundsException();
@@ -98,7 +87,6 @@ public class BookKeeperBlobManager implements ObjectManager {
         return error;
     }
 
-    @Override
     public CompletableFuture<byte[]> get(String bucketId, String id) {
         try {
             BKEntryId entry = BKEntryId.parseId(id);
@@ -113,20 +101,6 @@ public class BookKeeperBlobManager implements ObjectManager {
         } catch (Exception err) {
             return wrapGenericException(err);
         }
-    }
-
-    @Override
-    @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
-    public CompletableFuture<Void> delete(String bucketId, String id) {
-        CompletableFuture<Void> result = new CompletableFuture<>();
-        try {
-            BKEntryId bk = BKEntryId.parseId(id);
-            metadataStorageManager.deleteObject(bucketId, bk.ledgerId, bk.firstEntryId);
-            result.complete(null);
-        } catch (ObjectManagerException ex) {
-            result.completeExceptionally(ex);
-        }
-        return result;
     }
 
     private final class WritersFactory implements KeyedPooledObjectFactory<String, BucketWriter> {
@@ -259,9 +233,8 @@ public class BookKeeperBlobManager implements ObjectManager {
         }
     }
 
-    public BookKeeperBlobManager(Configuration configuration, MetadataManager metadataStorageManager) throws ObjectManagerException {
+    public BookKeeperBlobManager(Configuration configuration, HerdDBMetadataStorageManager metadataStorageManager) throws ObjectManagerException {
         try {
-            this.lifeCycleManager = new LedgerLifeCycleManager(metadataStorageManager, this);
             this.replicationFactor = configuration.getReplicationFactor();
             this.maxBytesPerLedger = configuration.getMaxBytesPerLedger();
             this.metadataStorageManager = metadataStorageManager;
@@ -302,7 +275,7 @@ public class BookKeeperBlobManager implements ObjectManager {
         }
     }
 
-    public boolean dropLedger(long idledger) throws ObjectManagerException {
+    boolean dropLedger(long idledger) throws ObjectManagerException {
         if (activeWriters.containsKey(idledger)) {
             return false;
         }
@@ -321,16 +294,9 @@ public class BookKeeperBlobManager implements ObjectManager {
     }
 
     @Override
-    public void start() {
-
-        lifeCycleManager.start();
-    }
-
-    @Override
     public void close() {
         writers.close();
         readers.close();
-        lifeCycleManager.close();
 
         if (bookKeeper != null) {
             try {
@@ -341,7 +307,6 @@ public class BookKeeperBlobManager implements ObjectManager {
         }
         threadpool.shutdown();
         callbacksExecutor.shutdown();
-
     }
 
     Future<?> scheduleWriterDisposal(BucketWriter writer) {
@@ -356,30 +321,11 @@ public class BookKeeperBlobManager implements ObjectManager {
         });
     }
 
-    public ExecutorService getCallbacksExecutor() {
+    ExecutorService getCallbacksExecutor() {
         return callbacksExecutor;
     }
 
-    @Override
-    public MetadataManager getMetadataStorageManager() {
-        return metadataStorageManager;
-    }
-
-    @Override
-    public void gc() {
-        lifeCycleManager.run();
-    }
-
-    @Override
-    public void gc(String bucketId) {
-        try {
-            lifeCycleManager.gcBucket(bucketId);
-        } catch (ObjectManagerException ex) {
-            Logger.getLogger(BookKeeperBlobManager.class.getName()).log(Level.SEVERE, null, ex);
-        }
-    }
-
-    public void closeAllActiveWriters() {
+    void closeAllActiveWriters() {
         writers.clear();
     }
 

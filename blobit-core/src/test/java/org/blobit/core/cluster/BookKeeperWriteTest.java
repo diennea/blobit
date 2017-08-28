@@ -19,14 +19,15 @@
  */
 package org.blobit.core.cluster;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
+import static org.junit.Assert.assertEquals;
+
 import java.io.File;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.logging.LogManager;
+
 import org.apache.bookkeeper.client.AsyncCallback;
 import org.apache.bookkeeper.client.BKException;
 import org.apache.bookkeeper.client.BookKeeper;
@@ -34,10 +35,12 @@ import org.apache.bookkeeper.client.LedgerHandle;
 import org.apache.bookkeeper.conf.ClientConfiguration;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
-import static org.junit.Assert.assertEquals;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
+
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.Unpooled;
 
 /**
  *
@@ -51,7 +54,8 @@ public class BookKeeperWriteTest {
     }
 
     private static final byte[] TEST_DATA = new byte[35*1024];
-    private static final int TESTSIZE = 1000;
+    private static final int TEST_SIZE = 1000;
+    private static final int TEST_ITERATIONS = 10;
 
     @Rule
     public final TemporaryFolder tmp = new TemporaryFolder(new File("target").getAbsoluteFile());
@@ -75,13 +79,13 @@ public class BookKeeperWriteTest {
 
             try (BookKeeper bk = new BookKeeper(clientConfiguration);) {
 
-                for (int j = 0; j < 10; j++) {
+                for (int j = 0; j < TEST_ITERATIONS; j++) {
                     try (
                         LedgerHandle lh = bk.createLedger(1, 1, 1, BookKeeper.DigestType.CRC32, new byte[0])) {
                         LongAdder totalTime = new LongAdder();
                         long _start = System.currentTimeMillis();
                         Collection<CompletableFuture> batch = new ConcurrentLinkedQueue<>();
-                        for (int i = 0; i < TESTSIZE; i++) {
+                        for (int i = 0; i < TEST_SIZE; i++) {
                             CompletableFuture cf = new CompletableFuture();
                             batch.add(cf);
                             lh.asyncAddEntry(data, new AsyncCallback.AddCallback() {
@@ -103,7 +107,7 @@ public class BookKeeperWriteTest {
 
 //                          Thread.sleep(1);
                         }
-                        assertEquals(TESTSIZE, batch.size());
+                        assertEquals(TEST_SIZE, batch.size());
                         for (CompletableFuture f : batch) {
                             f.get();
                         }
@@ -114,9 +118,9 @@ public class BookKeeperWriteTest {
                             + "size %.3f MB -> %.2f ms per entry (latency),"
                             + "%.1f ms per entry (throughput) %.1f MB/s throughput%n",
                             (TEST_DATA.length / (1024 * 1024d)),
-                            (totalTime.sum() * 1d / TESTSIZE),
-                            (delta / TESTSIZE),
-                            ((((TESTSIZE * TEST_DATA.length) / (1024 * 1024d))) / (delta / 1000d)));
+                            (totalTime.sum() * 1d / TEST_SIZE),
+                            (delta / TEST_SIZE),
+                            ((((TEST_SIZE * TEST_DATA.length) / (1024 * 1024d))) / (delta / 1000d)));
                     }
                 }
 

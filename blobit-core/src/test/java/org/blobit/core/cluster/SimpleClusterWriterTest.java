@@ -19,21 +19,22 @@
  */
 package org.blobit.core.cluster;
 
-import herddb.jdbc.HerdDBEmbeddedDataSource;
-import herddb.server.ServerConfiguration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.Random;
-import java.util.concurrent.Future;
-import org.blobit.core.api.ObjectManagerFactory;
+
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.Configuration;
+import org.blobit.core.api.ObjectManager;
+import org.blobit.core.api.ObjectManagerFactory;
+import org.blobit.core.api.PutPromise;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import org.blobit.core.api.ObjectManager;
-import org.blobit.core.api.PutPromise;
+
+import herddb.jdbc.HerdDBEmbeddedDataSource;
+import herddb.server.ServerConfiguration;
 
 public class SimpleClusterWriterTest {
 
@@ -79,23 +80,23 @@ public class SimpleClusterWriterTest {
                     .setType(Configuration.TYPE_BOOKKEEPER)
                     .setConcurrentWriters(4)
                     .setZookeeperUrl(env.getAddress());
-            try (ObjectManager blobManager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
+            try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
 
-                blobManager.getMetadataStorageManager().createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
+                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
 
-                blobManager.put(BUCKET_ID, TEST_DATA).get();
+                manager.put(BUCKET_ID, TEST_DATA).get();
 
                 List<PutPromise> batch = new ArrayList<>();
                 for (int i = 0; i < 1000; i++) {
-                    batch.add(blobManager.put(BUCKET_ID, TEST_DATA));
+                    batch.add(manager.put(BUCKET_ID, TEST_DATA));
                 }
                 List<String> ids = new ArrayList<>();
                 for (PutPromise f : batch) {
                     ids.add(f.get());
                 }
                 for (String id : ids) {
-                    blobManager.delete(BUCKET_ID, id).get();
+                    manager.delete(BUCKET_ID, id).get();
                 }
 
                 long _stop = System.currentTimeMillis();

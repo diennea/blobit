@@ -19,8 +19,8 @@
  */
 package org.blobit.core.cluster;
 
-import herddb.jdbc.HerdDBEmbeddedDataSource;
-import herddb.server.ServerConfiguration;
+import static org.junit.Assert.assertEquals;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -32,16 +32,19 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.logging.LogManager;
+
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
-import org.blobit.core.api.ObjectManagerFactory;
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.Configuration;
+import org.blobit.core.api.ObjectManager;
+import org.blobit.core.api.ObjectManagerFactory;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import org.blobit.core.api.ObjectManager;
-import static org.junit.Assert.assertEquals;
+
+import herddb.jdbc.HerdDBEmbeddedDataSource;
+import herddb.server.ServerConfiguration;
 
 public class BenchWriterTest {
 
@@ -55,9 +58,9 @@ public class BenchWriterTest {
 
     private static final String BUCKET_ID = "mybucket";
     private static final byte[] TEST_DATA = new byte[35 * 1024];
-    private static final int TESTSIZE = 1000;
-    private static final int clientwriters = 1;
-    private static final int concurrentwriters = 10;
+    private static final int TEST_SIZE = 1000;
+    private static final int TEST_ITERATIONS = 10;
+    private static final int CONCURRENT_WRITERS = 10;
 
     static {
         Random random = new Random();
@@ -74,19 +77,19 @@ public class BenchWriterTest {
             Configuration configuration
                 = new Configuration()
                     .setType(Configuration.TYPE_BOOKKEEPER)
-                    .setConcurrentWriters(concurrentwriters)
+                    .setConcurrentWriters(CONCURRENT_WRITERS)
                     .setZookeeperUrl(env.getAddress());
 
             LongAdder totalTime = new LongAdder();
             try (ObjectManager blobManager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
 
-                blobManager.getMetadataStorageManager().createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
+                blobManager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
 
-                for (int j = 0; j < 10; j++) {
+                for (int j = 0; j < TEST_ITERATIONS; j++) {
                     long _start = System.currentTimeMillis();
 
                     Collection<Future<String>> batch = new ConcurrentLinkedQueue<>();
-                    for (int i = 0; i < TESTSIZE; i++) {
+                    for (int i = 0; i < TEST_SIZE; i++) {
                         long _entrystart = System.currentTimeMillis();
                         CompletableFuture res = blobManager.put(BUCKET_ID, TEST_DATA).future;
                         res.handle((a, b) -> {
@@ -96,7 +99,7 @@ public class BenchWriterTest {
                         batch.add(res);
                     }
 
-                    assertEquals(TESTSIZE, batch.size());
+                    assertEquals(TEST_SIZE, batch.size());
                     List<String> ids = new ArrayList<>();
                     for (Future<String> f : batch) {
                         ids.add(f.get());
@@ -108,9 +111,9 @@ public class BenchWriterTest {
                         + "size %.3f MB -> %.2f ms per entry (latency),"
                         + "%.1f ms per entry (throughput) %.1f MB/s throughput%n",
                         (TEST_DATA.length / (1024 * 1024d)),
-                        (totalTime.sum() * 1d / TESTSIZE),
-                        (delta / TESTSIZE),
-                        ((((TESTSIZE * TEST_DATA.length) / (1024 * 1024d))) / (delta / 1000d)));
+                        (totalTime.sum() * 1d / TEST_SIZE),
+                        (delta / TEST_SIZE),
+                        ((((TEST_SIZE * TEST_DATA.length) / (1024 * 1024d))) / (delta / 1000d)));
                 }
             }
         }

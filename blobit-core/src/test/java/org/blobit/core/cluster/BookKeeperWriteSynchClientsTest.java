@@ -19,18 +19,17 @@
  */
 package org.blobit.core.cluster;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.Unpooled;
+import static org.junit.Assert.assertEquals;
+
 import java.io.File;
-import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.logging.LogManager;
+
 import org.apache.bookkeeper.client.AsyncCallback;
 import org.apache.bookkeeper.client.BKException;
 import org.apache.bookkeeper.client.BookKeeper;
@@ -38,8 +37,6 @@ import org.apache.bookkeeper.client.LedgerHandle;
 import org.apache.bookkeeper.conf.ClientConfiguration;
 import org.apache.log4j.Level;
 import org.apache.log4j.Logger;
-import org.blobit.core.api.ObjectManager;
-import static org.junit.Assert.assertEquals;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -56,8 +53,9 @@ public class BookKeeperWriteSynchClientsTest {
     }
 
     private static final byte[] TEST_DATA = new byte[35 * 1024];
-    private static final int TESTSIZE = 1000;
-    private static final int clientwriters = 10;
+    private static final int TEST_SIZE = 1000;
+    private static final int TEST_ITERATIONS = 10;
+    private static final int CLIENT_WRITERS = 10;
 
     @Rule
     public final TemporaryFolder tmp = new TemporaryFolder(new File("target").getAbsoluteFile());
@@ -78,7 +76,7 @@ public class BookKeeperWriteSynchClientsTest {
 
             try (BookKeeper bk = new BookKeeper(clientConfiguration);) {
 
-                for (int j = 0; j < 10; j++) {
+                for (int j = 0; j < TEST_ITERATIONS; j++) {
 
                     LongAdder totalTime = new LongAdder();
                     long _start = System.currentTimeMillis();
@@ -87,7 +85,7 @@ public class BookKeeperWriteSynchClientsTest {
 
                     Map<String, AtomicInteger> numMessagesPerClient = new ConcurrentHashMap<>();
 
-                    Thread[] clients = new Thread[clientwriters];
+                    Thread[] clients = new Thread[CLIENT_WRITERS];
                     for (int tname = 0; tname < clients.length; tname++) {
                         final String name = "client-" + tname;
                         final int _tname = tname;
@@ -98,7 +96,7 @@ public class BookKeeperWriteSynchClientsTest {
                             public void run() {
                                 try (
                                     LedgerHandle lh = bk.createLedger(1, 1, 1, BookKeeper.DigestType.CRC32, new byte[0])) {
-                                    for (int i = 0; i < TESTSIZE / clientwriters; i++) {
+                                    for (int i = 0; i < TEST_SIZE / CLIENT_WRITERS; i++) {
                                         writeData(_tname, lh, counter, totalTime);
                                         totalDone.incrementAndGet();
                                     }
@@ -118,9 +116,9 @@ public class BookKeeperWriteSynchClientsTest {
                     }
 
                     for (Map.Entry<String, AtomicInteger> entry : numMessagesPerClient.entrySet()) {
-                        assertEquals("bad count for " + entry.getKey(), TESTSIZE / clientwriters, entry.getValue().get());
+                        assertEquals("bad count for " + entry.getKey(), TEST_SIZE / CLIENT_WRITERS, entry.getValue().get());
                     }
-                    assertEquals(TESTSIZE, totalDone.get());
+                    assertEquals(TEST_SIZE, totalDone.get());
 
                     long _stop = System.currentTimeMillis();
                     double delta = _stop - _start;
@@ -129,9 +127,9 @@ public class BookKeeperWriteSynchClientsTest {
                         + "size %.3f MB -> %.2f ms per entry (latency),"
                         + "%.1f ms per entry (throughput) %.1f MB/s throughput%n",
                         (TEST_DATA.length / (1024 * 1024d)),
-                        (totalTime.sum() * 1d / TESTSIZE),
-                        (delta / TESTSIZE),
-                        ((((TESTSIZE * TEST_DATA.length) / (1024 * 1024d))) / (delta / 1000d)));
+                        (totalTime.sum() * 1d / TEST_SIZE),
+                        (delta / TEST_SIZE),
+                        ((((TEST_SIZE * TEST_DATA.length) / (1024 * 1024d))) / (delta / 1000d)));
 
                 }
             }

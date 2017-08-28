@@ -19,26 +19,27 @@
  */
 package org.blobit.core.cluster;
 
-import herddb.jdbc.HerdDBEmbeddedDataSource;
-import herddb.server.ServerConfiguration;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import java.util.Collection;
 import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.ExecutionException;
-import org.blobit.core.api.ObjectManagerFactory;
-import org.blobit.core.api.ObjectMetadata;
+
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.LedgerMetadata;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import org.blobit.core.api.ObjectManagerFactory;
+import org.blobit.core.api.ObjectMetadata;
+import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import org.blobit.core.api.MetadataManager;
-import org.blobit.core.api.ObjectManager;
-import org.junit.Assert;
+
+import herddb.jdbc.HerdDBEmbeddedDataSource;
+import herddb.server.ServerConfiguration;
 
 public class LedgerLifeCycleTest {
 
@@ -65,21 +66,21 @@ public class LedgerLifeCycleTest {
                     .setType(Configuration.TYPE_BOOKKEEPER)
                     .setConcurrentWriters(10)
                     .setZookeeperUrl(env.getAddress());
-            try (ObjectManager blobManager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
+            try (ClusterObjectManager manager = (ClusterObjectManager) ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
 
-                MetadataManager metadataManager = blobManager.getMetadataStorageManager();
+                HerdDBMetadataStorageManager metadataManager = manager.getMetadataManager();
 
                 try {
-                    blobManager.put(BUCKET_ID, TEST_DATA).get();
+                    manager.put(BUCKET_ID, TEST_DATA).get();
                     fail();
                 } catch (ExecutionException ok) {
                     ok.printStackTrace();
                 }
 
                 metadataManager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
-                String id = blobManager.put(BUCKET_ID, TEST_DATA).get();
-                Assert.assertArrayEquals(blobManager.get(BUCKET_ID, id).get(), TEST_DATA);
+                String id = manager.put(BUCKET_ID, TEST_DATA).get();
+                Assert.assertArrayEquals(manager.get(BUCKET_ID, id).get(), TEST_DATA);
 
                 {
                     Collection<LedgerMetadata> ledgers = metadataManager.listLedgersbyBucketId(BUCKET_ID);
@@ -94,11 +95,11 @@ public class LedgerLifeCycleTest {
                     assertTrue(ledgers.size() >= 1);
                 }
 
-                blobManager.gc();
+                manager.gc();
 
                 assertEquals(0, metadataManager.listDeletableLedgers(BUCKET_ID).size());
 
-                blobManager.delete(BUCKET_ID, id).get();
+                manager.delete(BUCKET_ID, id).get();
 
                 {
                     Collection<LedgerMetadata> ledgers = metadataManager.listLedgersbyBucketId(BUCKET_ID);
@@ -115,16 +116,16 @@ public class LedgerLifeCycleTest {
 
                 assertEquals(1, metadataManager.listDeletableLedgers(BUCKET_ID).size());
 
-                blobManager.gc();
+                manager.gc();
 
                 // the ledger is still open, it cannot be dropped
                 assertEquals(1, metadataManager.listDeletableLedgers(BUCKET_ID).size());
 
                 // force close all ledgers
-                ((BookKeeperBlobManager) blobManager).closeAllActiveWriters();
+                manager.getBlobManager().closeAllActiveWriters();
 
                 // now the ledger can be dropped
-                blobManager.gc();
+                manager.gc();
 
                 assertEquals(0, metadataManager.listDeletableLedgers(BUCKET_ID).size());
 

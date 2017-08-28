@@ -20,13 +20,14 @@
 package org.blobit.core.api;
 
 import javax.sql.DataSource;
-import org.blobit.core.cluster.BookKeeperBlobManager;
-import org.blobit.core.cluster.HerdDBMetadataStorageManager;
+
+import org.blobit.core.cluster.ClusterObjectManager;
 import org.blobit.core.mem.LocalManager;
 
 /**
  * Creates DataManager instances
  *
+ * @author diego.salvi
  * @author enrico.olivelli
  */
 public class ObjectManagerFactory {
@@ -42,23 +43,25 @@ public class ObjectManagerFactory {
      */
     public static ObjectManager createObjectManager(Configuration configuration, DataSource datasource) throws ObjectManagerException {
 
-        ObjectManager result;
+        final ObjectManager result;
         switch (configuration.getType()) {
+
             case Configuration.TYPE_BOOKKEEPER: {
-                HerdDBMetadataStorageManager metadataStorageManager = new HerdDBMetadataStorageManager(datasource,
-                    configuration);
-                metadataStorageManager.init();
-                result = new BookKeeperBlobManager(configuration, metadataStorageManager);
+                result = new ClusterObjectManager(configuration, datasource);
                 break;
             }
+
             case Configuration.TYPE_MEM: {
                 result = new LocalManager();
                 break;
             }
+
             default:
-                throw new RuntimeException("bad type " + configuration.getType());
+                throw new ObjectManagerException("bad type " + configuration.getType());
         }
+
         result.start();
+
         return result;
     }
 }

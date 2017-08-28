@@ -19,8 +19,8 @@
  */
 package org.blobit.core.cluster;
 
-import herddb.jdbc.HerdDBEmbeddedDataSource;
-import herddb.server.ServerConfiguration;
+import static org.junit.Assert.assertTrue;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -29,19 +29,21 @@ import java.util.Properties;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import org.blobit.core.api.ObjectManagerFactory;
+
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.Configuration;
+import org.blobit.core.api.ObjectManager;
+import org.blobit.core.api.ObjectManagerFactory;
+import org.blobit.core.api.PutPromise;
 import org.junit.Assert;
-import static org.junit.Assert.assertTrue;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import org.blobit.core.api.ObjectManager;
-import org.blobit.core.api.PutPromise;
+
+import herddb.jdbc.HerdDBEmbeddedDataSource;
+import herddb.server.ServerConfiguration;
 
 public class SimpleClusterReadWriteLongBlobsTest {
 
@@ -69,11 +71,11 @@ public class SimpleClusterReadWriteLongBlobsTest {
                     .setConcurrentWriters(10)
                     .setZookeeperUrl(env.getAddress());
 
-            try (ObjectManager blobManager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
+            try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
                 Collection<PutPromise> batch = new LinkedBlockingQueue<>();
 
-                blobManager.getMetadataStorageManager().createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
+                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
                 ExecutorService exec = Executors.newFixedThreadPool(4);
 
                 for (int i = 0; i < 100; i++) {
@@ -81,7 +83,7 @@ public class SimpleClusterReadWriteLongBlobsTest {
                     exec.submit(new Runnable() {
                         @Override
                         public void run() {
-                            batch.add(blobManager.put(BUCKET_ID, TEST_DATA));
+                            batch.add(manager.put(BUCKET_ID, TEST_DATA));
                         }
                     });
                 }
@@ -95,7 +97,7 @@ public class SimpleClusterReadWriteLongBlobsTest {
 
                 for (String id : ids) {
 //                    System.out.println("waiting for id " + id);
-                    Assert.assertArrayEquals(TEST_DATA, blobManager.get(null, id).get());
+                    Assert.assertArrayEquals(TEST_DATA, manager.get(null, id).get());
                 }
 
                 long _stop = System.currentTimeMillis();
