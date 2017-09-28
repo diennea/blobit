@@ -84,7 +84,7 @@ public class BenchWriterTest {
             LongAdder totalTime = new LongAdder();
             try (ObjectManager blobManager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
 
-                blobManager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
+                blobManager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
 
                 for (int j = 0; j < TEST_ITERATIONS; j++) {
                     long _start = System.currentTimeMillis();

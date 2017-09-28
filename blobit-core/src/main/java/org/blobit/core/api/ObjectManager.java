@@ -19,8 +19,8 @@
  */
 package org.blobit.core.api;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 /**
  * This is the entry point of Blobit
@@ -82,7 +82,7 @@ public interface ObjectManager extends AutoCloseable {
      *
      * @throws ObjectManagerException
      */
-    public void createBucket(String bucketId, String tablespaceName, BucketConfiguration configuration) throws ObjectManagerException;
+    public CompletableFuture<BucketMetadata> createBucket(String bucketId, String tablespaceName, BucketConfiguration configuration);
 
     /**
      * Marks an existing bucket for deletion. Space will not be released immediately.
@@ -90,15 +90,24 @@ public interface ObjectManager extends AutoCloseable {
      * @param bucketId
      * @throws ObjectManagerException
      */
-    public void deleteBucket(String bucketId) throws ObjectManagerException;
+    public CompletableFuture<?> deleteBucket(String bucketId);
 
     /**
      * List every existing bucket.
      *
+     * @param consumer
      * @return
      * @throws ObjectManagerException
      */
-    public List<BucketMetadata> listBuckets() throws ObjectManagerException;
+    public void listBuckets(Consumer<BucketMetadata> consumer) throws ObjectManagerException;
+
+    /**
+     * Access metadata of a single bucket
+     *
+     * @return
+     * @throws ObjectManagerException
+     */
+    public BucketMetadata getBucketMetadata(String bucketId) throws ObjectManagerException;
 
     /**
      * Release resources allocated by a bucket but no more in use

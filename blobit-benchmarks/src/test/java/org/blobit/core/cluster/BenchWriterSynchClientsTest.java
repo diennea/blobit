@@ -87,7 +87,7 @@ public class BenchWriterSynchClientsTest {
             try (ObjectManager blobManager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
 
                 for (int i = 0; i < CLIENT_WRITERS; i++) {
-                    blobManager.createBucket(BUCKET_ID + i, BUCKET_ID + i, BucketConfiguration.DEFAULT);
+                    blobManager.createBucket(BUCKET_ID + i, BUCKET_ID + i, BucketConfiguration.DEFAULT).get();
                 }
 
                 for (int j = 0; j < TEST_ITERATIONS; j++) {

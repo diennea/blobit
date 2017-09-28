@@ -20,11 +20,9 @@
 package org.blobit.core.mem;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.BucketMetadata;
@@ -35,6 +33,8 @@ import org.blobit.core.api.ObjectMetadata;
 import org.blobit.core.api.PutPromise;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.UUID;
+import java.util.function.Consumer;
 
 /**
  * MetadataManager all in memory for unit tests
@@ -46,23 +46,33 @@ public class LocalManager implements ObjectManager {
     private final Map<String, MemBucket> buckets = new ConcurrentHashMap<>();
 
     @Override
-    public void createBucket(String name, String bucketTableSpaceName, BucketConfiguration configuration) throws ObjectManagerException {
+    public CompletableFuture<BucketMetadata> createBucket(String name, String bucketTableSpaceName, BucketConfiguration configuration) {
 
+        CompletableFuture<BucketMetadata> res = new CompletableFuture<>();
         MemBucket oldBucket = buckets.computeIfAbsent(name, (bname) -> {
             return new MemBucket(bname, configuration);
         });
         if (oldBucket == null) {
-            throw new ObjectManagerException("bucket " + name + " already exists");
+            res.completeExceptionally(new ObjectManagerException("bucket " + name + " already exists").fillInStackTrace());
+        } else {
+            res.complete(new BucketMetadata(name, UUID.randomUUID().toString(), BucketMetadata.STATUS_ACTIVE,
+                configuration, bucketTableSpaceName));
         }
+        return res;
     }
 
     @Override
-    public List<BucketMetadata> listBuckets() throws ObjectManagerException {
-        return buckets
+    public void listBuckets(Consumer<BucketMetadata> consumer) throws ObjectManagerException {
+        buckets
             .values()
             .stream()
             .map(MemBucket::getMetadata)
-            .collect(Collectors.toList());
+            .forEach(consumer);
+    }
+
+    @Override
+    public BucketMetadata getBucketMetadata(String bucketId) throws ObjectManagerException {
+        return getBucket(bucketId).getMetadata();
     }
 
     private MemBucket getBucket(String bucketId) throws ObjectManagerException {
@@ -74,8 +84,9 @@ public class LocalManager implements ObjectManager {
     }
 
     @Override
-    public void deleteBucket(String bucketId) throws ObjectManagerException {
+    public CompletableFuture<?> deleteBucket(String bucketId) {
         buckets.remove(bucketId);
+        return CompletableFuture.completedFuture(null);
     }
 
     Collection<Long> listDeletableLedgers(String bucketId) throws ObjectManagerException {

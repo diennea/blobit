@@ -67,7 +67,7 @@ public class LedgerLifeCycleMemTest {
                 ok.printStackTrace();
             }
 
-            manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
+            manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
             String id = manager.put(BUCKET_ID, TEST_DATA).get();
             Assert.assertArrayEquals(manager.get(BUCKET_ID, id).get(), TEST_DATA);
 

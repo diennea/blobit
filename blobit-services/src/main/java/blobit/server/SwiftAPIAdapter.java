@@ -113,7 +113,7 @@ public class SwiftAPIAdapter extends HttpServlet {
                 try {
                     int slash = remainingPath.indexOf('/');
                     if (slash <= 0) {
-                        objectManager.createBucket(remainingPath, remainingPath, BucketConfiguration.DEFAULT);
+                        objectManager.createBucket(remainingPath, remainingPath, BucketConfiguration.DEFAULT).get();
 //                        System.out.println("[SWIFT] create bucket " + remainingPath);
                         resp.setStatus(HttpServletResponse.SC_CREATED, "OK created bucket " + remainingPath);
                     } else {
@@ -130,9 +130,6 @@ public class SwiftAPIAdapter extends HttpServlet {
                     }
                 } catch (InterruptedException err) {
                     resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, err + "");
-                } catch (ObjectManagerException err) {
-                    resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, err + "");
-                    LOG.log(Level.SEVERE, "Error while putting " + remainingPath, err.getCause());
                 } catch (ExecutionException err) {
                     resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, err.getCause() + "");
                     LOG.log(Level.SEVERE, "Error while putting " + remainingPath, err.getCause());

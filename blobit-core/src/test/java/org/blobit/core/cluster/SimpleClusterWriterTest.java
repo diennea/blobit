@@ -83,7 +83,7 @@ public class SimpleClusterWriterTest {
             try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
 
-                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
+                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
 
                 manager.put(BUCKET_ID, TEST_DATA).get();
 

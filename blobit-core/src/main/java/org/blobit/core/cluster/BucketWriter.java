@@ -82,7 +82,7 @@ public class BucketWriter {
             this.callbacksExecutor = blobManager.getCallbacksExecutor();
             this.maxBytesPerLedger = maxBytesPerLedger;
             this.metadataStorageManager = metadataStorageManager;
-            BucketMetadata bucketMetadata = metadataStorageManager.findBucketById(bucketId);;
+            BucketMetadata bucketMetadata = metadataStorageManager.getBucketMetadata(bucketId);;
             if (bucketMetadata == null) {
                 throw new ObjectManagerException("no such bucket " + bucketId);
             }

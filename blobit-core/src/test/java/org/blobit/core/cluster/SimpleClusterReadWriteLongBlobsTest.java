@@ -75,7 +75,7 @@ public class SimpleClusterReadWriteLongBlobsTest {
                 long _start = System.currentTimeMillis();
                 Collection<PutPromise> batch = new LinkedBlockingQueue<>();
 
-                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
+                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
                 ExecutorService exec = Executors.newFixedThreadPool(4);
 
                 for (int i = 0; i < 100; i++) {

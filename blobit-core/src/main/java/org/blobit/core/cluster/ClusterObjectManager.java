@@ -36,7 +36,7 @@ import org.blobit.core.api.PutPromise;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Comparator;
-import org.apache.bookkeeper.client.BookKeeperAdmin;
+import java.util.function.Consumer;
 
 /**
  * ObjectManager that uses Bookkeeper and HerdDB as clusterable backend
@@ -90,14 +90,13 @@ public class ClusterObjectManager implements ObjectManager {
     }
 
     @Override
-    public void createBucket(String bucketId, String tablespaceName, BucketConfiguration configuration)
-        throws ObjectManagerException {
-        metadataManager.createBucket(bucketId, tablespaceName, configuration);
+    public CompletableFuture<BucketMetadata> createBucket(String bucketId, String tablespaceName, BucketConfiguration configuration) {
+        return metadataManager.createBucket(bucketId, tablespaceName, configuration);
     }
 
     @Override
-    public List<BucketMetadata> listBuckets() throws ObjectManagerException {
-        return metadataManager.listBuckets();
+    public void listBuckets(Consumer<BucketMetadata> consumer) throws ObjectManagerException {
+        metadataManager.listBuckets(consumer);
     }
 
     @Override
@@ -111,19 +110,18 @@ public class ClusterObjectManager implements ObjectManager {
 
     @Override
     public void gc() {
-
         try {
-            final List<BucketMetadata> buckets = metadataManager.listBuckets();
-
-            for (BucketMetadata bucket : buckets) {
-                String bucketId = bucket.getBucketId();
-                gcBucket(bucketId);
-            }
-
+            metadataManager.listBuckets((BucketMetadata bucket) -> {
+                try {
+                    String bucketId = bucket.getBucketId();
+                    gcBucket(bucketId);
+                } catch (ObjectManagerException ex) {
+                    LOG.log(Level.SEVERE, "Error during gc of bucket " + bucket.getBucketId(), ex);
+                }
+            });
         } catch (ObjectManagerException ex) {
             LOG.log(Level.SEVERE, "Error during ledger management", ex);
         }
-
     }
 
     private void gcBucket(String bucketId) throws ObjectManagerException {
@@ -158,10 +156,16 @@ public class ClusterObjectManager implements ObjectManager {
     }
 
     @Override
-    public void deleteBucket(String bucketId) throws ObjectManagerException {
-        metadataManager.markBucketForDeletion(bucketId);
+    public CompletableFuture<?> deleteBucket(String bucketId) {
+        return metadataManager.markBucketForDeletion(bucketId);
     }
 
+    @Override
+    public BucketMetadata getBucketMetadata(String bucketId) throws ObjectManagerException {
+        return metadataManager.getBucketMetadata(bucketId);
+    }
+
+    @Override
     public void cleanup() throws ObjectManagerException {
         List<BucketMetadata> buckets = metadataManager.selectBucketsMarkedForDeletion();
         if (buckets.isEmpty()) {
@@ -173,7 +177,7 @@ public class ClusterObjectManager implements ObjectManager {
 
         // delete references to the bucket from bucket-wide metadata
         for (BucketMetadata bucket : buckets) {
-            LOG.log(Level.INFO, "found {0} uuid {1} to be erase", new Object[]{bucket.getBucketId(), bucket.getUuid()});
+            LOG.log(Level.INFO, "found {0} uuid {1} to be erased", new Object[]{bucket.getBucketId(), bucket.getUuid()});
             metadataManager.cleanupDeletedBucketByUuid(bucket);
         }
 

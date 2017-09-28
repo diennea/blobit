@@ -66,7 +66,7 @@ public class SimpleClusterReadWriteTest {
 
             try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
-                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
+                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
                 List<PutPromise> batch = new ArrayList<>();
                 for (int i = 0; i < 1000; i++) {
                     batch.add(manager.put(BUCKET_ID, TEST_DATA));
