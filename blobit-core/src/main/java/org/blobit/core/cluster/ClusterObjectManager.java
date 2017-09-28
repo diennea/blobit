@@ -35,6 +35,8 @@ import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.PutPromise;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.Comparator;
+import org.apache.bookkeeper.client.BookKeeperAdmin;
 
 /**
  * ObjectManager that uses Bookkeeper and HerdDB as clusterable backend
@@ -89,7 +91,7 @@ public class ClusterObjectManager implements ObjectManager {
 
     @Override
     public void createBucket(String bucketId, String tablespaceName, BucketConfiguration configuration)
-            throws ObjectManagerException {
+        throws ObjectManagerException {
         metadataManager.createBucket(bucketId, tablespaceName, configuration);
     }
 
@@ -117,6 +119,7 @@ public class ClusterObjectManager implements ObjectManager {
                 String bucketId = bucket.getBucketId();
                 gcBucket(bucketId);
             }
+
         } catch (ObjectManagerException ex) {
             LOG.log(Level.SEVERE, "Error during ledger management", ex);
         }
@@ -125,13 +128,13 @@ public class ClusterObjectManager implements ObjectManager {
 
     private void gcBucket(String bucketId) throws ObjectManagerException {
         Collection<Long> ledgers = metadataManager.listDeletableLedgers(bucketId);
-        LOG.log(Level.SEVERE, "There are " + ledgers.size() + " deletable ledgers");
+        LOG.log(Level.SEVERE, "There are {0} deletable ledgers for bucket {1}", new Object[]{ledgers.size(), bucketId});
         for (long idledger : ledgers) {
             boolean ok = blobManager.dropLedger(idledger);
             if (ok) {
                 metadataManager.deleteLedger(bucketId, idledger);
             } else {
-                LOG.log(Level.SEVERE, "Drop ledger " + idledger + " failed");
+                LOG.log(Level.SEVERE, "Drop ledger {0} failed", idledger);
             }
         }
     }
@@ -152,6 +155,36 @@ public class ClusterObjectManager implements ObjectManager {
 
     public HerdDBMetadataStorageManager getMetadataManager() {
         return metadataManager;
+    }
+
+    @Override
+    public void deleteBucket(String bucketId) throws ObjectManagerException {
+        metadataManager.markBucketForDeletion(bucketId);
+    }
+
+    public void cleanup() throws ObjectManagerException {
+        List<BucketMetadata> buckets = metadataManager.selectBucketsMarkedForDeletion();
+        if (buckets.isEmpty()) {
+            return;
+        }
+
+        // sort in order to re-play the work from when it started
+        buckets.sort(Comparator.comparing(BucketMetadata::getUuid));
+
+        // delete references to the bucket from bucket-wide metadata
+        for (BucketMetadata bucket : buckets) {
+            LOG.log(Level.INFO, "found {0} uuid {1} to be erase", new Object[]{bucket.getBucketId(), bucket.getUuid()});
+            metadataManager.cleanupDeletedBucketByUuid(bucket);
+        }
+
+        // delete data from BookKeeper
+        blobManager.scanAndDeleteLedgersForBuckets(buckets);
+
+        // delete references to the bucket from system wide metadata
+        for (BucketMetadata bucket : buckets) {
+            metadataManager.deletedBucketByUuid(bucket);
+        }
+
     }
 
 }

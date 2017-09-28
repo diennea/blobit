@@ -24,11 +24,30 @@ public class BucketMetadata {
     private final String bucketId;
     private final BucketConfiguration configuration;
     private final String tableSpaceName;
+    private final String uuid;
+    private final int status;
 
-    public BucketMetadata(String bucketId, BucketConfiguration configuration, String tableSpaceName) {
+    public static final int STATUS_MARKED_FOR_DELETION = 1;
+    public static final int STATUS_ACTIVE = 0;
+
+    public BucketMetadata(String bucketId,
+        String uuid,
+        int status,
+        BucketConfiguration configuration,
+        String tableSpaceName) {
         this.bucketId = bucketId;
         this.configuration = configuration;
         this.tableSpaceName = tableSpaceName;
+        this.uuid = uuid;
+        this.status = status;
+    }
+
+    public int getStatus() {
+        return status;
+    }
+
+    public String getUuid() {
+        return uuid;
     }
 
     public String getBucketId() {

@@ -8,11 +8,12 @@
     <modules>
         <module>blobit-core</module>
         <module>blobit-services</module>
+        
     </modules>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>                
         <libs.bookkeeper>4.5.0</libs.bookkeeper>
-        <libs.herddb>0.1.0</libs.herddb>   
+        <libs.herddb>0.1.1</libs.herddb>   
         <jetty.version>9.4.1.v20170120</jetty.version>
         <libs.jersey>2.26-b01</libs.jersey>             
         <libs.commonspool>2.4.2</libs.commonspool>
@@ -84,5 +85,13 @@
             </snapshots>            
             <url>http://repository.apache.org/snapshots/</url>            
         </repository>
-    </repositories>    
+    </repositories>   
+    <profiles>
+        <profile>
+            <id>benchmarks</id>
+            <modules>
+                <module>blobit-benchmarks</module>
+            </modules>
+        </profile>
+    </profiles> 
 </project>

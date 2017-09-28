@@ -43,10 +43,11 @@ public interface ObjectManager extends AutoCloseable {
      * Writes an object. This function is async, you have to check the result of the Future in order to get the ID of
      * the stored Object
      *
-     * @param bucketId bucketId this is the ID of the bucket. The system will allocate resources keeping buckets data isolated
-     * @param data     array of bytes
-     * @param offset   offset from which to start writing bytes
-     * @param len      number of bytes to write
+     * @param bucketId bucketId this is the ID of the bucket. The system will allocate resources keeping buckets data
+     * isolated
+     * @param data array of bytes
+     * @param offset offset from which to start writing bytes
+     * @param len number of bytes to write
      * @return the value returned from the future will be an opaque 'printable' id useful for retrival
      */
     public PutPromise put(String bucketId, byte[] data, int offset, int len);
@@ -70,7 +71,7 @@ public interface ObjectManager extends AutoCloseable {
      * @see #gc()
      * @see #gc(java.lang.String)
      */
-    public abstract CompletableFuture<Void> delete(String bucketId, String objectId);
+    public CompletableFuture<Void> delete(String bucketId, String objectId);
 
     /**
      * Creates a new bucket to store data
@@ -83,13 +84,13 @@ public interface ObjectManager extends AutoCloseable {
      */
     public void createBucket(String bucketId, String tablespaceName, BucketConfiguration configuration) throws ObjectManagerException;
 
-//    /**
-//     * Marks an existing bucket for deletion. Space will not be released immediately.
-//     *
-//     * @param bucketId
-//     * @throws ObjectManagerException
-//     */
-//    public void deleteBucket(String bucketId) throws ObjectManagerException;
+    /**
+     * Marks an existing bucket for deletion. Space will not be released immediately.
+     *
+     * @param bucketId
+     * @throws ObjectManagerException
+     */
+    public void deleteBucket(String bucketId) throws ObjectManagerException;
 
     /**
      * List every existing bucket.
@@ -113,10 +114,16 @@ public interface ObjectManager extends AutoCloseable {
      */
     public void gc();
 
+    /**
+     * Tries to cleaup and save resources due to deletion of buckets
+     *
+     * @throws ObjectManagerException
+     */
+    public void cleanup() throws ObjectManagerException;
+
     public void start() throws ObjectManagerException;
 
     @Override
     public void close();
-
 
 }

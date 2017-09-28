@@ -20,6 +20,10 @@
 package org.blobit.core.cluster;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -33,7 +37,10 @@ import java.util.logging.Logger;
 
 import org.apache.bookkeeper.client.BKException;
 import org.apache.bookkeeper.client.BookKeeper;
+import org.apache.bookkeeper.client.BookKeeperAdmin;
 import org.apache.bookkeeper.client.DefaultEnsemblePlacementPolicy;
+import org.apache.bookkeeper.client.LedgerHandle;
+import org.apache.bookkeeper.client.LedgerMetadata;
 import org.apache.bookkeeper.conf.ClientConfiguration;
 import org.apache.commons.pool2.KeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
@@ -41,9 +48,13 @@ import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.apache.zookeeper.KeeperException;
+import org.blobit.core.api.BucketMetadata;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.PutPromise;
+import static org.blobit.core.cluster.BucketWriter.BK_METADATA_BUCKET_ID;
+import static org.blobit.core.cluster.BucketWriter.BK_METADATA_BUCKET_UUID;
+import static org.blobit.core.cluster.BucketWriter.DUMMY_PWD;
 
 /**
  * Stores Objects on Apache BookKeeper
@@ -162,14 +173,14 @@ public class BookKeeperBlobManager implements AutoCloseable {
     private final class ReadersFactory implements KeyedPooledObjectFactory<Long, BucketReader> {
 
         private final Lock lock = new ReentrantLock();
-        private final ConcurrentMap<Long,BucketReaderInstance> instances = new ConcurrentHashMap<>();
+        private final ConcurrentMap<Long, BucketReaderInstance> instances = new ConcurrentHashMap<>();
 
         @Override
         public PooledObject<BucketReader> makeObject(Long ledgerId) throws Exception {
 
             BucketReaderInstance instance;
 
-            while(true) {
+            while (true) {
 
                 try {
                     instance = instances.computeIfAbsent(ledgerId, k -> {
@@ -278,8 +289,40 @@ public class BookKeeperBlobManager implements AutoCloseable {
         }
     }
 
+    void scanAndDeleteLedgersForBuckets(List<BucketMetadata> buckets) throws ObjectManagerException {
+        try {
+            BookKeeperAdmin admin = new BookKeeperAdmin(bookKeeper);
+
+            for (long ledgerId : admin.listLedgers()) {
+                String bucketUUID;
+                String bucketid;
+                try (LedgerHandle lh = bookKeeper.openLedgerNoRecovery(ledgerId, BookKeeper.DigestType.CRC32, DUMMY_PWD);) {
+                    LedgerMetadata ledgerMetadata = admin.getLedgerMetadata(lh);
+                    Map<String, byte[]> metadata = ledgerMetadata.getCustomMetadata();
+                    byte[] _bucketUUid = metadata.get(BK_METADATA_BUCKET_UUID);
+                    byte[] _bucketId = metadata.get(BK_METADATA_BUCKET_ID);
+                    if (_bucketUUid == null || _bucketId == null) {
+                        continue;
+                    }
+                    bucketUUID = new String(_bucketUUid, StandardCharsets.UTF_8);
+                    bucketid = new String(_bucketId, StandardCharsets.UTF_8);
+                }
+                boolean found = buckets
+                    .stream()
+                    .anyMatch(b -> b.getBucketId().equals(bucketid) && b.getUuid().equals(bucketUUID));
+                if (found) {
+                    LOG.log(Level.INFO, "found droppable ledger {0}, for {1}, {2}", new Object[]{ledgerId, bucketid, bucketUUID});
+                    bookKeeper.deleteLedger(ledgerId);
+                }
+            }
+        } catch (BKException | IOException | InterruptedException err) {
+            throw new ObjectManagerException(err);
+        }
+    }
+
     boolean dropLedger(long idledger) throws ObjectManagerException {
         if (activeWriters.containsKey(idledger)) {
+            LOG.log(Level.INFO, "cannot drop ledger used locally {0}", idledger);
             return false;
         }
         try {
@@ -302,17 +345,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
         writers.close();
         readers.close();
 
-        for(BucketWriter writer : activeWriters.values()) {
-            writer.awaitTermination();
-        }
-
-        while(!activeWriters.isEmpty()) {
-            for(BucketWriter writer : activeWriters.values()) {
-                scheduleWriterDisposal(writer);
-                writer.awaitTermination();
-            }
-        }
-
+        waitForWritersTermination();
 
         if (bookKeeper != null) {
             try {
@@ -325,9 +358,23 @@ public class BookKeeperBlobManager implements AutoCloseable {
         callbacksExecutor.shutdown();
     }
 
+    private void waitForWritersTermination() {
+
+        for (BucketWriter writer : activeWriters.values()) {
+            writer.awaitTermination();
+        }
+
+        while (!activeWriters.isEmpty()) {
+            for (BucketWriter writer : activeWriters.values()) {
+                scheduleWriterDisposal(writer);
+                writer.awaitTermination();
+            }
+        }
+    }
+
     Future<?> scheduleWriterDisposal(BucketWriter writer) {
         return threadpool.submit(() -> {
-            if( writer.releaseResources() ) {
+            if (writer.releaseResources()) {
                 activeWriters.remove(writer.getId(), writer);
             }
         });
@@ -343,8 +390,12 @@ public class BookKeeperBlobManager implements AutoCloseable {
         return callbacksExecutor;
     }
 
-    void closeAllActiveWriters() {
+    void closeAllActiveWritersForTests() {
+        List<BucketWriter> actualWriters = new ArrayList<>(activeWriters.values());
         writers.clear();
+        for (BucketWriter writer : actualWriters) {
+            writer.awaitTermination();
+        }
     }
 
 }

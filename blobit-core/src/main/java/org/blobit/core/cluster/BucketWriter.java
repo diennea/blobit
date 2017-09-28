@@ -38,6 +38,10 @@ import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.PutPromise;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
+import org.blobit.core.api.BucketMetadata;
 
 /**
  * Writes all data for a given bucket
@@ -47,6 +51,8 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 public class BucketWriter {
 
     private static final Logger LOG = Logger.getLogger(BucketWriter.class.getName());
+    static final String BK_METADATA_BUCKET_ID = "bucketId";
+    static final String BK_METADATA_BUCKET_UUID = "bucketUUID";
 
     private final ExecutorService callbacksExecutor;
     private final String bucketId;
@@ -57,12 +63,13 @@ public class BucketWriter {
     private long maxBytesPerLedger;
     private final HerdDBMetadataStorageManager metadataStorageManager;
     private final BookKeeperBlobManager blobManager;
-    private static final byte[] DUMMY_PWD = new byte[0];
+    static final byte[] DUMMY_PWD = new byte[0];
     private static final int MAX_ENTRY_SIZE = 10 * 1024;
     private final Long id;
     private AtomicLong nextEntryId = new AtomicLong();
 
-    public BucketWriter(String bucketId, BookKeeper bookKeeper,
+    public BucketWriter(String bucketId,
+        BookKeeper bookKeeper,
         int replicationFactor,
         long maxBytesPerLedger,
         HerdDBMetadataStorageManager metadataStorageManager,
@@ -75,11 +82,22 @@ public class BucketWriter {
             this.callbacksExecutor = blobManager.getCallbacksExecutor();
             this.maxBytesPerLedger = maxBytesPerLedger;
             this.metadataStorageManager = metadataStorageManager;
+            BucketMetadata bucketMetadata = metadataStorageManager.findBucketById(bucketId);;
+            if (bucketMetadata == null) {
+                throw new ObjectManagerException("no such bucket " + bucketId);
+            }
+            String bucketUUID = bucketMetadata.getUuid();
             this.bucketId = bucketId;
-            this.lh = bookKeeper.createLedgerAdv(replicationFactor,
+            Map<String, byte[]> ledgerMetadata = new HashMap<>();
+            ledgerMetadata.put(BK_METADATA_BUCKET_ID, bucketId.getBytes(StandardCharsets.UTF_8));
+            ledgerMetadata.put(BK_METADATA_BUCKET_UUID, bucketUUID.getBytes(StandardCharsets.UTF_8));
+            this.lh = bookKeeper.createLedgerAdv(
                 replicationFactor,
                 replicationFactor,
-                BookKeeper.DigestType.CRC32, DUMMY_PWD);
+                replicationFactor,
+                BookKeeper.DigestType.CRC32,
+                DUMMY_PWD,
+                ledgerMetadata);
             valid = true;
             this.id = lh.getId();
             metadataStorageManager.registerLedger(bucketId, this.id);
@@ -200,11 +218,9 @@ public class BucketWriter {
             && maxBytesPerLedger >= writtenBytes.get();
     }
 
-
     private volatile boolean closed = false;
     private final Lock closeLock = new ReentrantLock();
     private final Condition closeCompleted = closeLock.newCondition();
-
 
     public void close() {
         LOG.log(Level.SEVERE, "closing {0}", this);
@@ -218,7 +234,7 @@ public class BucketWriter {
             /* Check if the facility was closed prior to obtain the lock */
             LOG.log(Level.FINE, "Awaiting dispose {0}", this);
 
-            while(!closed)  {
+            while (!closed) {
 
                 /*
                  * Virtually release the lock to permit the real close process to take place and signal back
@@ -236,6 +252,7 @@ public class BucketWriter {
 
     /**
      * Release resources or schedule them to release.
+     *
      * @return {@code true} if really released, {@code false} otherwise (rescheduled or already closed)
      */
     boolean releaseResources() {

@@ -45,6 +45,7 @@ import org.junit.rules.TemporaryFolder;
 
 import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
+import org.blobit.core.cluster.ZKTestEnv;
 
 public class BenchWriterTest {
 

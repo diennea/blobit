@@ -73,6 +73,11 @@ public class LocalManager implements ObjectManager {
         return bucket;
     }
 
+    @Override
+    public void deleteBucket(String bucketId) throws ObjectManagerException {
+        buckets.remove(bucketId);
+    }
+
     Collection<Long> listDeletableLedgers(String bucketId) throws ObjectManagerException {
         return getBucket(bucketId).listDeletableLedgers();
     }
@@ -88,6 +93,10 @@ public class LocalManager implements ObjectManager {
     @Override
     public void close() {
         buckets.clear();
+    }
+
+    @Override
+    public void cleanup() throws ObjectManagerException {
     }
 
     @Override

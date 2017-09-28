@@ -41,6 +41,7 @@ import org.junit.rules.TemporaryFolder;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
+import org.blobit.core.cluster.ZKTestEnv;
 
 /**
  *

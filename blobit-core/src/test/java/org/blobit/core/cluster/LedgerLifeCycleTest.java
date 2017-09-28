@@ -122,7 +122,7 @@ public class LedgerLifeCycleTest {
                 assertEquals(1, metadataManager.listDeletableLedgers(BUCKET_ID).size());
 
                 // force close all ledgers
-                manager.getBlobManager().closeAllActiveWriters();
+                manager.getBlobManager().closeAllActiveWritersForTests();
 
                 // now the ledger can be dropped
                 manager.gc();
