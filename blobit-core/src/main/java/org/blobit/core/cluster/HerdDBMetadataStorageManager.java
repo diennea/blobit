@@ -117,6 +117,7 @@ public class HerdDBMetadataStorageManager {
         = "SELECT ledger_id FROM " + LEDGER_TABLE
         + " WHERE ledger_id NOT IN (SELECT ledger_id FROM " + BLOB_TABLE + " GROUP BY ledger_id)";
 
+
     /* ************** */
  /* **** BLOB **** */
  /* ************** */
@@ -142,6 +143,7 @@ public class HerdDBMetadataStorageManager {
     private final String bucketsTablespace;
     private final int bucketsTableSpacesReplicaCount;
     private final boolean useTablespaces;
+    private final boolean manageTablespaces;
 
     private Map<String, BucketMetadata> buckets;
 
@@ -151,6 +153,7 @@ public class HerdDBMetadataStorageManager {
         this.datasource = datasource;
         this.bucketsTableSpacesReplicaCount = configuration.getReplicationFactor();
         this.useTablespaces = configuration.isUseTablespaces();
+        this.manageTablespaces = configuration.isManageTablespaces();
     }
 
     public void init() throws ObjectManagerException {
@@ -355,7 +358,7 @@ public class HerdDBMetadataStorageManager {
     }
 
     private void ensureTablespace(String schema, int replicaCount) throws SQLException {
-        if (!useTablespaces) {
+        if (!useTablespaces || !manageTablespaces) {
             return;
         }
         try (Connection connection = datasource.getConnection()) {
@@ -380,7 +383,6 @@ public class HerdDBMetadataStorageManager {
         try (Connection connection = datasource.getConnection()) {
             connection.setSchema(bucketsTablespace);
             DatabaseMetaData metaData = connection.getMetaData();
-            boolean existTablespace;
             try (ResultSet schemas = metaData.getSchemas(null, schema);) {
                 return schemas.next();
             }
@@ -544,14 +546,13 @@ public class HerdDBMetadataStorageManager {
                 LOG.log(Level.INFO, "Tablespace {0} already dropped for tablespace {1}", new Object[]{bucket.getTableSpaceName(), bucket.getBucketId()});
                 return;
             }
+
             try (Connection connection = getConnectionForBucketTableSpace(bucket);
                 PreparedStatement ps_delete_blobs = connection.prepareStatement(DELETE_BLOBS_BY_BUCKET_UUID(bucket.getUuid()));
                 PreparedStatement ps_delete_ledgers = connection.prepareStatement(DELETE_LEDGERS_BY_BUCKET_UUID);) {
-
                 ps_delete_ledgers.setString(1, bucket.getUuid());
                 ps_delete_ledgers.executeUpdate();
                 ps_delete_blobs.executeUpdate();
-
             }
         } catch (SQLException err) {
             throw new ObjectManagerException(err);
@@ -577,7 +578,7 @@ public class HerdDBMetadataStorageManager {
     }
 
     private void dropBucketTableSpace(String tableSpaceName) throws SQLException {
-        if (!useTablespaces) {
+        if (!useTablespaces || !manageTablespaces) {
             return;
         }
         try (Connection connection = datasource.getConnection()) {

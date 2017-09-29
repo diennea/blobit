@@ -43,8 +43,11 @@ public class Configuration {
     public static final String BUCKETS_TABLESPACE = "buckets.tablespace";
     public static final String BUCKETS_TABLESPACE_DEFAULT = "BUCKETS";
 
-    public static final String USE_TABLESPACES = "usetablespace";
+    public static final String USE_TABLESPACES = "usetablespaces";
     public static final String USE_TABLESPACES_DEFAULT = "true";
+
+    public static final String MANAGE_TABLESPACES = "usetablespaces";
+    public static final String MANAGE_TABLESPACES_DEFAULT = "true";
 
     public static final String MAX_BYTES_PER_LEDGER = "max.bytes.per.ledger";
     public static final int MAX_BYTES_PER_LEDGER_DEFAULT = 1024 * 1024 * 2;
@@ -89,6 +92,10 @@ public class Configuration {
 
     public boolean isUseTablespaces() {
         return Boolean.parseBoolean(properties.getProperty(USE_TABLESPACES, USE_TABLESPACES_DEFAULT));
+    }
+
+    public boolean isManageTablespaces() {
+        return Boolean.parseBoolean(properties.getProperty(MANAGE_TABLESPACES, MANAGE_TABLESPACES_DEFAULT));
     }
 
     public Configuration setUseTablespaces(boolean value) {
