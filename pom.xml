@@ -3,16 +3,15 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.blobit</groupId>
     <artifactId>blobit</artifactId>
-    <version>0.0.1</version>
+    <version>0.0.2-SNAPSHOT</version>
     <packaging>pom</packaging>
     <modules>
         <module>blobit-core</module>
         <module>blobit-services</module>
-        
     </modules>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>                
-        <libs.bookkeeper>4.5.0</libs.bookkeeper>
+        <libs.bookkeeper>4.6.0-SNAPSHOT</libs.bookkeeper>
         <libs.herddb>0.1.1</libs.herddb>   
         <jetty.version>9.4.1.v20170120</jetty.version>
         <libs.jersey>2.26-b01</libs.jersey>             
@@ -83,7 +82,7 @@
             <snapshots>
                 <enabled>true</enabled>
             </snapshots>            
-            <url>http://repository.apache.org/snapshots/</url>            
+            <url>https://repository.apache.org/snapshots/</url>            
         </repository>
     </repositories>   
     <profiles>

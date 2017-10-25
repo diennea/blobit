@@ -29,18 +29,22 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.bookkeeper.client.AsyncCallback;
-import org.apache.bookkeeper.client.BKException;
+import org.apache.bookkeeper.client.api.WriteAdvHandle;
+import org.apache.bookkeeper.client.api.BKException;
 import org.apache.bookkeeper.client.BKException.BKLedgerClosedException;
 import org.apache.bookkeeper.client.BookKeeper;
-import org.apache.bookkeeper.client.LedgerHandle;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.PutPromise;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.netty.buffer.Unpooled;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.function.BiFunction;
+import org.apache.bookkeeper.client.api.DigestType;
+import org.apache.bookkeeper.client.api.LedgerType;
 import org.blobit.core.api.BucketMetadata;
 
 /**
@@ -56,7 +60,7 @@ public class BucketWriter {
 
     private final ExecutorService callbacksExecutor;
     private final String bucketId;
-    private final LedgerHandle lh;
+    private final WriteAdvHandle lh;
     private volatile boolean valid;
     private AtomicLong writtenBytes = new AtomicLong();
     private AtomicInteger pendingWrites = new AtomicInteger();
@@ -91,18 +95,24 @@ public class BucketWriter {
             Map<String, byte[]> ledgerMetadata = new HashMap<>();
             ledgerMetadata.put(BK_METADATA_BUCKET_ID, bucketId.getBytes(StandardCharsets.UTF_8));
             ledgerMetadata.put(BK_METADATA_BUCKET_UUID, bucketUUID.getBytes(StandardCharsets.UTF_8));
-            this.lh = bookKeeper.createLedgerAdv(
-                replicationFactor,
-                replicationFactor,
-                replicationFactor,
-                BookKeeper.DigestType.CRC32,
-                DUMMY_PWD,
-                ledgerMetadata);
+            this.lh = bookKeeper.
+                newCreateLedgerOp()
+                .withAckQuorumSize(replicationFactor)
+                .withWriteQuorumSize(replicationFactor)
+                .withEnsembleSize(replicationFactor)
+                .withDigestType(DigestType.CRC32)                
+                .withPassword(DUMMY_PWD)
+                .withCustomMetadata(ledgerMetadata)
+                .makeAdv()
+                .execute()
+                .get();
             valid = true;
             this.id = lh.getId();
             metadataStorageManager.registerLedger(bucketId, this.id);
-        } catch (InterruptedException | BKException ex) {
+        } catch (InterruptedException ex) {
             throw new ObjectManagerException(ex);
+        } catch (ExecutionException ex) {
+            throw new ObjectManagerException(ex.getCause());
         }
 
         LOG.log(Level.INFO, "Opened BucketWriter for bucket {0}: ledger {1}, replication factor {2}", new Object[]{bucketId, id, replicationFactor});
@@ -113,44 +123,8 @@ public class BucketWriter {
         return id;
     }
 
-    private class AddEntryOperation implements AsyncCallback.AddCallback {
-
-        final CompletableFuture<Void> result;
-        final AtomicInteger countRemaining;
-        final int len;
-
-        public AddEntryOperation(
-            CompletableFuture<Void> result, AtomicInteger countRemaining, int len) {
-            this.result = result;
-            this.len = len;
-            this.countRemaining = countRemaining;
-        }
-
-        @Override
-        @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
-        public void addComplete(int rc, LedgerHandle lh1, long entryId, Object ctx) {
-            boolean last = countRemaining.decrementAndGet() == 0;
-            if (rc == BKException.Code.OK) {
-                writtenBytes.addAndGet(len);
-                if (last) {
-                    pendingWrites.decrementAndGet();
-                    /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
-                    result.complete(null);
-                }
-            } else {
-                // TODO ? fail other writes?
-                pendingWrites.decrementAndGet();
-                BKException err = BKException.create(rc);
-                LOG.log(Level.SEVERE, "bad error while adding  entry " + entryId, err);
-                result.completeExceptionally(err);
-            }
-        }
-
-    }
-
     @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
     PutPromise writeBlob(String bucketId, byte[] data, int offset, int len) {
-        CompletableFuture<Void> result = new CompletableFuture<>();
 
         pendingWrites.incrementAndGet();
 
@@ -161,6 +135,7 @@ public class BucketWriter {
 
         if (len == 0) {
             /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
+            CompletableFuture<Void> result = new CompletableFuture<>();
             result.complete(null);
             return new PutPromise(bucketId, result);
         }
@@ -169,9 +144,8 @@ public class BucketWriter {
         int chunkLen = MAX_ENTRY_SIZE;
         int written = 0;
         long entryId = firstEntryId;
-        AtomicInteger remaining = new AtomicInteger(numEntries);
+        CompletableFuture<Long> lastEntry = null;
         for (int i = 0; i < numEntries; i++) {
-
             if (len <= MAX_ENTRY_SIZE) {
                 // very small entry
                 chunkLen = len;
@@ -179,25 +153,22 @@ public class BucketWriter {
                 // last
                 chunkLen = len - written;
             }
-
-            AddEntryOperation addEntry = new AddEntryOperation(
-                result,
-                remaining,
-                chunkLen);
-
-            try {
-                lh.asyncAddEntry(entryId, data, chunkStartOffSet, chunkLen, addEntry, null);
-            } catch (BKException neverThrown) {
-            }
-
+            lastEntry = lh.write(entryId, Unpooled.wrappedBuffer(data, chunkStartOffSet, chunkLen));
             chunkStartOffSet += chunkLen;
             written += chunkLen;
-
             entryId++;
         }
 
-        CompletableFuture<Void> afterMetadata = result.handleAsync(
-            (Void v, Throwable u) -> {
+        if (lastEntry == null) {
+            CompletableFuture<Void> result = new CompletableFuture<>();
+            result.completeExceptionally(new IllegalStateException().fillInStackTrace());
+            return new PutPromise(bucketId, result);
+        }
+
+        // we are attaching to lastEntry, because BookKeeper will ackknowledge writes in order
+        CompletableFuture<Long> afterMetadata = lastEntry.handleAsync(
+            (Long _entryId, Throwable u) -> {
+                pendingWrites.decrementAndGet();
                 if (u != null) {
                     throw new RuntimeException(u);
                 }
