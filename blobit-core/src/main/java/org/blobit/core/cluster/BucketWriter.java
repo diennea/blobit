@@ -31,8 +31,9 @@ import java.util.logging.Logger;
 
 import org.apache.bookkeeper.client.api.WriteAdvHandle;
 import org.apache.bookkeeper.client.api.BKException;
+import org.apache.bookkeeper.client.api.BookKeeper;
 import org.apache.bookkeeper.client.BKException.BKLedgerClosedException;
-import org.apache.bookkeeper.client.BookKeeper;
+
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.PutPromise;
 
@@ -42,9 +43,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import java.util.function.BiFunction;
 import org.apache.bookkeeper.client.api.DigestType;
-import org.apache.bookkeeper.client.api.LedgerType;
 import org.blobit.core.api.BucketMetadata;
 
 /**
@@ -100,7 +99,7 @@ public class BucketWriter {
                 .withAckQuorumSize(replicationFactor)
                 .withWriteQuorumSize(replicationFactor)
                 .withEnsembleSize(replicationFactor)
-                .withDigestType(DigestType.CRC32)                
+                .withDigestType(DigestType.CRC32)
                 .withPassword(DUMMY_PWD)
                 .withCustomMetadata(ledgerMetadata)
                 .makeAdv()
