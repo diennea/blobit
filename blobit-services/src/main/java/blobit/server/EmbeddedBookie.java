@@ -160,10 +160,8 @@ public class EmbeddedBookie implements AutoCloseable {
         StringBuilder builder = new StringBuilder();
         for (Iterator<String> key_it = conf.getKeys(); key_it.hasNext();) {
             String key = key_it.next();
-            if (System.getProperty(key) == null) { // Bookkeeper 4.4 adds system properties to configuration
-                Object value = conf.getProperty(key + "");
-                builder.append(key + "=" + value + "\n");
-            }
+            Object value = conf.getProperty(key + "");
+            builder.append(key + "=" + value + "\n");
         }
         Files.write(actual_bookkeeper_configuration, builder.toString().getBytes(StandardCharsets.UTF_8),
             StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);
