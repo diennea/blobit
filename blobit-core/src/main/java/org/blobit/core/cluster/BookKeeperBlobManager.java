@@ -47,7 +47,6 @@ import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
-import org.apache.zookeeper.KeeperException;
 import org.blobit.core.api.BucketMetadata;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.ObjectManagerException;
@@ -258,7 +257,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
             ClientConfiguration clientConfiguration = new ClientConfiguration();
             clientConfiguration.setThrottleValue(0);
             clientConfiguration.setEnsemblePlacementPolicy(DefaultEnsemblePlacementPolicy.class);
-            clientConfiguration.setUseV2WireProtocol(true);
+//            clientConfiguration.setUseV2WireProtocol(true);
             for (String key : configuration.keys()) {
                 if (key.startsWith("bookkeeper.")) {
                     String rawKey = key.substring("bookkeeper.".length());
@@ -284,7 +283,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
             this.bookKeeper = BookKeeper
                 .forConfig(clientConfiguration)
                 .build();
-        } catch (IOException | InterruptedException | KeeperException ex) {
+        } catch (IOException | InterruptedException | BKException ex) {
             throw new ObjectManagerException(ex);
         }
     }

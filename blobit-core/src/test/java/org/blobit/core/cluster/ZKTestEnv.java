@@ -57,6 +57,9 @@ public class ZKTestEnv implements AutoCloseable {
             journals[i] = jpath.toAbsolutePath().toString();
         }
 
+        conf.setMaxPendingReadRequestPerThread(10000); // new in 4.6
+        conf.setMaxPendingAddRequestPerThread(20000); // new in 4.6
+        conf.setJournalSyncData(false); // new in 4.6
         conf.setJournalDirsName(journals);
         conf.setFlushInterval(1000);
         conf.setJournalFlushWhenQueueEmpty(true);

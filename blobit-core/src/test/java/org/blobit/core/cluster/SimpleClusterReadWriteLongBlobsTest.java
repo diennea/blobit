@@ -21,7 +21,6 @@ package org.blobit.core.cluster;
 
 import static org.junit.Assert.assertTrue;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -44,11 +43,34 @@ import org.junit.rules.TemporaryFolder;
 
 import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Level;
+import java.util.logging.SimpleFormatter;
 
 public class SimpleClusterReadWriteLongBlobsTest {
 
     @Rule
-    public final TemporaryFolder tmp = new TemporaryFolder(new File("target").getAbsoluteFile());
+    public final TemporaryFolder tmp = new TemporaryFolder();
+
+//    @Before
+    public void setupLogger() throws Exception {
+        Level level = Level.FINER;
+        Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+
+            @Override
+            public void uncaughtException(Thread t, Throwable e) {
+                System.err.println("uncaughtException from thread " + t.getName() + ": " + e);
+                e.printStackTrace();
+            }
+        });
+        java.util.logging.LogManager.getLogManager().reset();
+        ConsoleHandler ch = new ConsoleHandler();
+        ch.setLevel(level);
+        SimpleFormatter f = new SimpleFormatter();
+        ch.setFormatter(f);
+        java.util.logging.Logger.getLogger("").setLevel(level);
+        java.util.logging.Logger.getLogger("").addHandler(ch);
+    }
 
     private static final String BUCKET_ID = "mybucket";
     private static final byte[] TEST_DATA = new byte[4 * 1024 * 1024];

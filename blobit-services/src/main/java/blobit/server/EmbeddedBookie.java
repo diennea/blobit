@@ -19,7 +19,6 @@
  */
 package blobit.server;
 
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -63,6 +62,12 @@ public class EmbeddedBookie implements AutoCloseable {
         conf.setStatisticsEnabled(true);
         conf.setProperty("codahaleStatsJmxEndpoint", "Bookie");
         conf.setStatsProviderClass(CodahaleMetricsProvider.class);
+
+        conf.setMaxPendingReadRequestPerThread(10000); // new in 4.6
+        conf.setMaxPendingAddRequestPerThread(20000); // new in 4.6
+        // by default we will not require fsync on journal, set this to true if you have only one machine
+        conf.setJournalSyncData(false);
+
         int port = configuration.getInt(ServerConfiguration.PROPERTY_BOOKKEEPER_BOOKIE_PORT, ServerConfiguration.PROPERTY_BOOKKEEPER_BOOKIE_PORT_DEFAULT);
 
         conf.setUseHostNameAsBookieID(true);

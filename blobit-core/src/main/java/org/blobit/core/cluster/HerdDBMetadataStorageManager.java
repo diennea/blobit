@@ -55,10 +55,10 @@ import java.util.logging.Logger;
 @SuppressFBWarnings("SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE")
 public class HerdDBMetadataStorageManager {
 
-    private static final String BUCKET_TABLE = "BUCKET";
+    private static final String BUCKET_TABLE = "BUCKETS";
     private static final String BUCKET_TABLE_INDEX_BUCKET_ID = "BUCKET_BUCKETID";
-    private static final String LEDGER_TABLE = "LEDGER";
-    private static final String BLOB_TABLE = "BLOB";
+    private static final String LEDGER_TABLE = "LEDGERS";
+    private static final String BLOB_TABLE = "OBJECTS";
 
     private String CREATE_TABLESPACE(String schema, int replicaCount) {
         return "CREATE TABLESPACE '" + schema + "','wait:60000','expectedreplicacount:" + replicaCount + "'";
@@ -73,7 +73,13 @@ public class HerdDBMetadataStorageManager {
  /* *** BUCKET *** */
  /* ************** */
     private static final String CREATE_BUCKETS_TABLE
-        = "CREATE TABLE " + BUCKET_TABLE + " (uuid STRING PRIMARY KEY, bucket_id STRING, status INTEGER, tablespace_name STRING, configuration STRING)";
+        = "CREATE TABLE " + BUCKET_TABLE + " ("
+        + "    uuid STRING PRIMARY KEY,"
+        + "    bucket_id STRING,"
+        + "    status INTEGER,"
+        + "    tablespace_name STRING,"
+        + "    configuration STRING"
+        + ")";
 
     private static final String CREATE_INDEX_ON_BUCKETS_TABLE
         = "CREATE INDEX " + BUCKET_TABLE_INDEX_BUCKET_ID + " ON " + BUCKET_TABLE + "(bucket_id)";
@@ -98,7 +104,11 @@ public class HerdDBMetadataStorageManager {
  /* *** LEDGER *** */
  /* ************** */
     private static final String CREATE_LEDGERS_TABLE
-        = "CREATE TABLE " + LEDGER_TABLE + " (ledger_id LONG PRIMARY KEY, creation_date TIMESTAMP, bucket_uuid STRING)";
+        = "CREATE TABLE " + LEDGER_TABLE + " ("
+        + "    ledger_id LONG PRIMARY KEY,"
+        + "    creation_date TIMESTAMP,"
+        + "    bucket_uuid STRING"
+        + ")";
 
     private static final String REGISTER_LEDGER
         = "INSERT INTO " + LEDGER_TABLE + " (bucket_uuid,ledger_id,creation_date) VALUES (?,?,?)";
@@ -107,7 +117,7 @@ public class HerdDBMetadataStorageManager {
         = "DELETE FROM " + LEDGER_TABLE + " WHERE ledger_id=?";
 
     private static final String DELETE_LEDGERS_BY_BUCKET_UUID
-        = "DELETE FROM " + BLOB_TABLE
+        = "DELETE FROM " + LEDGER_TABLE
         + " WHERE bucket_uuid =? ";
 
     private static final String LIST_LEDGERS_BY_BUCKET_UUID
@@ -115,7 +125,7 @@ public class HerdDBMetadataStorageManager {
 
     private static final String LIST_DELETABLE_LEDGERS
         = "SELECT ledger_id FROM " + LEDGER_TABLE
-        + " WHERE ledger_id NOT IN (SELECT ledger_id FROM " + BLOB_TABLE + " GROUP BY ledger_id)";
+        + " WHERE NOT EXISTS (SELECT * FROM " + BLOB_TABLE + " b WHERE b.ledger_id=" + LEDGER_TABLE + ".ledger_id)";
 
 
     /* ************** */
