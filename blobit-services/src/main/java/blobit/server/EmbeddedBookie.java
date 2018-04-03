@@ -24,10 +24,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import org.apache.bookkeeper.bookie.Bookie;
 import org.apache.bookkeeper.client.BookKeeperAdmin;
@@ -59,6 +61,8 @@ public class EmbeddedBookie implements AutoCloseable {
         org.apache.bookkeeper.conf.ServerConfiguration conf = new org.apache.bookkeeper.conf.ServerConfiguration();
         conf.setZkTimeout(configuration.getInt(ServerConfiguration.PROPERTY_ZOOKEEPER_SESSIONTIMEOUT, ServerConfiguration.PROPERTY_ZOOKEEPER_SESSIONTIMEOUT_DEFAULT));
         conf.setZkServers(configuration.getString(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT));
+        conf.setZkLedgersRootPath(configuration.getString(ServerConfiguration.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH,
+                ServerConfiguration.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT));
         conf.setStatisticsEnabled(true);
         conf.setProperty("codahaleStatsJmxEndpoint", "Bookie");
         conf.setStatsProviderClass(CodahaleMetricsProvider.class);
@@ -77,8 +81,8 @@ public class EmbeddedBookie implements AutoCloseable {
             if (_port == null) {
                 _port = NetworkUtils.assignFirstFreePort();
                 LOG.log(Level.SEVERE, "As configuration parameter "
-                    + ServerConfiguration.PROPERTY_BOOKKEEPER_BOOKIE_PORT + " is {0},I have choosen to listen on port {1}."
-                    + " Set to a positive number in order to use a fixed port", new Object[]{Integer.toString(port), Integer.toString(_port)});
+                        + ServerConfiguration.PROPERTY_BOOKKEEPER_BOOKIE_PORT + " is {0},I have choosen to listen on port {1}."
+                        + " Set to a positive number in order to use a fixed port", new Object[]{Integer.toString(port), Integer.toString(_port)});
                 persistLocalBookiePort(bookie_dir, _port);
             }
             port = _port;
@@ -137,7 +141,7 @@ public class EmbeddedBookie implements AutoCloseable {
         }
 
         Class<? extends StatsProvider> statsProviderClass
-            = conf.getStatsProviderClass();
+                = conf.getStatsProviderClass();
         statsProvider = ReflectionUtils.newInstance(statsProviderClass);
         statsProvider.start(conf);
         bookieServer = new BookieServer(conf, statsProvider.getStatsLogger(""));
@@ -160,13 +164,16 @@ public class EmbeddedBookie implements AutoCloseable {
         StringBuilder builder = new StringBuilder();
         for (Iterator<String> key_it = conf.getKeys(); key_it.hasNext();) {
             String key = key_it.next();
-            Object value = conf.getProperty(key + "");
+            Object value = conf.getProperty(key);
+            if (value instanceof Collection) {
+                value = ((Collection) value).stream().map(String::valueOf).collect(Collectors.joining(","));
+            }
             builder.append(key + "=" + value + "\n");
         }
         Files.write(actual_bookkeeper_configuration, builder.toString().getBytes(StandardCharsets.UTF_8),
-            StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);
+                StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.CREATE);
         LOG.severe(
-            "Dumped actual Bookie configuration to " + actual_bookkeeper_configuration.toAbsolutePath());
+                "Dumped actual Bookie configuration to " + actual_bookkeeper_configuration.toAbsolutePath());
     }
 
     @Override

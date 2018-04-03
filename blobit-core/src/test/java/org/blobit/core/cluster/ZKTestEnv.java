@@ -23,6 +23,7 @@ import java.nio.file.Path;
 import org.apache.bookkeeper.client.BookKeeperAdmin;
 import org.apache.bookkeeper.conf.ClientConfiguration;
 import org.apache.bookkeeper.conf.ServerConfiguration;
+import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory;
 //import org.apache.bookkeeper.meta.LongHierarchicalLedgerManagerFactory;
 import org.apache.bookkeeper.proto.BookieServer;
 import org.apache.bookkeeper.stats.CodahaleMetricsProvider;
@@ -50,6 +51,8 @@ public class ZKTestEnv implements AutoCloseable {
         Path targetDir = path.resolve("bookie_data");
         conf.setZkServers("localhost:1282");
         conf.setLedgerDirNames(new String[]{targetDir.toAbsolutePath().toString()});
+        conf.setLedgerManagerFactoryClass(HierarchicalLedgerManagerFactory.class);
+        conf.setZkLedgersRootPath(BookKeeperBlobManager.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT);
         int numJournals = 1;
         String[] journals = new String[numJournals];
         for (int i = 0; i < journals.length; i++) {
@@ -64,7 +67,7 @@ public class ZKTestEnv implements AutoCloseable {
         conf.setFlushInterval(1000);
         conf.setJournalFlushWhenQueueEmpty(true);
 //        conf.setSkipListSizeLimit(1024*1024*1024);
-        conf.setProperty("journalMaxGroupWaitMSec", 50);
+        conf.setProperty("journalMaxGroupWaitMSec", 10);
         //conf.setProperty("journalBufferedWritesThreshold", 1024);
         conf.setAutoRecoveryDaemonEnabled(false);
         conf.setEnableLocalTransport(true);

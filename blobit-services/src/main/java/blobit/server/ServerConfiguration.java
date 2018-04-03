@@ -61,19 +61,12 @@ public final class ServerConfiguration {
     public static final String PROPERTY_BOOKKEEPER_BOOKIE_PORT = "server.bookkeeper.port";
     public static final int PROPERTY_BOOKKEEPER_BOOKIE_PORT_DEFAULT = 3181;
 
-    public static final String PROPERTY_BOOKKEEPER_ENSEMBLE = "server.bookkeeper.ensemble.size";
-    public static final int PROPERTY_BOOKKEEPER_ENSEMBLE_DEFAULT = 1;
-    public static final String PROPERTY_BOOKKEEPER_WRITEQUORUMSIZE = "server.bookkeeper.write.quorum.size";
-    public static final int PROPERTY_BOOKKEEPER_WRITEQUORUMSIZE_DEFAULT = 1;
-    public static final String PROPERTY_BOOKKEEPER_ACKQUORUMSIZE = "server.bookkeeper.ack.quorum.size";
-    public static final int PROPERTY_BOOKKEEPER_ACKQUORUMSIZE_DEFAULT = 1;
-    public static final String PROPERTY_BOOKKEEPER_LEDGERS_RETENTION_PERIOD = "server.bookkeeper.ledgers.retention.period";
-    public static final long PROPERTY_BOOKKEEPER_LEDGERS_RETENTION_PERIOD_DEFAULT = 1000L * 60 * 60 * 24 * 2;
+    public static final String PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH = "server.bookkeeper.zk.ledgers.root.path";
+    public static final String PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT = "/blobit-bk";
 
-    public static final String PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT = "localhost:1281";
+    public static final String PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT = "localhost:2181";
 
-    public static final int PROPERTY_PORT_DEFAULT = 7000;
-    public static final int PROPERTY_PORT_AUTODISCOVERY = 0;
+    public static final int PROPERTY_PORT_DEFAULT = 2183;
     public static final int PROPERTY_ZOOKEEPER_SESSIONTIMEOUT_DEFAULT = 40000;
 
     public ServerConfiguration(Properties properties) {

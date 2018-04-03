@@ -42,6 +42,7 @@ import org.apache.bookkeeper.client.DefaultEnsemblePlacementPolicy;
 import org.apache.bookkeeper.client.LedgerHandle;
 import org.apache.bookkeeper.client.LedgerMetadata;
 import org.apache.bookkeeper.conf.ClientConfiguration;
+import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory;
 import org.apache.commons.pool2.KeyedPooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
@@ -63,6 +64,7 @@ import static org.blobit.core.cluster.BucketWriter.DUMMY_PWD;
 public class BookKeeperBlobManager implements AutoCloseable {
 
     private static final Logger LOG = Logger.getLogger(BookKeeperBlobManager.class.getName());
+    static final String PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT = "/blobit-bk";
 
     private final HerdDBMetadataStorageManager metadataStorageManager;
     private final BookKeeper bookKeeper;
@@ -256,7 +258,9 @@ public class BookKeeperBlobManager implements AutoCloseable {
             this.callbacksExecutor = Executors.newFixedThreadPool(concurrentWrites);
             ClientConfiguration clientConfiguration = new ClientConfiguration();
             clientConfiguration.setThrottleValue(0);
+            clientConfiguration.setZkLedgersRootPath(PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT);
             clientConfiguration.setEnsemblePlacementPolicy(DefaultEnsemblePlacementPolicy.class);
+            clientConfiguration.setLedgerManagerFactoryClass(HierarchicalLedgerManagerFactory.class);
 //            clientConfiguration.setUseV2WireProtocol(true);
             for (String key : configuration.keys()) {
                 if (key.startsWith("bookkeeper.")) {
