@@ -5,6 +5,13 @@
     <artifactId>blobit</artifactId>
     <version>0.0.3-SNAPSHOT</version>
     <packaging>pom</packaging>
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses> 
     <modules>
         <module>blobit-core</module>
         <module>blobit-services</module>
