@@ -1,9 +1,21 @@
-/blobit-core/target/
-/target/
-/blobit-services/target/
-/herddb-website/target/
-/blobit-website/target/
-/herddb-site-skin/target/
-/blobit-site-skin/target/
-/blobit-benchmarks/nbproject/
-/blobit-benchmarks/target/
+# Maven
+**/target/
+.mvn/timing.properties
+
+# Surefire
+**/.surefire-*
+
+# Eclipse
+**/.classpath
+**/.project
+**/.settings
+
+# NetBeans
+**/nbproject
+
+# Release
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
