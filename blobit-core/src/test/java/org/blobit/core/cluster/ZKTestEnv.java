@@ -21,13 +21,12 @@ package org.blobit.core.cluster;
 
 import java.nio.file.Path;
 import org.apache.bookkeeper.client.BookKeeperAdmin;
-import org.apache.bookkeeper.conf.ClientConfiguration;
 import org.apache.bookkeeper.conf.ServerConfiguration;
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory;
 //import org.apache.bookkeeper.meta.LongHierarchicalLedgerManagerFactory;
 import org.apache.bookkeeper.proto.BookieServer;
 import org.apache.bookkeeper.stats.CodahaleMetricsProvider;
-import org.apache.bookkeeper.stats.CodahaleStatsLogger;
+
 import org.apache.bookkeeper.stats.StatsProvider;
 import org.apache.bookkeeper.util.ReflectionUtils;
 
@@ -60,11 +59,12 @@ public class ZKTestEnv implements AutoCloseable {
             journals[i] = jpath.toAbsolutePath().toString();
         }
 
+        conf.setNumAddWorkerThreads(8);
         conf.setMaxPendingReadRequestPerThread(10000); // new in 4.6
         conf.setMaxPendingAddRequestPerThread(20000); // new in 4.6
-        conf.setJournalSyncData(false); // new in 4.6
+        conf.setJournalSyncData(false); // new in 4.6, do not wait for fsync on journal
         conf.setJournalDirsName(journals);
-        conf.setFlushInterval(1000);
+        conf.setFlushInterval(100);
         conf.setJournalFlushWhenQueueEmpty(true);
 //        conf.setSkipListSizeLimit(1024*1024*1024);
         conf.setProperty("journalMaxGroupWaitMSec", 10);
@@ -75,10 +75,9 @@ public class ZKTestEnv implements AutoCloseable {
         conf.setProperty("codahaleStatsJmxEndpoint", "Bookie");
         conf.setStatsProviderClass(CodahaleMetricsProvider.class);
 
-        ClientConfiguration adminConf = new ClientConfiguration(conf);
-        BookKeeperAdmin.format(adminConf, false, true);
+        BookKeeperAdmin.format(conf, false, true);
         Class<? extends StatsProvider> statsProviderClass
-            = conf.getStatsProviderClass();
+                = conf.getStatsProviderClass();
         StatsProvider statsProvider = ReflectionUtils.newInstance(statsProviderClass);
         statsProvider.start(conf);
         this.bookie = new BookieServer(conf, statsProvider.getStatsLogger(""));

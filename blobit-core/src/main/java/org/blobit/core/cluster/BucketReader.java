@@ -77,7 +77,7 @@ public class BucketReader {
     public CompletableFuture<byte[]> readObject(long entryId, long last) {
 
         pendingReads.incrementAndGet();
-        return lh.readUnconfirmed(entryId, last)
+        return lh.readUnconfirmedAsync(entryId, last)
             .handle((Iterable<org.apache.bookkeeper.client.api.LedgerEntry> entries, Throwable u) -> {
                 pendingReads.decrementAndGet();
                 if (u != null) {

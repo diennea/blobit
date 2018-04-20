@@ -18,8 +18,8 @@
     </modules>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>                
-        <libs.bookkeeper>4.6.1</libs.bookkeeper>
-        <libs.herddb>0.2.0</libs.herddb>   
+        <libs.bookkeeper>4.7.0</libs.bookkeeper>
+        <libs.herddb>0.5.0-SNAPSHOT</libs.herddb>   
         <jetty.version>9.4.1.v20170120</jetty.version>
         <libs.jersey>2.26-b01</libs.jersey>             
         <libs.commonspool>2.4.2</libs.commonspool>
@@ -29,12 +29,12 @@
         <plugins>
             <plugin>
                 <artifactId>maven-surefire-plugin</artifactId>
-                <version>2.20</version>              
+                <version>2.21.0</version>              
                 <configuration>
                     <forkCount>1</forkCount>
                     <reuseForks>false</reuseForks>
                     <forkedProcessTimeoutInSeconds>300</forkedProcessTimeoutInSeconds>
-                    <argLine>-Xms2G -Xmx2G -Djava.io.tmpdir=${basedir}/target -XX:+UseG1GC -XX:+PrintGC -Xloggc:target/gc.log</argLine>
+                    <argLine>-Xms2G -Xmx2G -XX:+UseG1GC</argLine>
                 </configuration>
             </plugin>
             <plugin>                       

@@ -152,7 +152,7 @@ public class BucketWriter {
                 // last
                 chunkLen = len - written;
             }
-            lastEntry = lh.write(entryId, Unpooled.wrappedBuffer(data, chunkStartOffSet, chunkLen));
+            lastEntry = lh.writeAsync(entryId, Unpooled.wrappedBuffer(data, chunkStartOffSet, chunkLen));
             chunkStartOffSet += chunkLen;
             written += chunkLen;
             entryId++;
