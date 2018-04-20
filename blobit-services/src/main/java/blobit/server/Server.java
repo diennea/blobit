@@ -34,7 +34,7 @@ public class Server {
     ServerConfiguration configuration;
     Path baseDirectory;
 
-    Server(ServerConfiguration configuration) {
+    public Server(ServerConfiguration configuration) {
         this.configuration = configuration;
 
         this.baseDirectory = Paths.get(configuration.getString(ServerConfiguration.PROPERTY_BASEDIR, ServerConfiguration.PROPERTY_BASEDIR_DEFAULT)).toAbsolutePath();

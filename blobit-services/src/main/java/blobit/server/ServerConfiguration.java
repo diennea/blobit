@@ -34,29 +34,14 @@ public final class ServerConfiguration {
     private final Properties properties;
 
     public static final String PROPERTY_BASEDIR = "server.base.dir";
-    public static final String PROPERTY_BASEDIR_DEFAULT = "dbdata";
-    public static final String PROPERTY_DATADIR = "server.data.dir";
-    public static final String PROPERTY_DATADIR_DEFAULT = "data";
-    public static final String PROPERTY_LOGDIR = "server.log.dir";
-    public static final String PROPERTY_LOGDIR_DEFAULT = "txlog";
-    public static final String PROPERTY_TMPDIR = "server.tmp.dir";
-    public static final String PROPERTY_TMPDIR_DEFAULT = "tmp";
-    public static final String PROPERTY_METADATADIR = "server.metadata.dir";
-    public static final String PROPERTY_METADATADIR_DEFAULT = "metadata";
-    public static final String PROPERTY_ADVERTISED_HOST = "server.advertised.host";
-    public static final String PROPERTY_ADVERTISED_PORT = "server.advertised.port";
-    public static final String PROPERTY_HOST = "server.host";
-    public static final String PROPERTY_HOST_AUTODISCOVERY = "";
-    public static final String PROPERTY_HOST_DEFAULT = "localhost";
-    public static final String PROPERTY_PORT = "server.port";
-    public static final String PROPERTY_SSL = "server.ssl";
+    public static final String PROPERTY_BASEDIR_DEFAULT = "blobit";
 
     public static final String PROPERTY_ZOOKEEPER_ADDRESS = "server.zookeeper.address";
     public static final String PROPERTY_ZOOKEEPER_SESSIONTIMEOUT = "server.zookeeper.session.timeout";
     public static final String PROPERTY_ZOOKEEPER_PATH = "server.zookeeper.path";
 
     public static final String PROPERTY_BOOKKEEPER_START = "server.bookkeeper.start";
-    public static final boolean PROPERTY_BOOKKEEPER_START_DEFAULT = false;
+    public static final boolean PROPERTY_BOOKKEEPER_START_DEFAULT = true;
 
     public static final String PROPERTY_BOOKKEEPER_BOOKIE_PORT = "server.bookkeeper.port";
     public static final int PROPERTY_BOOKKEEPER_BOOKIE_PORT_DEFAULT = 3181;
