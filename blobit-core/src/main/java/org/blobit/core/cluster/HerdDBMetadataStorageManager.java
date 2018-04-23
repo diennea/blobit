@@ -29,6 +29,11 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.sql.DataSource;
 
@@ -41,11 +46,6 @@ import org.blobit.core.api.ObjectMetadata;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import herddb.model.TableSpace;
-import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Stores metadata on HerdDB
@@ -55,10 +55,9 @@ import java.util.logging.Logger;
 @SuppressFBWarnings("SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE")
 public class HerdDBMetadataStorageManager {
 
-    private static final String BUCKET_TABLE = "BUCKETS";
-    private static final String BUCKET_TABLE_INDEX_BUCKET_ID = "BUCKET_BUCKETID";
-    private static final String LEDGER_TABLE = "LEDGERS";
-    private static final String BLOB_TABLE = "OBJECTS";
+    private static final String BUCKET_TABLE = "buckets";
+    private static final String LEDGER_TABLE = "ledgers";
+    private static final String BLOB_TABLE = "objects";
 
     private String CREATE_TABLESPACE(String schema, int replicaCount) {
         return "CREATE TABLESPACE '" + schema + "','wait:60000','expectedreplicacount:" + replicaCount + "'";
@@ -80,9 +79,6 @@ public class HerdDBMetadataStorageManager {
         + "    tablespace_name STRING,"
         + "    configuration STRING"
         + ")";
-
-    private static final String CREATE_INDEX_ON_BUCKETS_TABLE
-        = "CREATE INDEX " + BUCKET_TABLE_INDEX_BUCKET_ID + " ON " + BUCKET_TABLE + "(bucket_id)";
 
     private static final String SELECT_BUCKET
         = "SELECT bucket_id,uuid,status,tablespace_name,configuration FROM " + BUCKET_TABLE + " WHERE bucket_id=?";
@@ -170,7 +166,6 @@ public class HerdDBMetadataStorageManager {
         try {
             ensureTablespace(bucketsTablespace, bucketsTableSpacesReplicaCount);
             ensureTable(bucketsTablespace, BUCKET_TABLE, CREATE_BUCKETS_TABLE);
-            ensureIndex(bucketsTablespace, BUCKET_TABLE, BUCKET_TABLE_INDEX_BUCKET_ID, CREATE_INDEX_ON_BUCKETS_TABLE);
             reloadBuckets();
         } catch (SQLException err) {
             throw new ObjectManagerException(err);
@@ -410,31 +405,6 @@ public class HerdDBMetadataStorageManager {
                 existTable = rs.next();
             }
             if (!existTable) {
-                try (Statement s = connection.createStatement();) {
-                    s.executeUpdate(createSql);
-                }
-            }
-        }
-    }
-
-    private void ensureIndex(String schema, String table, String name, String createSql) throws SQLException {
-        try (Connection connection = datasource.getConnection()) {
-            if (useTablespaces) {
-                connection.setSchema(schema);
-            }
-            DatabaseMetaData metaData = connection.getMetaData();
-            boolean existIndexInTable = false;
-            try (ResultSet rs = metaData.getIndexInfo(null, null, table, false, false)) {
-                while (rs.next()) {
-                    String indexName = rs.getString(6);
-                    if (indexName.equalsIgnoreCase(name)) {
-                        existIndexInTable = true;
-                        break;
-                    }
-                }
-
-            }
-            if (!existIndexInTable) {
                 try (Statement s = connection.createStatement();) {
                     s.executeUpdate(createSql);
                 }
