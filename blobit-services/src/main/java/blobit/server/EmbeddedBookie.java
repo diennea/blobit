@@ -64,7 +64,7 @@ public class EmbeddedBookie implements AutoCloseable {
         conf.setZkLedgersRootPath(configuration.getString(ServerConfiguration.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH,
                 ServerConfiguration.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT));
         conf.setStatisticsEnabled(true);
-        conf.setProperty("codahaleStatsJmxEndpoint", "Bookie");
+        conf.setProperty("codahaleStatsJmxEndpoint", "BlobIt_Bookie");
         conf.setStatsProviderClass(CodahaleMetricsProvider.class);
 
         conf.setNumAddWorkerThreads(8);
@@ -121,7 +121,7 @@ public class EmbeddedBookie implements AutoCloseable {
 
         boolean forcemetaformat = configuration.getBoolean("bookie.forcemetaformat", false);
         LOG.log(Level.CONFIG, "bookie.forcemetaformat={0}", forcemetaformat);
-        
+
         boolean result = BookKeeperAdmin.format(conf, false, forcemetaformat);
         if (result) {
             LOG.info("BookKeeperAdmin.format: created a new workspace on ZK");

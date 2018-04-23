@@ -20,13 +20,13 @@
 package org.blobit.core.cluster;
 
 import java.nio.file.Path;
+
 import org.apache.bookkeeper.client.BookKeeperAdmin;
 import org.apache.bookkeeper.conf.ServerConfiguration;
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory;
 //import org.apache.bookkeeper.meta.LongHierarchicalLedgerManagerFactory;
 import org.apache.bookkeeper.proto.BookieServer;
 import org.apache.bookkeeper.stats.CodahaleMetricsProvider;
-
 import org.apache.bookkeeper.stats.StatsProvider;
 import org.apache.bookkeeper.util.ReflectionUtils;
 
@@ -72,7 +72,7 @@ public class ZKTestEnv implements AutoCloseable {
         conf.setAutoRecoveryDaemonEnabled(false);
         conf.setEnableLocalTransport(true);
         conf.setAllowLoopback(true);
-        conf.setProperty("codahaleStatsJmxEndpoint", "Bookie");
+        conf.setProperty("codahaleStatsJmxEndpoint", "BlobIt_Bookie");
         conf.setStatsProviderClass(CodahaleMetricsProvider.class);
 
         BookKeeperAdmin.format(conf, false, true);
