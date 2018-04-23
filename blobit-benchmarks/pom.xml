@@ -4,7 +4,7 @@
     <parent>
         <groupId>org.blobit</groupId>
         <artifactId>blobit</artifactId>
-        <version>0.0.4</version>
+        <version>0.0.5-SNAPSHOT</version>
     </parent>
     <artifactId>blobit-benchmarks</artifactId>
     <packaging>jar</packaging>
