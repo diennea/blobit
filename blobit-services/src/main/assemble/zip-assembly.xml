@@ -2,17 +2,17 @@
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/plugins/maven-assembly-plugin/assembly/1.1.2 http://maven.apache.org/xsd/assembly-1.1.2.xsd">
     <id>release</id>
-    <formats>        
-        <format>zip</format>        
+    <formats>
+        <format>zip</format>
     </formats>
     <includeBaseDirectory>true</includeBaseDirectory>
-    <fileSets>       
+    <fileSets>
         <fileSet>
             <directory>src/main/resources/conf</directory>
             <outputDirectory>conf</outputDirectory>
             <includes>
                 <include>*</include>
-            </includes>           
+            </includes>
         </fileSet>
         <fileSet>
             <directory>src/main/resources/bin</directory>
@@ -20,26 +20,29 @@
             <fileMode>777</fileMode>
             <includes>
                 <include>*.sh</include>
-                <include>service</include>                
-                <include>bookkeeper</include>                
+                <include>service</include>
+                <include>bookkeeper</include>
             </includes>
-        </fileSet>   
+        </fileSet>
         <fileSet>
             <directory>target/generated-sources/license</directory>
             <outputDirectory>license</outputDirectory>
             <includes>
                 <include>*</include>
-            </includes>           
-        </fileSet>     
-               
+            </includes>
+        </fileSet>
+
     </fileSets>
-    <dependencySets>      
+    <dependencySets>
         <dependencySet>
+            <excludes>
+                <exclude>org.rocksdb:rocksdbjni:*</exclude>
+            </excludes>
             <useProjectArtifact>true</useProjectArtifact>
             <useStrictFiltering>true</useStrictFiltering>
-            <unpack>false</unpack>                                   
+            <unpack>false</unpack>
             <outputDirectory>lib</outputDirectory>
-        </dependencySet>                         
+        </dependencySet>
     </dependencySets>
 
 </assembly>
