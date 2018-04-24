@@ -278,6 +278,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
             configWriters.setMaxTotalPerKey(concurrentWrites);
             configWriters.setMaxIdlePerKey(concurrentWrites);
             configWriters.setTestOnReturn(true);
+            configWriters.setTestOnBorrow(true);
             configWriters.setBlockWhenExhausted(true);
             this.writers = new GenericKeyedObjectPool<>(new WritersFactory(), configWriters);
 
@@ -285,6 +286,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
             configReaders.setMaxTotalPerKey(concurrentReaders);
             configReaders.setMaxIdlePerKey(concurrentReaders);
             configReaders.setTestOnReturn(true);
+            configReaders.setTestOnBorrow(true);
             configReaders.setBlockWhenExhausted(true);
 
             this.readers = new GenericKeyedObjectPool<>(new ReadersFactory(), configReaders);
