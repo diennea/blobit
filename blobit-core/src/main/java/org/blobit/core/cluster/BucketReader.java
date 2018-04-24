@@ -47,25 +47,35 @@ public class BucketReader {
     private static final Logger LOG = Logger.getLogger(BucketReader.class.getName());
 
     private final ReadHandle lh;
+    private final boolean owningHandle;
     private volatile boolean valid;
     private AtomicInteger pendingReads = new AtomicInteger();
     private final BookKeeperBlobManager blobManager;
     private static final byte[] DUMMY_PWD = new byte[0];
 
+    public BucketReader(ReadHandle lh,
+            BookKeeperBlobManager blobManager) throws ObjectManagerException {
+        this.lh = lh;
+        this.blobManager = blobManager;
+        this.valid = true;
+        this.owningHandle = false;
+    }
+
     public BucketReader(long ledgerId, BookKeeper bookKeeper,
-        BookKeeperBlobManager blobManager) throws ObjectManagerException {
+            BookKeeperBlobManager blobManager) throws ObjectManagerException {
 
         LOG.log(Level.FINE, "Opening BucketReader for ledger {0}", ledgerId);
 
         try {
+            this.owningHandle = true;
             this.blobManager = blobManager;
             this.lh = bookKeeper.newOpenLedgerOp()
-                .withPassword(DUMMY_PWD)
-                .withDigestType(DigestType.CRC32)
-                .withLedgerId(ledgerId)
-                .withRecovery(false)
-                .execute()
-                .get();
+                    .withPassword(DUMMY_PWD)
+                    .withDigestType(DigestType.CRC32)
+                    .withLedgerId(ledgerId)
+                    .withRecovery(false)
+                    .execute()
+                    .get();
             valid = true;
         } catch (InterruptedException | ExecutionException ex) {
             throw new ObjectManagerException(ex);
@@ -78,31 +88,31 @@ public class BucketReader {
 
         pendingReads.incrementAndGet();
         return lh.readUnconfirmedAsync(entryId, last)
-            .handle((Iterable<org.apache.bookkeeper.client.api.LedgerEntry> entries, Throwable u) -> {
-                pendingReads.decrementAndGet();
-                if (u != null) {
-                    valid = false;
-                    throw new RuntimeException(u);
-                }
-                int size = 0;
-                List<ByteBuf> buffers = new ArrayList<>((int) (1 + last - entryId));
-                for (LedgerEntry entry : entries) {
-                    ByteBuf buf = entry.getEntryBuffer();
-                    size += buf.readableBytes();
-                    buffers.add(buf);
-                }
+                .handle((Iterable<org.apache.bookkeeper.client.api.LedgerEntry> entries, Throwable u) -> {
+                    pendingReads.decrementAndGet();
+                    if (u != null) {
+                        valid = false;
+                        throw new RuntimeException(u);
+                    }
+                    int size = 0;
+                    List<ByteBuf> buffers = new ArrayList<>((int) (1 + last - entryId));
+                    for (LedgerEntry entry : entries) {
+                        ByteBuf buf = entry.getEntryBuffer();
+                        size += buf.readableBytes();
+                        buffers.add(buf);
+                    }
 
-                final byte[] data = new byte[size];
-                int offset = 0;
-                for (ByteBuf buf : buffers) {
-                    int readable = buf.readableBytes();
-                    buf.readBytes(data, offset, readable);
-                    offset += readable;
-                    buf.release();
-                }
+                    final byte[] data = new byte[size];
+                    int offset = 0;
+                    for (ByteBuf buf : buffers) {
+                        int readable = buf.readableBytes();
+                        buf.readBytes(data, offset, readable);
+                        offset += readable;
+                        buf.release();
+                    }
 
-                return data;
-            });
+                    return data;
+                });
     }
 
     public boolean isValid() {
@@ -118,17 +128,19 @@ public class BucketReader {
         if (pendingReads.get() > 0) {
             blobManager.scheduleReaderDisposal(this);
         } else {
-            try {
-                lh.close();
-            } catch (BKException | InterruptedException err) {
-                LOG.log(Level.SEVERE, "error while closing ledger " + lh.getId(), err);
+            if (owningHandle) {
+                try {
+                    lh.close();
+                } catch (BKException | InterruptedException err) {
+                    LOG.log(Level.SEVERE, "error while closing ledger " + lh.getId(), err);
+                }
             }
         }
     }
 
     @Override
     public String toString() {
-        return "BucketReader{" + "ledgerId=" + lh.getId() + '}';
+        return "BucketReader{" + "own=" + owningHandle + ", lId=" + lh.getId() + '}';
     }
 
 }

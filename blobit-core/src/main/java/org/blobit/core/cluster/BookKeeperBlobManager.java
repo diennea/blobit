@@ -84,7 +84,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
             BucketWriter writer = writers.borrowObject(bucketId);
             try {
                 return writer
-                    .writeBlob(bucketId, data, offset, len);
+                        .writeBlob(bucketId, data, offset, len);
             } finally {
                 writers.returnObject(bucketId, writer);
             }
@@ -105,7 +105,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
             BucketReader reader = readers.borrowObject(entry.ledgerId);
             try {
                 CompletableFuture<byte[]> result = reader
-                    .readObject(entry.firstEntryId, entry.lastEntryId);
+                        .readObject(entry.firstEntryId, entry.lastEntryId);
                 return result;
             } finally {
                 readers.returnObject(entry.ledgerId, reader);
@@ -120,7 +120,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
         @Override
         public PooledObject<BucketWriter> makeObject(String bucketId) throws Exception {
             BucketWriter writer = new BucketWriter(bucketId,
-                bookKeeper, replicationFactor, maxBytesPerLedger, metadataStorageManager, BookKeeperBlobManager.this);
+                    bookKeeper, replicationFactor, maxBytesPerLedger, metadataStorageManager, BookKeeperBlobManager.this);
             activeWriters.put(writer.getId(), writer);
             DefaultPooledObject<BucketWriter> be = new DefaultPooledObject<>(writer);
             return be;
@@ -191,7 +191,12 @@ public class BookKeeperBlobManager implements AutoCloseable {
 
                         BucketReader reader;
                         try {
-                            reader = new BucketReader(ledgerId, bookKeeper, BookKeeperBlobManager.this);
+                            BucketWriter writer = activeWriters.get(ledgerId);
+                            if (writer != null && writer.isValid()) {
+                                reader = new BucketReader(writer.getLh(), BookKeeperBlobManager.this);
+                            } else {
+                                reader = new BucketReader(ledgerId, bookKeeper, BookKeeperBlobManager.this);
+                            }
                         } catch (ObjectManagerException e) {
                             throw new LambdaWrapperException(e);
                         } finally {
@@ -285,8 +290,8 @@ public class BookKeeperBlobManager implements AutoCloseable {
             this.readers = new GenericKeyedObjectPool<>(new ReadersFactory(), configReaders);
 
             this.bookKeeper = BookKeeper
-                .forConfig(clientConfiguration)
-                .build();
+                    .forConfig(clientConfiguration)
+                    .build();
         } catch (IOException | InterruptedException | BKException ex) {
             throw new ObjectManagerException(ex);
         }
@@ -311,8 +316,8 @@ public class BookKeeperBlobManager implements AutoCloseable {
                     bucketid = new String(_bucketId, StandardCharsets.UTF_8);
                 }
                 boolean found = buckets
-                    .stream()
-                    .anyMatch(b -> b.getBucketId().equals(bucketid) && b.getUuid().equals(bucketUUID));
+                        .stream()
+                        .anyMatch(b -> b.getBucketId().equals(bucketid) && b.getUuid().equals(bucketUUID));
                 if (found) {
                     LOG.log(Level.INFO, "found droppable ledger {0}, for {1}, {2}", new Object[]{ledgerId, bucketid, bucketUUID});
                     bookKeeper.deleteLedger(ledgerId);

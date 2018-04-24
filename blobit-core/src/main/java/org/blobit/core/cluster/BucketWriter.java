@@ -72,11 +72,11 @@ public class BucketWriter {
     private AtomicLong nextEntryId = new AtomicLong();
 
     public BucketWriter(String bucketId,
-        BookKeeper bookKeeper,
-        int replicationFactor,
-        long maxBytesPerLedger,
-        HerdDBMetadataStorageManager metadataStorageManager,
-        BookKeeperBlobManager blobManager) throws ObjectManagerException {
+            BookKeeper bookKeeper,
+            int replicationFactor,
+            long maxBytesPerLedger,
+            HerdDBMetadataStorageManager metadataStorageManager,
+            BookKeeperBlobManager blobManager) throws ObjectManagerException {
 
         LOG.log(Level.FINE, "Opening BucketWriter for bucket {0}", bucketId);
 
@@ -95,16 +95,16 @@ public class BucketWriter {
             ledgerMetadata.put(BK_METADATA_BUCKET_ID, bucketId.getBytes(StandardCharsets.UTF_8));
             ledgerMetadata.put(BK_METADATA_BUCKET_UUID, bucketUUID.getBytes(StandardCharsets.UTF_8));
             this.lh = bookKeeper.
-                newCreateLedgerOp()
-                .withAckQuorumSize(replicationFactor)
-                .withWriteQuorumSize(replicationFactor)
-                .withEnsembleSize(replicationFactor)
-                .withDigestType(DigestType.CRC32)
-                .withPassword(DUMMY_PWD)
-                .withCustomMetadata(ledgerMetadata)
-                .makeAdv()
-                .execute()
-                .get();
+                    newCreateLedgerOp()
+                    .withAckQuorumSize(replicationFactor)
+                    .withWriteQuorumSize(replicationFactor)
+                    .withEnsembleSize(replicationFactor)
+                    .withDigestType(DigestType.CRC32)
+                    .withPassword(DUMMY_PWD)
+                    .withCustomMetadata(ledgerMetadata)
+                    .makeAdv()
+                    .execute()
+                    .get();
             valid = true;
             this.id = lh.getId();
             metadataStorageManager.registerLedger(bucketId, this.id);
@@ -116,6 +116,10 @@ public class BucketWriter {
 
         LOG.log(Level.INFO, "Opened BucketWriter for bucket {0}: ledger {1}, replication factor {2}", new Object[]{bucketId, id, replicationFactor});
 
+    }
+
+    WriteAdvHandle getLh() {
+        return lh;
     }
 
     public Long getId() {
@@ -166,26 +170,26 @@ public class BucketWriter {
 
         // we are attaching to lastEntry, because BookKeeper will ackknowledge writes in order
         CompletableFuture<Long> afterMetadata = lastEntry.handleAsync(
-            (Long _entryId, Throwable u) -> {
-                pendingWrites.decrementAndGet();
-                if (u != null) {
-                    throw new RuntimeException(u);
-                }
-                try {
-                    metadataStorageManager.registerObject(bucketId, id, firstEntryId, lastEntryId, data.length);
-                    return null;
-                } catch (Throwable err) {
-                    LOG.log(Level.SEVERE, "bad error while completing blob " + BKEntryId.formatId(lh.getId(), firstEntryId, lastEntryId), err);
-                    throw new RuntimeException(err);
-                }
-            }, callbacksExecutor);
+                (Long _entryId, Throwable u) -> {
+                    pendingWrites.decrementAndGet();
+                    if (u != null) {
+                        throw new RuntimeException(u);
+                    }
+                    try {
+                        metadataStorageManager.registerObject(bucketId, id, firstEntryId, lastEntryId, data.length);
+                        return null;
+                    } catch (Throwable err) {
+                        LOG.log(Level.SEVERE, "bad error while completing blob " + BKEntryId.formatId(lh.getId(), firstEntryId, lastEntryId), err);
+                        throw new RuntimeException(err);
+                    }
+                }, callbacksExecutor);
         return new PutPromise(BKEntryId
-            .formatId(lh.getId(), firstEntryId, lastEntryId), afterMetadata);
+                .formatId(lh.getId(), firstEntryId, lastEntryId), afterMetadata);
     }
 
     public boolean isValid() {
         return valid
-            && maxBytesPerLedger >= writtenBytes.get();
+                && maxBytesPerLedger >= writtenBytes.get();
     }
 
     private volatile boolean closed = false;
