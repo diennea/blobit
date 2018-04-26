@@ -29,6 +29,8 @@ import org.apache.bookkeeper.proto.BookieServer;
 import org.apache.bookkeeper.stats.CodahaleMetricsProvider;
 import org.apache.bookkeeper.stats.StatsProvider;
 import org.apache.bookkeeper.util.ReflectionUtils;
+import org.blobit.core.util.TestUtils;
+import static org.blobit.core.util.TestUtils.NOOP;
 
 public class ZKTestEnv implements AutoCloseable {
 
@@ -43,6 +45,9 @@ public class ZKTestEnv implements AutoCloseable {
     }
 
     public void startBookie() throws Exception {
+        if (bookie != null) {
+            throw new Exception("bookie already started!");
+        }
         ServerConfiguration conf = new ServerConfiguration();
         conf.setBookiePort(5621);
         conf.setUseHostNameAsBookieID(true);
@@ -75,13 +80,19 @@ public class ZKTestEnv implements AutoCloseable {
         conf.setProperty("codahaleStatsJmxEndpoint", "BlobIt_Bookie");
         conf.setStatsProviderClass(CodahaleMetricsProvider.class);
 
-        BookKeeperAdmin.format(conf, false, true);
+        BookKeeperAdmin.format(conf, false, false);
         Class<? extends StatsProvider> statsProviderClass
                 = conf.getStatsProviderClass();
         StatsProvider statsProvider = ReflectionUtils.newInstance(statsProviderClass);
         statsProvider.start(conf);
         this.bookie = new BookieServer(conf, statsProvider.getStatsLogger(""));
         this.bookie.start();
+        TestUtils.waitForCondition(bookie::isRunning, NOOP, 100);
+        System.out.println("[BOOKIE] started at " + bookie);
+    }
+
+    public BookieServer getBookie() {
+        return bookie;
     }
 
     public String getAddress() {
@@ -94,6 +105,12 @@ public class ZKTestEnv implements AutoCloseable {
 
     public String getPath() {
         return "/test";
+    }
+
+    public void stopBookie() throws Exception {
+        bookie.shutdown();
+        bookie.join();
+        bookie = null;
     }
 
     @Override

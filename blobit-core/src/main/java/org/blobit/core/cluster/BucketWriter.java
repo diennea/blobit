@@ -156,6 +156,7 @@ public class BucketWriter {
                 // last
                 chunkLen = len - written;
             }
+            writtenBytes.addAndGet(chunkLen);
             lastEntry = lh.writeAsync(entryId, Unpooled.wrappedBuffer(data, chunkStartOffSet, chunkLen));
             chunkStartOffSet += chunkLen;
             written += chunkLen;
@@ -222,6 +223,10 @@ public class BucketWriter {
             closeLock.unlock();
         }
 
+    }
+
+    public boolean isClosed() {
+        return closed;
     }
 
     /**

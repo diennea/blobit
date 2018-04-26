@@ -41,6 +41,7 @@ import org.apache.bookkeeper.client.BookKeeperAdmin;
 import org.apache.bookkeeper.client.DefaultEnsemblePlacementPolicy;
 import org.apache.bookkeeper.client.LedgerHandle;
 import org.apache.bookkeeper.client.LedgerMetadata;
+import org.apache.bookkeeper.common.concurrent.FutureUtils;
 import org.apache.bookkeeper.conf.ClientConfiguration;
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory;
 import org.apache.commons.pool2.KeyedPooledObjectFactory;
@@ -68,8 +69,8 @@ public class BookKeeperBlobManager implements AutoCloseable {
 
     private final HerdDBMetadataStorageManager metadataStorageManager;
     private final BookKeeper bookKeeper;
-    private final GenericKeyedObjectPool<String, BucketWriter> writers;
-    private final GenericKeyedObjectPool<Long, BucketReader> readers;
+    final GenericKeyedObjectPool<String, BucketWriter> writers;
+    final GenericKeyedObjectPool<Long, BucketReader> readers;
     private final int replicationFactor;
     private final long maxBytesPerLedger;
     private final ExecutorService callbacksExecutor;
@@ -383,6 +384,9 @@ public class BookKeeperBlobManager implements AutoCloseable {
     }
 
     Future<?> scheduleWriterDisposal(BucketWriter writer) {
+        if (writer.isClosed()) {
+            return FutureUtils.Void();
+        }
         return threadpool.submit(() -> {
             if (writer.releaseResources()) {
                 activeWriters.remove(writer.getId(), writer);
