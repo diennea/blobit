@@ -23,7 +23,10 @@
         <jetty.version>9.4.1.v20170120</jetty.version>
         <libs.jersey>2.26-b01</libs.jersey>             
         <libs.commonspool>2.4.2</libs.commonspool>
+        <libs.guava>21.0</libs.guava>
         <libs.curator>2.12.0</libs.curator>
+        <libs.spotbugsannotations>3.1.2</libs.spotbugsannotations>
+        <libs.spotbugsmaven>3.1.3</libs.spotbugsmaven>        
     </properties>
     <build>
         <plugins>
@@ -38,31 +41,43 @@
                 </configuration>
             </plugin>
             <plugin>                       
-                <groupId>org.codehaus.mojo</groupId>
-                <artifactId>findbugs-maven-plugin</artifactId>                
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>                
             </plugin>
-        </plugins>
-        
+        </plugins>        
         <pluginManagement>
-            <plugins>
-                <plugin>                       
-                    <groupId>org.codehaus.mojo</groupId>
-                    <artifactId>findbugs-maven-plugin</artifactId>
-                    <version>3.0.4</version>                        
+            <plugins>                
+                <plugin>
+                    <groupId>com.github.spotbugs</groupId>
+                    <artifactId>spotbugs-maven-plugin</artifactId>               
+                    <version>${libs.spotbugsmaven}</version>
                     <configuration>
                         <effort>Max</effort>
-                        <threshold>Low</threshold>
+                        <maxHeap>4096</maxHeap>                    
                     </configuration>
+                    <dependencies>
+                        <dependency>                            
+                            <groupId>org.ow2.asm</groupId>
+                            <artifactId>asm</artifactId>
+                            <version>6.1.1</version>
+                        </dependency>
+                    </dependencies>
                 </plugin>
             </plugins>
         </pluginManagement>        
     </build>
     <dependencies>
         <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>annotations</artifactId>
-            <version>3.0.0</version>
+            <groupId>com.github.spotbugs</groupId>
+            <artifactId>spotbugs-annotations</artifactId>
+            <version>${libs.spotbugsannotations}</version>
             <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.code.findbugs</groupId>
+                    <artifactId>jsr305</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>junit</groupId>

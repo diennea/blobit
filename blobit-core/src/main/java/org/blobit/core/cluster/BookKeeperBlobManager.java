@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.LongAdder;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
@@ -76,6 +77,16 @@ public class BookKeeperBlobManager implements AutoCloseable {
     private final ExecutorService callbacksExecutor;
     private final ExecutorService threadpool = Executors.newSingleThreadExecutor();
     private ConcurrentMap<Long, BucketWriter> activeWriters = new ConcurrentHashMap<>();
+    private final Stats stats = new Stats();
+
+    public static final class Stats {
+
+        private final LongAdder usedWritersAsReaders = new LongAdder();
+
+        public long getUsedWritersAsReaders() {
+            return usedWritersAsReaders.longValue();
+        }
+    }
 
     public PutPromise put(String bucketId, byte[] data, int offset, int len) {
         if (data.length < offset + len || offset < 0 || len < 0) {
@@ -146,96 +157,29 @@ public class BookKeeperBlobManager implements AutoCloseable {
         }
     }
 
-    private static final class BucketReaderInstance {
-
-        private int count;
-        private boolean retired;
-        private final BucketReader reader;
-
-        public BucketReaderInstance(BucketReader reader) {
-            super();
-            this.reader = reader;
-            this.count = 0;
-            this.retired = false;
-        }
-
-    }
-
-    @SuppressWarnings("serial")
-    private static final class LambdaWrapperException extends RuntimeException {
-
-        private final Exception wrapped;
-
-        public LambdaWrapperException(Exception wrapped) {
-            super();
-            this.wrapped = wrapped;
-        }
-    }
-
     private final class ReadersFactory implements KeyedPooledObjectFactory<Long, BucketReader> {
-
-        private final Lock lock = new ReentrantLock();
-        private final ConcurrentMap<Long, BucketReaderInstance> instances = new ConcurrentHashMap<>();
 
         @Override
         public PooledObject<BucketReader> makeObject(Long ledgerId) throws Exception {
-
-            BucketReaderInstance instance;
-
-            while (true) {
-
-                try {
-                    instance = instances.computeIfAbsent(ledgerId, k -> {
-
-                        /* Serialize reader creations */
-                        lock.lock();
-
-                        BucketReader reader;
-                        try {
-                            BucketWriter writer = activeWriters.get(ledgerId);
-                            if (writer != null && writer.isValid()) {
-                                reader = new BucketReader(writer.getLh(), BookKeeperBlobManager.this);
-                            } else {
-                                reader = new BucketReader(ledgerId, bookKeeper, BookKeeperBlobManager.this);
-                            }
-                        } catch (ObjectManagerException e) {
-                            throw new LambdaWrapperException(e);
-                        } finally {
-                            lock.unlock();
-                        }
-
-                        return new BucketReaderInstance(reader);
-
-                    });
-
-                } catch (LambdaWrapperException e) {
-                    throw e.wrapped;
-                }
-
-                synchronized (instance) {
-                    if (!instance.retired) {
-                        instance.count++;
-                        break;
-                    }
-                }
+            BucketReader reader;
+            BucketWriter writer = activeWriters.get(ledgerId);
+            if (writer != null && writer.isValid()) {
+                stats.usedWritersAsReaders.increment();
+                // the reader will se the LedgerHandle internal to the BucketWriter
+                // as a 'reader' the LedgerHandle will continue to work even if 'closed'
+                // because in BookKeeper 'closed' means something like 'sealed'
+                reader = new BucketReader(writer.getLh(), BookKeeperBlobManager.this);
+            } else {
+                reader = new BucketReader(ledgerId, bookKeeper, BookKeeperBlobManager.this);
             }
 
-            return new DefaultPooledObject<>(instance.reader);
+            return new DefaultPooledObject<>(reader);
         }
 
         @Override
         public void destroyObject(Long ledgerId, PooledObject<BucketReader> po) throws Exception {
+            po.getObject().close();
 
-            BucketReaderInstance instance = instances.get(ledgerId);
-
-            synchronized (instance) {
-                if (--instance.count == 0) {
-                    instance.retired = true;
-                    instances.remove(ledgerId, instance);
-
-                    instance.reader.close();
-                }
-            }
         }
 
         @Override
@@ -260,7 +204,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
             this.maxBytesPerLedger = configuration.getMaxBytesPerLedger();
             this.metadataStorageManager = metadataStorageManager;
             int concurrentWrites = configuration.getConcurrentWriters();
-            int concurrentReaders = configuration.getConcurrentReaders();
+            int concurrentReaders = configuration.getMaxReaders();
             this.callbacksExecutor = Executors.newFixedThreadPool(concurrentWrites);
             ClientConfiguration clientConfiguration = new ClientConfiguration();
             clientConfiguration.setThrottleValue(0);
@@ -284,8 +228,9 @@ public class BookKeeperBlobManager implements AutoCloseable {
             this.writers = new GenericKeyedObjectPool<>(new WritersFactory(), configWriters);
 
             GenericKeyedObjectPoolConfig configReaders = new GenericKeyedObjectPoolConfig();
-            configReaders.setMaxTotalPerKey(concurrentReaders);
-            configReaders.setMaxIdlePerKey(concurrentReaders);
+            configReaders.setMaxTotalPerKey(1);
+            configReaders.setMaxIdlePerKey(1);
+            configReaders.setMaxTotal(concurrentReaders);
             configReaders.setTestOnReturn(true);
             configReaders.setTestOnBorrow(true);
             configReaders.setBlockWhenExhausted(true);
@@ -410,6 +355,10 @@ public class BookKeeperBlobManager implements AutoCloseable {
         for (BucketWriter writer : actualWriters) {
             writer.awaitTermination();
         }
+    }
+
+    public Stats getStats() {
+        return stats;
     }
 
 }
