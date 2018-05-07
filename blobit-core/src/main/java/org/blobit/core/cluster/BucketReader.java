@@ -71,7 +71,7 @@ public class BucketReader {
             this.blobManager = blobManager;
             this.lh = bookKeeper.newOpenLedgerOp()
                     .withPassword(DUMMY_PWD)
-                    .withDigestType(DigestType.CRC32)
+                    .withDigestType(DigestType.CRC32C)
                     .withLedgerId(ledgerId)
                     .withRecovery(false)
                     .execute()

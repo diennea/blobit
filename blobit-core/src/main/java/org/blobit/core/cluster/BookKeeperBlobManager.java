@@ -253,7 +253,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
             for (long ledgerId : admin.listLedgers()) {
                 String bucketUUID;
                 String bucketid;
-                try (LedgerHandle lh = bookKeeper.openLedgerNoRecovery(ledgerId, BookKeeper.DigestType.CRC32, DUMMY_PWD);) {
+                try (LedgerHandle lh = bookKeeper.openLedgerNoRecovery(ledgerId, BookKeeper.DigestType.CRC32C, DUMMY_PWD);) {
                     LedgerMetadata ledgerMetadata = admin.getLedgerMetadata(lh);
                     Map<String, byte[]> metadata = ledgerMetadata.getCustomMetadata();
                     byte[] _bucketUUid = metadata.get(BK_METADATA_BUCKET_UUID);
