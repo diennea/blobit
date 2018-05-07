@@ -211,6 +211,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
             clientConfiguration.setZkLedgersRootPath(PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT);
             clientConfiguration.setEnsemblePlacementPolicy(DefaultEnsemblePlacementPolicy.class);
             clientConfiguration.setLedgerManagerFactoryClass(HierarchicalLedgerManagerFactory.class);
+            clientConfiguration.setEnableDigestTypeAutodetection(true);
 //            clientConfiguration.setUseV2WireProtocol(true);
             for (String key : configuration.keys()) {
                 if (key.startsWith("bookkeeper.")) {

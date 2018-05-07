@@ -99,7 +99,7 @@ public class BucketWriter {
                     .withAckQuorumSize(replicationFactor)
                     .withWriteQuorumSize(replicationFactor)
                     .withEnsembleSize(replicationFactor)
-                    .withDigestType(DigestType.CRC32)
+                    .withDigestType(DigestType.CRC32C)
                     .withPassword(DUMMY_PWD)
                     .withCustomMetadata(ledgerMetadata)
                     .makeAdv()
