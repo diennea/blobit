@@ -18,7 +18,7 @@
     </modules>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>                
-        <libs.bookkeeper>4.7.0</libs.bookkeeper>
+        <libs.bookkeeper>4.7.1</libs.bookkeeper>
         <libs.herddb>0.5.0-SNAPSHOT</libs.herddb>   
         <jetty.version>9.4.1.v20170120</jetty.version>
         <libs.jersey>2.26-b01</libs.jersey>             
