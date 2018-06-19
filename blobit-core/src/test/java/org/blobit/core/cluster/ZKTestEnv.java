@@ -20,6 +20,7 @@
 package org.blobit.core.cluster;
 
 import java.nio.file.Path;
+import org.apache.bookkeeper.bookie.storage.ldb.DbLedgerStorage;
 
 import org.apache.bookkeeper.client.BookKeeperAdmin;
 import org.apache.bookkeeper.conf.ServerConfiguration;

@@ -37,6 +37,7 @@ import org.junit.rules.TemporaryFolder;
 
 import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
+import java.util.concurrent.CompletableFuture;
 
 public class SimpleClusterReadWriteTest {
 
@@ -56,13 +57,13 @@ public class SimpleClusterReadWriteTest {
         Properties dsProperties = new Properties();
         dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
         try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
-            HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
+                HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
             env.startBookie();
             Configuration configuration
-                = new Configuration()
-                    .setType(Configuration.TYPE_BOOKKEEPER)
-                    .setConcurrentWriters(10)
-                    .setZookeeperUrl(env.getAddress());
+                    = new Configuration()
+                            .setType(Configuration.TYPE_BOOKKEEPER)
+                            .setConcurrentWriters(10)
+                            .setZookeeperUrl(env.getAddress());
 
             try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
@@ -78,15 +79,29 @@ public class SimpleClusterReadWriteTest {
                     ids.add(f.get());
                 }
 
+                long _stopWrite = System.currentTimeMillis();
+                double speedWrite = (int) (batch.size() * 60_000.0 / (_stopWrite - _start));
+                double bandWrite = speedWrite * TEST_DATA.length;
+
+                long total = (batch.size() * TEST_DATA.length * 1L) / (1024 * 1024);
+                System.out.println("TIME: " + (_stopWrite - _start) + " ms for " + batch.size() + " blobs, total " + total + " MBs, " + speedWrite + " blobs/h, " + speedWrite * 24 + " blobs/day " + (bandWrite / 1e9) + " Gbytes/h");
+
+                _start = _stopWrite;
+
+                List<CompletableFuture<byte[]>> read = new ArrayList<>();
                 for (String id : ids) {
 //                    System.out.println("waiting for id " + id);
-                    Assert.assertArrayEquals(TEST_DATA, manager.get(null, id).get());
+                    read.add(manager.get(null, id));
+
+                }
+                for (CompletableFuture<byte[]> get : read) {
+                    Assert.assertArrayEquals(TEST_DATA, get.get());
                 }
 
                 long _stop = System.currentTimeMillis();
+
                 double speed = (int) (batch.size() * 60_000.0 / (_stop - _start));
                 double band = speed * TEST_DATA.length;
-                long total = (batch.size() * TEST_DATA.length * 1L) / (1024 * 1024);
                 System.out.println("TIME: " + (_stop - _start) + " ms for " + batch.size() + " blobs, total " + total + " MBs, " + speed + " blobs/h, " + speed * 24 + " blobs/day " + (band / 1e9) + " Gbytes/h");
             }
         }
