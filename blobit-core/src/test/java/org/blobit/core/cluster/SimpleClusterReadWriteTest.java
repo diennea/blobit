@@ -39,6 +39,7 @@ import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
 import java.util.concurrent.CompletableFuture;
 import org.blobit.core.api.BucketHandle;
+import org.blobit.core.api.GetPromise;
 
 public class SimpleClusterReadWriteTest {
 
@@ -90,13 +91,13 @@ public class SimpleClusterReadWriteTest {
 
                 _start = _stopWrite;
 
-                List<CompletableFuture<byte[]>> read = new ArrayList<>();
+                List<GetPromise> read = new ArrayList<>();
                 for (String id : ids) {
 //                    System.out.println("waiting for id " + id);
                     read.add(bucket.get(id));
 
                 }
-                for (CompletableFuture<byte[]> get : read) {
+                for (GetPromise get : read) {
                     Assert.assertArrayEquals(TEST_DATA, get.get());
                 }
 

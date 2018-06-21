@@ -105,7 +105,7 @@ public class SwiftAPIAdapter extends HttpServlet {
                     }
                 } catch (InterruptedException err) {
                     resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, err + "");
-                } catch (ExecutionException err) {
+                } catch (ObjectManagerException err) {
                     resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, err.getCause() + "");
                     LOG.log(Level.SEVERE, "Error while getting " + remainingPath, err.getCause());
                 }

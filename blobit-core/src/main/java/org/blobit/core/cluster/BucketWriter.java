@@ -32,7 +32,6 @@ import java.util.logging.Logger;
 import org.apache.bookkeeper.client.api.WriteAdvHandle;
 import org.apache.bookkeeper.client.api.BKException;
 import org.apache.bookkeeper.client.api.BookKeeper;
-import org.apache.bookkeeper.client.BKException.BKLedgerClosedException;
 
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.PutPromise;
@@ -45,11 +44,10 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ExecutionException;
-import java.util.function.BiFunction;
 import org.apache.bookkeeper.client.api.DigestType;
 import org.blobit.core.api.BucketMetadata;
+import org.blobit.core.api.ObjectManagerRuntimeException;
 
 /**
  * Writes all data for a given bucket
@@ -181,7 +179,7 @@ public class BucketWriter {
         CompletableFuture<Long> afterMetadata = lastEntry.handleAsync((Long _entryId, Throwable u) -> {
             pendingWrites.decrementAndGet();
             if (u != null) {
-                throw new RuntimeException(u);
+                throw new ObjectManagerRuntimeException(new ObjectManagerException(u));
             }
             try {
                 metadataStorageManager.registerObject(bucketId, id, firstEntryId, numEntries, maxEntrySize, len);

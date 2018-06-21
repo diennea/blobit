@@ -19,7 +19,6 @@
  */
 package org.blobit.core.cluster;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -32,10 +31,10 @@ import org.apache.bookkeeper.client.api.LedgerEntry;
 import org.blobit.core.api.ObjectManagerException;
 
 import io.netty.buffer.ByteBuf;
-import java.util.ArrayList;
 import java.util.concurrent.ExecutionException;
 import org.apache.bookkeeper.client.api.DigestType;
 import org.apache.bookkeeper.client.api.ReadHandle;
+import org.blobit.core.api.ObjectManagerRuntimeException;
 
 /**
  * Writes all data for a given bucket
@@ -92,7 +91,7 @@ public class BucketReader {
                     pendingReads.decrementAndGet();
                     if (u != null) {
                         valid = false;
-                        throw new RuntimeException(u);
+                        throw new ObjectManagerRuntimeException(new ObjectManagerException(u));
                     }
 
                     final byte[] data = new byte[length];
@@ -108,6 +107,7 @@ public class BucketReader {
 
                     return data;
                 });
+
     }
 
     public boolean isValid() {

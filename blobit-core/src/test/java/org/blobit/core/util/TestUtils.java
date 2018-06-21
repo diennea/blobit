@@ -73,6 +73,7 @@ public class TestUtils {
                 T retVal = (T) actualThrown;
                 return retVal;
             } else {
+                actualThrown.printStackTrace();
                 String mismatchMessage = String.format("unexpected exception type thrown expected %s actual %s",
                         expectedThrowable.getSimpleName(), actualThrown.getClass().getSimpleName());
 

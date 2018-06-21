@@ -51,6 +51,7 @@ import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.blobit.core.api.BucketMetadata;
 import org.blobit.core.api.Configuration;
+import org.blobit.core.api.GetPromise;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.PutPromise;
 import static org.blobit.core.cluster.BucketWriter.BK_METADATA_BUCKET_ID;
@@ -139,32 +140,32 @@ public class BookKeeperBlobManager implements AutoCloseable {
 
     static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
 
-    public CompletableFuture<byte[]> get(String bucketId, String id) {
+    public GetPromise get(String bucketId, String id) {
         if (id == null) {
-            return wrapGenericException(new IllegalArgumentException("null id"));
+            return new GetPromise(id, 0, wrapGenericException(new IllegalArgumentException("null id")));
         }
         if (BKEntryId.EMPTY_ENTRY_ID.equals(id)) {
             CompletableFuture<byte[]> result = new CompletableFuture<>();
             result.complete(EMPTY_BYTE_ARRAY);
-            return result;
+            return new GetPromise(id, 0, result);
         }
         try {
             BKEntryId entry = BKEntryId.parseId(id);
             // as we are returing a byte[] we are limited to an int length
             if (entry.length >= Integer.MAX_VALUE) {
-                return wrapGenericException(new UnsupportedOperationException("Cannot read an " + entry.length + " bytes object into a byte[]"));
+                return new GetPromise(id, 0, wrapGenericException(new UnsupportedOperationException("Cannot read an " + entry.length + " bytes object into a byte[]")));
             }
             final int resultSize = (int) entry.length;
             BucketReader reader = readers.borrowObject(entry.ledgerId);
             try {
                 CompletableFuture<byte[]> result = reader
                         .readObject(entry.firstEntryId, entry.firstEntryId + entry.numEntries - 1, resultSize);
-                return result;
+                return new GetPromise(id, entry.length, result);
             } finally {
                 readers.returnObject(entry.ledgerId, reader);
             }
         } catch (Exception err) {
-            return wrapGenericException(err);
+            return new GetPromise(id, 0, wrapGenericException(err));
         }
     }
 

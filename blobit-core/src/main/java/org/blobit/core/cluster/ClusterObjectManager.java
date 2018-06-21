@@ -39,6 +39,7 @@ import java.io.InputStream;
 import java.util.Comparator;
 import java.util.function.Consumer;
 import org.blobit.core.api.BucketHandle;
+import org.blobit.core.api.GetPromise;
 
 /**
  * ObjectManager that uses Bookkeeper and HerdDB as clusterable backend
@@ -85,7 +86,7 @@ public class ClusterObjectManager implements ObjectManager {
         }
 
         @Override
-        public CompletableFuture<byte[]> get(String objectId) {
+        public GetPromise get(String objectId) {
             return blobManager.get(bucketId, objectId);
         }
 

@@ -196,9 +196,8 @@ public class SimpleClusterWriterTest {
                 for (int i = 0; i < testcases.length; i++) {
                     int expectedSize = testcases[i];
                     String id = results.get(i).id;
-                    if (id != null) { // failed writes do not carry id an id
-                        CompletableFuture<byte[]> getResult = bucket.get(id);
-                        byte[] data = getResult.get();
+                    if (id != null) { // failed writes do not carry id an id                        
+                        byte[] data = bucket.get(id).get();
                         assertEquals(expectedSize, data.length);
                         Arrays.equals(TEST_DATA, 0, expectedSize, data, 0, data.length);
                     } else {

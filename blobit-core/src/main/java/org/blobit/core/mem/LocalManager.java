@@ -39,7 +39,7 @@ import java.io.InputStream;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.blobit.core.api.BucketHandle;
-import org.blobit.core.cluster.ClusterObjectManager;
+import org.blobit.core.api.GetPromise;
 
 /**
  * MetadataManager all in memory for unit tests
@@ -129,16 +129,16 @@ public class LocalManager implements ObjectManager {
 
         @Override
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
-        public CompletableFuture<byte[]> get(String objectId) {
+        public GetPromise get(String objectId) {
             try {
                 MemEntryId id = MemEntryId.parseId(objectId);
                 byte[] res = getMemBucket(bucketId).getLedger(id.ledgerId).get(id.firstEntryId);
                 /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
-                return CompletableFuture.completedFuture(res);
+                return new GetPromise(objectId, res.length, CompletableFuture.completedFuture(res));
             } catch (ObjectManagerException err) {
                 CompletableFuture<byte[]> res = new CompletableFuture<>();
                 res.completeExceptionally(err);
-                return res;
+                return new GetPromise(objectId, 0, res);
             }
         }
 

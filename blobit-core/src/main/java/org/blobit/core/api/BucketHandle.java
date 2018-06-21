@@ -69,7 +69,7 @@ public interface BucketHandle {
      * @param objectId
      * @return the java.util.concurrent.Future<byte[]>
      */
-    public CompletableFuture<byte[]> get(String objectId);
+    public GetPromise get(String objectId);
 
     /**
      * Marks an object for deletion. Space will not be released immediately.
