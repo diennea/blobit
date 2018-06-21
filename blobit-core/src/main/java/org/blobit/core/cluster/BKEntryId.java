@@ -31,6 +31,8 @@ class BKEntryId {
     public final int entrySize;
     public final long length;
     public final int numEntries;
+    
+    public static final String EMPTY_ENTRY_ID = formatId(0, 0, 0, 0, 0);
 
     public BKEntryId(long ledgerId, long firstEntryId, int entrySize, long length, int numEntries) {
         this.ledgerId = ledgerId;

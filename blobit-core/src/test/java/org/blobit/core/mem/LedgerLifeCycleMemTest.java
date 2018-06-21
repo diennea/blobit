@@ -26,7 +26,6 @@ import static org.junit.Assert.fail;
 import java.util.Collection;
 import java.util.Properties;
 import java.util.Random;
-import java.util.concurrent.ExecutionException;
 
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.Configuration;
@@ -38,6 +37,7 @@ import org.junit.Test;
 
 import herddb.server.ServerConfiguration;
 import org.blobit.core.api.BucketHandle;
+import org.blobit.core.api.ObjectManagerException;
 
 public class LedgerLifeCycleMemTest {
 
@@ -64,7 +64,7 @@ public class LedgerLifeCycleMemTest {
             try {
                 bucket.put(TEST_DATA).get();
                 fail();
-            } catch (ExecutionException ok) {
+            } catch (ObjectManagerException ok) {
                 ok.printStackTrace();
             }
 

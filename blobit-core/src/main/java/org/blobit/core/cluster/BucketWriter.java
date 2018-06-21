@@ -39,10 +39,15 @@ import org.blobit.core.api.PutPromise;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.netty.buffer.Unpooled;
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.ExecutionException;
+import java.util.function.BiFunction;
 import org.apache.bookkeeper.client.api.DigestType;
 import org.blobit.core.api.BucketMetadata;
 
@@ -63,17 +68,18 @@ public class BucketWriter {
     private volatile boolean valid;
     private AtomicLong writtenBytes = new AtomicLong();
     private AtomicInteger pendingWrites = new AtomicInteger();
-    private long maxBytesPerLedger;
+    private final long maxBytesPerLedger;
+    private final int maxEntrySize;
     private final HerdDBMetadataStorageManager metadataStorageManager;
     private final BookKeeperBlobManager blobManager;
     static final byte[] DUMMY_PWD = new byte[0];
-    private static final int MAX_ENTRY_SIZE = 10 * 1024;
     private final Long id;
     private AtomicLong nextEntryId = new AtomicLong();
 
     public BucketWriter(String bucketId,
             BookKeeper bookKeeper,
             int replicationFactor,
+            int maxEntrySize,
             long maxBytesPerLedger,
             HerdDBMetadataStorageManager metadataStorageManager,
             BookKeeperBlobManager blobManager) throws ObjectManagerException {
@@ -81,6 +87,7 @@ public class BucketWriter {
         LOG.log(Level.FINE, "Opening BucketWriter for bucket {0}", bucketId);
 
         try {
+            this.maxEntrySize = maxEntrySize;
             this.blobManager = blobManager;
             this.callbacksExecutor = blobManager.getCallbacksExecutor();
             this.maxBytesPerLedger = maxBytesPerLedger;
@@ -129,30 +136,30 @@ public class BucketWriter {
     @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
     PutPromise writeBlob(String bucketId, byte[] data, int offset, int len) {
 
-        pendingWrites.incrementAndGet();
-
-        int numEntries = 1 + ((len - 1) / MAX_ENTRY_SIZE);
-
-        long firstEntryId = nextEntryId.getAndAdd(numEntries);
-        long lastEntryId = firstEntryId + numEntries - 1;
-
         if (len == 0) {
-            /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
             CompletableFuture<Void> result = new CompletableFuture<>();
-            result.complete(null);
-            return new PutPromise(bucketId, result);
+            result.completeExceptionally(new IllegalStateException().fillInStackTrace());
+            return new PutPromise(null, result);
         }
 
+        int numEntries = 1 + ((len - 1) / maxEntrySize);
+
+        long firstEntryId = nextEntryId.getAndAdd(numEntries);
+        String blobId = BKEntryId
+                .formatId(id, firstEntryId, maxEntrySize, len, numEntries);
+
+        pendingWrites.incrementAndGet();
+
         int chunkStartOffSet = 0;
-        int chunkLen = MAX_ENTRY_SIZE;
+        int chunkLen = maxEntrySize;
         int written = 0;
         long entryId = firstEntryId;
         CompletableFuture<Long> lastEntry = null;
         for (int i = 0; i < numEntries; i++) {
-            if (len <= MAX_ENTRY_SIZE) {
+            if (len <= maxEntrySize) {
                 // very small entry
                 chunkLen = len;
-            } else if (written + MAX_ENTRY_SIZE >= len) {
+            } else if (written + maxEntrySize >= len) {
                 // last
                 chunkLen = len - written;
             }
@@ -164,28 +171,127 @@ public class BucketWriter {
         }
 
         if (lastEntry == null) {
+            pendingWrites.decrementAndGet();
             CompletableFuture<Void> result = new CompletableFuture<>();
             result.completeExceptionally(new IllegalStateException().fillInStackTrace());
-            return new PutPromise(bucketId, result);
+            return new PutPromise(null, result);
+        }
+
+        // we are attaching to lastEntry, because BookKeeper will ackknowledge writes in order
+        CompletableFuture<Long> afterMetadata = lastEntry.handleAsync((Long _entryId, Throwable u) -> {
+            pendingWrites.decrementAndGet();
+            if (u != null) {
+                throw new RuntimeException(u);
+            }
+            try {
+                metadataStorageManager.registerObject(bucketId, id, firstEntryId, numEntries, maxEntrySize, len);
+                return null;
+            } catch (Throwable err) {
+                LOG.log(Level.SEVERE, "bad error while completing blob", err);
+                throw new RuntimeException(err);
+            }
+        }, callbacksExecutor);
+        return new PutPromise(blobId, afterMetadata);
+    }
+
+    @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
+    PutPromise writeBlob(String bucketId, long len, InputStream in) {
+
+        if (len == 0) {
+            CompletableFuture<Void> result = new CompletableFuture<>();
+            result.completeExceptionally(new IllegalStateException().fillInStackTrace());
+            return new PutPromise(null, result);
+        }
+
+        long _numEntries = 1 + ((len - 1) / maxEntrySize);
+        if (_numEntries >= Integer.MAX_VALUE) {
+            // very huge !
+            CompletableFuture<Void> result = new CompletableFuture<>();
+            result.completeExceptionally(new IllegalArgumentException().fillInStackTrace());
+            return new PutPromise(null, result);
+        }
+
+        int numEntries = (int) _numEntries;
+
+        long firstEntryId = nextEntryId.getAndAdd(numEntries);
+
+        final String blobId = BKEntryId
+                .formatId(id, firstEntryId, maxEntrySize, len, numEntries);
+        pendingWrites.incrementAndGet();
+        int chunkLen = maxEntrySize;
+        int written = 0;
+        long entryId = firstEntryId;
+        CompletableFuture<Long> lastEntry = null;
+
+        PutPromise failedWrite = null;
+
+        for (int i = 0; i < numEntries; i++) {
+            byte[] chunk;
+            if (failedWrite != null) {
+                chunk = BookKeeperBlobManager.EMPTY_BYTE_ARRAY;
+            } else {
+                if (len <= maxEntrySize) {
+                    // very small entry
+                    chunkLen = (int) len;
+                } else if (written + maxEntrySize >= len) {
+                    // last
+                    chunkLen = (int) (len - written);
+                }
+
+                // unfortunately we have to create a byte[] for each chunk
+                // we will not create a single huge byte[]
+                // because it the object could be larger that 2 GB
+                chunk = new byte[chunkLen];
+                try {
+                    int reallyRead = in.read(chunk);
+                    if (reallyRead != chunkLen) {
+                        throw new EOFException("short read from stream");
+                    }
+                } catch (IOException err) {
+                    pendingWrites.decrementAndGet();
+                    CompletableFuture<Void> result = new CompletableFuture<>();
+                    result.completeExceptionally(err);
+                    failedWrite = new PutPromise(null, result);
+                    // WE MUST NOT EXIT THE LOOP
+                    // Bookkeeper is expecting all the pre-allocated entryIds
+                    // to be used: you cannot leave holes in the sequence
+                }
+            }
+
+            writtenBytes.addAndGet(chunkLen);
+            lastEntry = lh.writeAsync(entryId, Unpooled.wrappedBuffer(chunk));
+            written += chunkLen;
+            entryId++;
+        }
+
+        if (failedWrite != null) {
+            return failedWrite;
+        }
+
+        if (lastEntry == null) {
+            pendingWrites.decrementAndGet();
+            CompletableFuture<Void> result = new CompletableFuture<>();
+            result.completeExceptionally(new IllegalStateException().fillInStackTrace());
+            return new PutPromise(blobId, result);
         }
 
         // we are attaching to lastEntry, because BookKeeper will ackknowledge writes in order
         CompletableFuture<Long> afterMetadata = lastEntry.handleAsync(
                 (Long _entryId, Throwable u) -> {
-                    pendingWrites.decrementAndGet();
+                    int after = pendingWrites.decrementAndGet();
+
                     if (u != null) {
                         throw new RuntimeException(u);
                     }
                     try {
-                        metadataStorageManager.registerObject(bucketId, id, firstEntryId, numEntries, MAX_ENTRY_SIZE, data.length);
+                        metadataStorageManager.registerObject(bucketId, id, firstEntryId, numEntries, maxEntrySize, len);
                         return null;
                     } catch (Throwable err) {
                         LOG.log(Level.SEVERE, "bad error while completing blob", err);
                         throw new RuntimeException(err);
                     }
                 }, callbacksExecutor);
-        return new PutPromise(BKEntryId
-                .formatId(lh.getId(), firstEntryId, MAX_ENTRY_SIZE, len, numEntries), afterMetadata);
+        return new PutPromise(blobId, afterMetadata);
     }
 
     public boolean isValid() {
@@ -246,7 +352,11 @@ public class BucketWriter {
             try {
                 try {
                     if (!closed) {
-                        lh.close();
+                        try {
+                            lh.close();
+                        } catch (BKException notReallyAProblem) {
+                            LOG.log(Level.INFO, "There was an error while closing ledger " + id + ", this should not be a big problem", notReallyAProblem);
+                        }
 
                         LOG.log(Level.INFO, "Disposed {0}", this);
                         return true;
@@ -263,11 +373,9 @@ public class BucketWriter {
                     closeCompleted.signalAll();
                 }
                 return false;
-            } catch (BKLedgerClosedException err) {
-                LOG.log(Level.FINE, "error while closing ledger " + lh.getId(), err);
-                return true;
-            } catch (BKException | InterruptedException err) {
-                LOG.log(Level.SEVERE, "error while closing ledger " + lh.getId(), err);
+            } catch (InterruptedException err) {
+                LOG.log(Level.SEVERE, "error while closing ledger " + id, err);
+                Thread.currentThread().interrupt();
                 return true;
             } finally {
                 closeLock.unlock();

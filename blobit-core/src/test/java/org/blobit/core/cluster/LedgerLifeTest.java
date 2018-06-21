@@ -41,6 +41,7 @@ import org.junit.rules.TemporaryFolder;
 import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
 import org.blobit.core.api.BucketHandle;
+import org.blobit.core.api.ObjectManagerException;
 
 public class LedgerLifeTest {
 
@@ -76,7 +77,7 @@ public class LedgerLifeTest {
                 try {
                     bucket.put(TEST_DATA).get();
                     fail();
-                } catch (ExecutionException ok) {
+                } catch (ObjectManagerException ok) {
                     ok.printStackTrace();
                 }
 
@@ -155,7 +156,7 @@ public class LedgerLifeTest {
                 try {
                     bucket.put(TEST_DATA).get();
                     fail();
-                } catch (ExecutionException ok) {
+                } catch (ObjectManagerException ok) {
                     ok.printStackTrace();
                 }
 

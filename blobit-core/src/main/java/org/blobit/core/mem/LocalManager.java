@@ -33,6 +33,9 @@ import org.blobit.core.api.ObjectMetadata;
 import org.blobit.core.api.PutPromise;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.DataInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.blobit.core.api.BucketHandle;
@@ -88,6 +91,21 @@ public class LocalManager implements ObjectManager {
         @Override
         public PutPromise put(byte[] data) {
             return put(data, 0, data.length);
+        }
+
+        @Override
+        public PutPromise put(long length, InputStream input) {
+            DataInputStream ii = new DataInputStream(input);
+            // we are in-memory, we can store only 'small' objects
+            byte[] content = new byte[(int) length];
+            try {
+                ii.readFully(content);
+            } catch (IOException err) {
+                CompletableFuture<Void> res = new CompletableFuture<>();
+                res.completeExceptionally(err);
+                return new PutPromise(null, res);
+            }
+            return put(content);
         }
 
         @Override

@@ -35,6 +35,7 @@ import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.PutPromise;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.InputStream;
 import java.util.Comparator;
 import java.util.function.Consumer;
 import org.blobit.core.api.BucketHandle;
@@ -69,8 +70,13 @@ public class ClusterObjectManager implements ObjectManager {
         }
 
         @Override
+        public PutPromise put(long length, InputStream input) {
+            return blobManager.put(bucketId, length, input);
+        }
+
+        @Override
         public PutPromise put(byte[] data) {
-            return blobManager.put(bucketId, data, 0, data.length);
+            return put(data, 0, data.length);
         }
 
         @Override
@@ -86,8 +92,15 @@ public class ClusterObjectManager implements ObjectManager {
         @Override
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
         public CompletableFuture<Void> delete(String objectId) {
-
+            if (objectId == null) {
+                return BookKeeperBlobManager.wrapGenericException(new IllegalArgumentException("null id"));
+            }
             CompletableFuture<Void> result = new CompletableFuture<>();
+            if (BKEntryId.EMPTY_ENTRY_ID.equals(objectId)) {
+                // nothing to delete!
+                result.complete(null);
+                return result;
+            }
             try {
                 BKEntryId bk = BKEntryId.parseId(objectId);
                 metadataManager.deleteObject(bucketId, bk.ledgerId, bk.firstEntryId);

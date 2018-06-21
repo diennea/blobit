@@ -20,9 +20,9 @@
 package org.blobit.core.api;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import org.apache.bookkeeper.common.concurrent.FutureUtils;
 
 /**
  * Result of a Put, it reports immediately the ID of the object
@@ -39,14 +39,32 @@ public final class PutPromise {
         this.future = future;
     }
 
-    public String get(long timeout, TimeUnit t) throws InterruptedException, ExecutionException, TimeoutException {
-        future.get(timeout, t);
-        return id;
+    public String get(long timeout, TimeUnit t) throws InterruptedException, ObjectManagerException, TimeoutException {
+        try {
+            FutureUtils.result(future, timeout, t);
+            return id;
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw ie;
+        } catch (TimeoutException | ObjectManagerException ie) {
+            throw ie;
+        } catch (Exception err) {
+            throw new ObjectManagerException(err);
+        }
     }
 
-    public String get() throws InterruptedException, ExecutionException {
-        future.get();
-        return id;
+    public String get() throws InterruptedException, ObjectManagerException {
+        try {
+            FutureUtils.result(future);
+            return id;
+        } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            throw ie;
+        } catch (ObjectManagerException ie) {
+            throw ie;
+        } catch (Exception err) {
+            throw new ObjectManagerException(err);
+        }
     }
 
 }

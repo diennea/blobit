@@ -19,6 +19,7 @@
  */
 package org.blobit.core.api;
 
+import java.io.InputStream;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -37,6 +38,16 @@ public interface BucketHandle {
      * id useful for retrival
      */
     public PutPromise put(byte[] data);
+
+    /**
+     * Writes an object. This function is async, you have to check the result of
+     * the Future in order to get the ID of the stored Object
+     *
+     * @param data
+     * @return the value returned from the future will be an opaque 'printable'
+     * id useful for retrival
+     */
+    public PutPromise put(long length, InputStream input);
 
     /**
      * Writes an object. This function is async, you have to check the result of
