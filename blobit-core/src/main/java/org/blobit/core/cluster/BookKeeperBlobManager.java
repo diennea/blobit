@@ -21,6 +21,7 @@ package org.blobit.core.cluster;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,6 +33,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.LongAdder;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -51,6 +53,7 @@ import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.blobit.core.api.BucketMetadata;
 import org.blobit.core.api.Configuration;
+import org.blobit.core.api.DownloadPromise;
 import org.blobit.core.api.GetPromise;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.PutPromise;
@@ -140,7 +143,49 @@ public class BookKeeperBlobManager implements AutoCloseable {
 
     static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
 
-    public GetPromise get(String bucketId, String id) {
+    DownloadPromise download(String bucketId, String id, Consumer<Long> lengthCallback, OutputStream output, int offset, long length) {
+        if (id == null) {
+            return new DownloadPromise(id, 0, wrapGenericException(new IllegalArgumentException("null id")));
+        }
+        if (BKEntryId.EMPTY_ENTRY_ID.equals(id) || length == 0) {
+            lengthCallback.accept(0L);
+            CompletableFuture<byte[]> result = new CompletableFuture<>();
+            result.complete(EMPTY_BYTE_ARRAY);
+            return new DownloadPromise(id, 0, result);
+        }
+        try {
+            BKEntryId entry = BKEntryId.parseId(id);
+
+            // notify the called about the expected length (for instance an HTTP server will send the Content-Length header)
+            long finalLength;
+            if (length < 0) {
+                finalLength = entry.length;
+            } else {
+                finalLength = Math.min(length, entry.length);
+            }
+            if (finalLength < 0) {
+                finalLength = 0;
+            }
+            if (finalLength > entry.length - offset) {
+                lengthCallback.accept(entry.length - offset);
+            } else {
+                lengthCallback.accept(finalLength);
+            }
+
+            BucketReader reader = readers.borrowObject(entry.ledgerId);
+            try {
+                CompletableFuture<?> result = reader
+                        .streamObject(entry.firstEntryId, entry.firstEntryId + entry.numEntries - 1, finalLength, entry.entrySize, output, offset);
+                return new DownloadPromise(id, entry.length, result);
+            } finally {
+                readers.returnObject(entry.ledgerId, reader);
+            }
+        } catch (Exception err) {
+            return new DownloadPromise(id, 0, wrapGenericException(err));
+        }
+    }
+
+    GetPromise get(String bucketId, String id) {
         if (id == null) {
             return new GetPromise(id, 0, wrapGenericException(new IllegalArgumentException("null id")));
         }

@@ -33,13 +33,16 @@ import org.blobit.core.api.ObjectMetadata;
 import org.blobit.core.api.PutPromise;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.DeletePromise;
+import org.blobit.core.api.DownloadPromise;
 import org.blobit.core.api.GetPromise;
 
 /**
@@ -140,6 +143,40 @@ public class LocalManager implements ObjectManager {
                 CompletableFuture<byte[]> res = new CompletableFuture<>();
                 res.completeExceptionally(err);
                 return new GetPromise(objectId, 0, res);
+            }
+        }
+
+        @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
+        @Override
+        public DownloadPromise download(String objectId, Consumer<Long> lengthCallback, OutputStream output, int offset, long length) {
+            try {
+                GetPromise result = get(objectId);
+                lengthCallback.accept(result.length);
+                byte[] data = result.get();
+                ByteArrayInputStream ii = new ByteArrayInputStream(data);
+                ii.skip(offset);
+                int countWritten = 0;
+                if (length < 0) {
+                    int b = ii.read();
+                    while (b != -1) {
+                        output.write(b);
+                        countWritten++;
+                        b = ii.read();
+                    }
+                } else {
+                    long remaining = length;
+                    int b = ii.read();
+                    while (remaining-- > 0 && b != -1) {
+                        output.write(b);
+                        countWritten++;
+                        b = ii.read();
+                    }
+                }
+                return new DownloadPromise(objectId, countWritten, CompletableFuture.completedFuture(null));
+            } catch (IOException | InterruptedException | ObjectManagerException err) {
+                CompletableFuture<Void> res = new CompletableFuture<>();
+                res.completeExceptionally(err);
+                return new DownloadPromise(objectId, 0, res);
             }
         }
 

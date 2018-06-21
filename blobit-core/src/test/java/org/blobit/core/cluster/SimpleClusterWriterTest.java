@@ -36,12 +36,14 @@ import org.junit.rules.TemporaryFolder;
 import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
 import java.util.Arrays;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Logger;
 import org.apache.bookkeeper.common.concurrent.FutureUtils;
 import org.blobit.core.api.BucketHandle;
+import org.blobit.core.api.DownloadPromise;
 import org.blobit.core.api.ObjectManagerException;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -154,7 +156,7 @@ public class SimpleClusterWriterTest {
     }
 
     @Test
-    public void testStreamingReadsAndWrites() throws Exception {
+    public void testStreamingWrites() throws Exception {
         Properties dsProperties = new Properties();
         dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
         try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
@@ -211,6 +213,78 @@ public class SimpleClusterWriterTest {
                         bucket.delete(result.id);
                     }
                 }
+            }
+        }
+    }
+
+    @Test
+    public void testStreamingReads() throws Exception {
+        Properties dsProperties = new Properties();
+        dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
+        try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
+                HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
+            env.startBookie();
+            Configuration configuration
+                    = new Configuration()
+                            .setType(Configuration.TYPE_BOOKKEEPER)
+                            .setConcurrentWriters(4)
+                            .setMaxEntrySize(TEST_DATA.length / 2 - 1)
+                            .setZookeeperUrl(env.getAddress());
+            try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
+                long _start = System.currentTimeMillis();
+
+                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
+                BucketHandle bucket = manager.getBucket(BUCKET_ID);
+
+                String id = bucket.put(TEST_DATA).get();
+
+                int[] offsets = {0, 10};
+
+                for (int offset : offsets) {
+                    int[] maxLengths = {
+                        0, /* no read ? */
+                        10,
+                        1040,
+                        configuration.getMaxEntrySize() + 10 /* second entry */,
+//                        configuration.getMaxEntrySize() * 2, /* other bad value */
+                        TEST_DATA.length,
+                        TEST_DATA.length + 100 /* bigger than original len*/
+                    };
+                    List<DownloadPromise> results = new ArrayList<>();
+                    List<ByteArrayOutputStream> resultStreams = new ArrayList<>();
+                    List<AtomicLong> contentLengths = new ArrayList<>();
+                    for (int maxLength : maxLengths) {
+                        ByteArrayOutputStream out = new ByteArrayOutputStream();
+                        AtomicLong dataToReceive = new AtomicLong();
+                        DownloadPromise putResult = bucket.download(id, dataToReceive::set, out, offset, maxLength);
+                        results.add(putResult);
+                        resultStreams.add(out);
+                        contentLengths.add(dataToReceive);
+                    }
+                    for (int i = 0; i < maxLengths.length; i++) {
+                        int originalExpectedSize = maxLengths[i];
+                        
+
+                        DownloadPromise downloadPromise = results.get(i);
+                        ByteArrayOutputStream stream = resultStreams.get(i);
+
+                        AtomicLong contentLength = contentLengths.get(i);
+                        // wait for download to complete
+                        downloadPromise.get();
+                        int expectedSize  = originalExpectedSize;
+                        if (expectedSize > TEST_DATA.length - offset) {
+                            expectedSize = TEST_DATA.length - offset;
+                        }
+                        byte[] data = stream.toByteArray();
+                        LOG.info("testcase offset " + offset + ", originalExpectedSize "+ originalExpectedSize+", expected size " + expectedSize + " ->  (object len " + TEST_DATA.length + ") actual "+data.length);
+                                                                                               
+                        assertEquals(expectedSize, data.length);
+                        Arrays.equals(TEST_DATA, offset, offset + expectedSize, data, 0, data.length);
+                        assertEquals(expectedSize, contentLength.intValue());
+
+                    }
+                }
+
             }
         }
     }

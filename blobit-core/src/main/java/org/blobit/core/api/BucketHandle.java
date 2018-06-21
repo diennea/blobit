@@ -20,7 +20,8 @@
 package org.blobit.core.api;
 
 import java.io.InputStream;
-import java.util.concurrent.CompletableFuture;
+import java.io.OutputStream;
+import java.util.function.Consumer;
 
 /**
  * Handles data inside a Bucket
@@ -41,9 +42,12 @@ public interface BucketHandle {
 
     /**
      * Writes an object. This function is async, you have to check the result of
-     * the Future in order to get the ID of the stored Object
+     * the Future in order to get the ID of the stored Object This method does
+     * not close the stream. In case of failure the status of the stream will be
+     * undefined.
      *
-     * @param data
+     * @param length number of bytes to read from the stream
+     * @param input
      * @return the value returned from the future will be an opaque 'printable'
      * id useful for retrival
      */
@@ -67,15 +71,35 @@ public interface BucketHandle {
      * null value is returned as byte[] it means that the object does not exits
      *
      * @param objectId
-     * @return the java.util.concurrent.Future<byte[]>
+     * @return an handle to the operation
      */
     public GetPromise get(String objectId);
 
     /**
-     * Marks an object for deletion. Space will not be released immediately.
+     * Retrieves the contents of an object.This function is async, you have to
+     * check the result of the Future in order to get the effective value.The
+     * returned handle will be completed when all data of the object have been
+     * written to the OutputStream.In case of failure the status of the stream
+     * will be undefined.This method does not close the stream.
      *
      * @param objectId
-     * @return
+     * @param lengthCallback this callback will be called with the actual amount
+     * of data which will be written to the stream
+     * @param output destination of data
+     * @param offset skip N bytes
+     * @param length maximum amount of data to download, if -1 all the contents
+     * of the object will be streamed
+     * @return an handle to the operation
+     */
+    public DownloadPromise download(String objectId, Consumer<Long> lengthCallback, OutputStream output, int offset, long length);
+
+    /**
+     * Marks an object for deletion. Space will not be released immediately and
+     * object would still be available to readers .
+     *
+     * @param objectId
+     * @return an handle to the operation
+     *
      * @see #gc()
      * @see #gc(java.lang.String)
      */

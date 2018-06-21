@@ -36,10 +36,12 @@ import org.blobit.core.api.PutPromise;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.Comparator;
 import java.util.function.Consumer;
 import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.DeletePromise;
+import org.blobit.core.api.DownloadPromise;
 import org.blobit.core.api.GetPromise;
 
 /**
@@ -89,6 +91,11 @@ public class ClusterObjectManager implements ObjectManager {
         @Override
         public GetPromise get(String objectId) {
             return blobManager.get(bucketId, objectId);
+        }
+
+        @Override
+        public DownloadPromise download(String objectId, Consumer<Long> lengthCallback, OutputStream output, int offset, long length) {
+            return blobManager.download(bucketId, objectId, lengthCallback, output, offset, length);
         }
 
         @Override
