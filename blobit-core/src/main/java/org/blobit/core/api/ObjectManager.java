@@ -29,50 +29,8 @@ import java.util.function.Consumer;
  */
 public interface ObjectManager extends AutoCloseable {
 
-    /**
-     * Writes an object. This function is async, you have to check the result of the Future in order to get the ID of
-     * the stored Object
-     *
-     * @param bucketId this is the ID of the bucket. The system will allocate resources keeping buckets data isolated
-     * @param data
-     * @return the value returned from the future will be an opaque 'printable' id useful for retrival
-     */
-    public PutPromise put(String bucketId, byte[] data);
-
-    /**
-     * Writes an object. This function is async, you have to check the result of the Future in order to get the ID of
-     * the stored Object
-     *
-     * @param bucketId bucketId this is the ID of the bucket. The system will allocate resources keeping buckets data
-     * isolated
-     * @param data array of bytes
-     * @param offset offset from which to start writing bytes
-     * @param len number of bytes to write
-     * @return the value returned from the future will be an opaque 'printable' id useful for retrival
-     */
-    public PutPromise put(String bucketId, byte[] data, int offset, int len);
-
-    /**
-     * Retrieves the contents of an object. This function is async, you have to check the result of the Future in order
-     * to get the effective value. If a null value is returned as byte[] it means that the object does not exits
-     *
-     * @param bucketId the value of bucketId
-     * @param objectId
-     * @return the java.util.concurrent.Future<byte[]>
-     */
-    public CompletableFuture<byte[]> get(String bucketId, String objectId);
-
-    /**
-     * Marks an object for deletion. Space will not be released immediately.
-     *
-     * @param bucketId
-     * @param objectId
-     * @return
-     * @see #gc()
-     * @see #gc(java.lang.String)
-     */
-    public CompletableFuture<Void> delete(String bucketId, String objectId);
-
+    public BucketHandle getBucket(String bucketId);
+    
     /**
      * Creates a new bucket to store data
      *

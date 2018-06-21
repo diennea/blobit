@@ -35,6 +35,7 @@ import org.junit.rules.TemporaryFolder;
 
 import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
+import org.blobit.core.api.BucketHandle;
 
 public class SimpleClusterWriterTest {
 
@@ -73,30 +74,30 @@ public class SimpleClusterWriterTest {
         Properties dsProperties = new Properties();
         dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
         try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
-            HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
+                HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
             env.startBookie();
             Configuration configuration
-                = new Configuration()
-                    .setType(Configuration.TYPE_BOOKKEEPER)
-                    .setConcurrentWriters(4)
-                    .setZookeeperUrl(env.getAddress());
+                    = new Configuration()
+                            .setType(Configuration.TYPE_BOOKKEEPER)
+                            .setConcurrentWriters(4)
+                            .setZookeeperUrl(env.getAddress());
             try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
 
                 manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
-
-                manager.put(BUCKET_ID, TEST_DATA).get();
+                BucketHandle bucket = manager.getBucket(BUCKET_ID);
+                bucket.put(TEST_DATA).get();
 
                 List<PutPromise> batch = new ArrayList<>();
                 for (int i = 0; i < 1000; i++) {
-                    batch.add(manager.put(BUCKET_ID, TEST_DATA));
+                    batch.add(bucket.put(TEST_DATA));
                 }
                 List<String> ids = new ArrayList<>();
                 for (PutPromise f : batch) {
                     ids.add(f.get());
                 }
                 for (String id : ids) {
-                    manager.delete(BUCKET_ID, id).get();
+                    bucket.delete(id).get();
                 }
 
                 long _stop = System.currentTimeMillis();

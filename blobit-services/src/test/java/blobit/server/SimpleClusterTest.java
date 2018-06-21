@@ -27,6 +27,7 @@ import java.util.Properties;
 
 import org.apache.curator.test.TestingServer;
 import org.blobit.core.api.BucketConfiguration;
+import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.ObjectManager;
 import org.junit.Rule;
@@ -50,7 +51,7 @@ public class SimpleClusterTest {
             herddb.server.ServerConfiguration herdDbserverConfig = new herddb.server.ServerConfiguration(folder.newFolder("herddb").toPath());
 
             herdDbserverConfig.set(herddb.server.ServerConfiguration.PROPERTY_MODE,
-                herddb.server.ServerConfiguration.PROPERTY_MODE_STANDALONE);
+                    herddb.server.ServerConfiguration.PROPERTY_MODE_STANDALONE);
 
             try (herddb.server.Server server = new herddb.server.Server(herdDbserverConfig)) {
                 server.start();
@@ -74,18 +75,18 @@ public class SimpleClusterTest {
                 });
                 runner.start();
                 while (ServerMain.getRunningInstance() == null
-                    || !ServerMain.getRunningInstance().isStarted()) {
+                        || !ServerMain.getRunningInstance().isStarted()) {
                     Thread.sleep(1000);
                     System.out.println("waiting for boot");
                 }
 
                 ObjectManager client = ServerMain.getRunningInstance().getClient();
                 client.createBucket("mybucket", "mybucket", BucketConfiguration.DEFAULT);
-                String id = client.put("mybucket", "test".getBytes(StandardCharsets.UTF_8)).get();
-                client.get("mybucket", id).get();
+                BucketHandle bucket = client.getBucket("mybucket");
+                String id = bucket.put("test".getBytes(StandardCharsets.UTF_8)).get();
+                bucket.get(id).get();
 
 //                Thread.sleep(Integer.MAX_VALUE);
-
                 ServerMain.getRunningInstance().close();
             } finally {
                 if (ServerMain.getRunningInstance() != null) {

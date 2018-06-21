@@ -35,6 +35,8 @@ import org.blobit.core.api.PutPromise;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.UUID;
 import java.util.function.Consumer;
+import org.blobit.core.api.BucketHandle;
+import org.blobit.core.cluster.ClusterObjectManager;
 
 /**
  * MetadataManager all in memory for unit tests
@@ -56,7 +58,7 @@ public class LocalManager implements ObjectManager {
             res.completeExceptionally(new ObjectManagerException("bucket " + name + " already exists").fillInStackTrace());
         } else {
             res.complete(new BucketMetadata(name, UUID.randomUUID().toString(), BucketMetadata.STATUS_ACTIVE,
-                configuration, bucketTableSpaceName));
+                    configuration, bucketTableSpaceName));
         }
         return res;
     }
@@ -64,18 +66,86 @@ public class LocalManager implements ObjectManager {
     @Override
     public void listBuckets(Consumer<BucketMetadata> consumer) throws ObjectManagerException {
         buckets
-            .values()
-            .stream()
-            .map(MemBucket::getMetadata)
-            .forEach(consumer);
+                .values()
+                .stream()
+                .map(MemBucket::getMetadata)
+                .forEach(consumer);
     }
 
     @Override
     public BucketMetadata getBucketMetadata(String bucketId) throws ObjectManagerException {
-        return getBucket(bucketId).getMetadata();
+        return getMemBucket(bucketId).getMetadata();
     }
 
-    private MemBucket getBucket(String bucketId) throws ObjectManagerException {
+    private class BucketHandleImpl implements BucketHandle {
+
+        private final String bucketId;
+
+        public BucketHandleImpl(String bucketId) {
+            this.bucketId = bucketId;
+        }
+
+        @Override
+        public PutPromise put(byte[] data) {
+            return put(data, 0, data.length);
+        }
+
+        @Override
+        @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
+        public PutPromise put(byte[] data, int offset, int len) {
+            try {
+                if (offset != 0 && len < data.length) {
+                    byte[] copy = new byte[len];
+                    System.arraycopy(data, offset, copy, 0, len);
+                    data = copy;
+                }
+                MemEntryId res = getMemBucket(bucketId).getCurrentLedger().put(data);
+                /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
+                return new PutPromise(res.toId(), CompletableFuture.<Void>completedFuture(null));
+            } catch (ObjectManagerException err) {
+                CompletableFuture<Void> res = new CompletableFuture<>();
+                res.completeExceptionally(err);
+                return new PutPromise(null, res);
+            }
+        }
+
+        @Override
+        @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
+        public CompletableFuture<byte[]> get(String objectId) {
+            try {
+                MemEntryId id = MemEntryId.parseId(objectId);
+                byte[] res = getMemBucket(bucketId).getLedger(id.ledgerId).get(id.firstEntryId);
+                /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
+                return CompletableFuture.completedFuture(res);
+            } catch (ObjectManagerException err) {
+                CompletableFuture<byte[]> res = new CompletableFuture<>();
+                res.completeExceptionally(err);
+                return res;
+            }
+        }
+
+        @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
+        @Override
+        public CompletableFuture<Void> delete(String objectId) {
+            try {
+                MemEntryId id = MemEntryId.parseId(objectId);
+                getMemBucket(bucketId).getLedger(id.ledgerId).delete(id.firstEntryId);
+                /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
+                return CompletableFuture.completedFuture(null);
+            } catch (ObjectManagerException err) {
+                CompletableFuture<Void> res = new CompletableFuture<>();
+                res.completeExceptionally(err);
+                return res;
+            }
+        }
+    }
+
+    @Override
+    public BucketHandle getBucket(String bucketId) {
+        return new BucketHandleImpl(bucketId);
+    }
+
+    private MemBucket getMemBucket(String bucketId) throws ObjectManagerException {
         MemBucket bucket = buckets.get(bucketId);
         if (bucket == null) {
             throw new ObjectManagerException("bucket " + bucketId + " does not exist");
@@ -90,15 +160,15 @@ public class LocalManager implements ObjectManager {
     }
 
     Collection<Long> listDeletableLedgers(String bucketId) throws ObjectManagerException {
-        return getBucket(bucketId).listDeletableLedgers();
+        return getMemBucket(bucketId).listDeletableLedgers();
     }
 
     Collection<LedgerMetadata> listLedgersbyBucketId(String bucketId) throws ObjectManagerException {
-        return getBucket(bucketId).listLedgers();
+        return getMemBucket(bucketId).listLedgers();
     }
 
     Collection<ObjectMetadata> listObjectsByLedger(String bucketId, long ledgerId) throws ObjectManagerException {
-        return getBucket(bucketId).getLedger(ledgerId).listObjects();
+        return getMemBucket(bucketId).getLedger(ledgerId).listObjects();
     }
 
     @Override
@@ -111,60 +181,6 @@ public class LocalManager implements ObjectManager {
     }
 
     @Override
-    public PutPromise put(String bucketId, byte[] data) {
-        return put(bucketId, data, 0, data.length);
-    }
-
-    @Override
-    @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
-    public PutPromise put(String bucketId, byte[] data, int offset, int len) {
-        try {
-            if (offset != 0 && len < data.length) {
-                byte[] copy = new byte[len];
-                System.arraycopy(data, offset, copy, 0, len);
-                data = copy;
-            }
-            MemEntryId res = getBucket(bucketId).getCurrentLedger().put(data);
-            /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
-            return new PutPromise(res.toId(), CompletableFuture.<Void>completedFuture(null));
-        } catch (ObjectManagerException err) {
-            CompletableFuture<Void> res = new CompletableFuture<>();
-            res.completeExceptionally(err);
-            return new PutPromise(null, res);
-        }
-    }
-
-    @Override
-    @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
-    public CompletableFuture<byte[]> get(String bucketId, String objectId) {
-        try {
-            MemEntryId id = MemEntryId.parseId(objectId);
-            byte[] res = getBucket(bucketId).getLedger(id.ledgerId).get(id.firstEntryId);
-            /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
-            return CompletableFuture.completedFuture(res);
-        } catch (ObjectManagerException err) {
-            CompletableFuture<byte[]> res = new CompletableFuture<>();
-            res.completeExceptionally(err);
-            return res;
-        }
-    }
-
-    @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
-    @Override
-    public CompletableFuture<Void> delete(String bucketId, String objectId) {
-        try {
-            MemEntryId id = MemEntryId.parseId(objectId);
-            getBucket(bucketId).getLedger(id.ledgerId).delete(id.firstEntryId);
-            /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
-            return CompletableFuture.completedFuture(null);
-        } catch (ObjectManagerException err) {
-            CompletableFuture<Void> res = new CompletableFuture<>();
-            res.completeExceptionally(err);
-            return res;
-        }
-    }
-
-    @Override
     public void start() {
 
     }
@@ -172,7 +188,7 @@ public class LocalManager implements ObjectManager {
     @Override
     public void gc(String bucketId) {
         try {
-            getBucket(bucketId).gc();
+            getMemBucket(bucketId).gc();
         } catch (ObjectManagerException ex) {
         }
     }

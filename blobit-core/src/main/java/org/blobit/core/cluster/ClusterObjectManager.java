@@ -37,6 +37,7 @@ import org.blobit.core.api.PutPromise;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Comparator;
 import java.util.function.Consumer;
+import org.blobit.core.api.BucketHandle;
 
 /**
  * ObjectManager that uses Bookkeeper and HerdDB as clusterable backend
@@ -59,34 +60,49 @@ public class ClusterObjectManager implements ObjectManager {
         blobManager = new BookKeeperBlobManager(configuration, metadataManager);
     }
 
-    @Override
-    public PutPromise put(String bucketId, byte[] data) {
-        return blobManager.put(bucketId, data, 0, data.length);
-    }
+    private class BucketHandleImpl implements BucketHandle {
 
-    @Override
-    public PutPromise put(String bucketId, byte[] data, int offset, int len) {
-        return blobManager.put(bucketId, data, offset, len);
-    }
+        private final String bucketId;
 
-    @Override
-    public CompletableFuture<byte[]> get(String bucketId, String objectId) {
-        return blobManager.get(bucketId, objectId);
-    }
-
-    @Override
-    @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
-    public CompletableFuture<Void> delete(String bucketId, String objectId) {
-
-        CompletableFuture<Void> result = new CompletableFuture<>();
-        try {
-            BKEntryId bk = BKEntryId.parseId(objectId);
-            metadataManager.deleteObject(bucketId, bk.ledgerId, bk.firstEntryId);
-            result.complete(null);
-        } catch (ObjectManagerException ex) {
-            result.completeExceptionally(ex);
+        public BucketHandleImpl(String bucketId) {
+            this.bucketId = bucketId;
         }
-        return result;
+
+        @Override
+        public PutPromise put(byte[] data) {
+            return blobManager.put(bucketId, data, 0, data.length);
+        }
+
+        @Override
+        public PutPromise put(byte[] data, int offset, int len) {
+            return blobManager.put(bucketId, data, offset, len);
+        }
+
+        @Override
+        public CompletableFuture<byte[]> get(String objectId) {
+            return blobManager.get(bucketId, objectId);
+        }
+
+        @Override
+        @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
+        public CompletableFuture<Void> delete(String objectId) {
+
+            CompletableFuture<Void> result = new CompletableFuture<>();
+            try {
+                BKEntryId bk = BKEntryId.parseId(objectId);
+                metadataManager.deleteObject(bucketId, bk.ledgerId, bk.firstEntryId);
+                result.complete(null);
+            } catch (ObjectManagerException ex) {
+                result.completeExceptionally(ex);
+            }
+            return result;
+        }
+
+    }
+
+    @Override
+    public BucketHandle getBucket(String bucketId) {
+        return new BucketHandleImpl(bucketId);
     }
 
     @Override
