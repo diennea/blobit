@@ -39,6 +39,7 @@ import java.io.InputStream;
 import java.util.Comparator;
 import java.util.function.Consumer;
 import org.blobit.core.api.BucketHandle;
+import org.blobit.core.api.DeletePromise;
 import org.blobit.core.api.GetPromise;
 
 /**
@@ -92,24 +93,25 @@ public class ClusterObjectManager implements ObjectManager {
 
         @Override
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
-        public CompletableFuture<Void> delete(String objectId) {
+        public DeletePromise delete(String objectId) {
             if (objectId == null) {
-                return BookKeeperBlobManager.wrapGenericException(new IllegalArgumentException("null id"));
+                return new DeletePromise(null, BookKeeperBlobManager.wrapGenericException(new IllegalArgumentException("null id")));
             }
             CompletableFuture<Void> result = new CompletableFuture<>();
             if (BKEntryId.EMPTY_ENTRY_ID.equals(objectId)) {
                 // nothing to delete!
                 result.complete(null);
-                return result;
+
+            } else {
+                try {
+                    BKEntryId bk = BKEntryId.parseId(objectId);
+                    metadataManager.deleteObject(bucketId, bk.ledgerId, bk.firstEntryId);
+                    result.complete(null);
+                } catch (ObjectManagerException ex) {
+                    result.completeExceptionally(ex);
+                }
             }
-            try {
-                BKEntryId bk = BKEntryId.parseId(objectId);
-                metadataManager.deleteObject(bucketId, bk.ledgerId, bk.firstEntryId);
-                result.complete(null);
-            } catch (ObjectManagerException ex) {
-                result.completeExceptionally(ex);
-            }
-            return result;
+            return new DeletePromise(objectId, result);
         }
 
     }

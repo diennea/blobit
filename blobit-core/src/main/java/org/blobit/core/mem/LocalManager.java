@@ -39,6 +39,7 @@ import java.io.InputStream;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.blobit.core.api.BucketHandle;
+import org.blobit.core.api.DeletePromise;
 import org.blobit.core.api.GetPromise;
 
 /**
@@ -144,16 +145,16 @@ public class LocalManager implements ObjectManager {
 
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
         @Override
-        public CompletableFuture<Void> delete(String objectId) {
+        public DeletePromise delete(String objectId) {
             try {
                 MemEntryId id = MemEntryId.parseId(objectId);
                 getMemBucket(bucketId).getLedger(id.ledgerId).delete(id.firstEntryId);
                 /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
-                return CompletableFuture.completedFuture(null);
+                return new DeletePromise(objectId, CompletableFuture.completedFuture(null));
             } catch (ObjectManagerException err) {
                 CompletableFuture<Void> res = new CompletableFuture<>();
                 res.completeExceptionally(err);
-                return res;
+                return new DeletePromise(objectId, res);
             }
         }
     }

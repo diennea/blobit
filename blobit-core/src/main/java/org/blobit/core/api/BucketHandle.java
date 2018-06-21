@@ -79,6 +79,6 @@ public interface BucketHandle {
      * @see #gc()
      * @see #gc(java.lang.String)
      */
-    public CompletableFuture<Void> delete(String objectId);
+    public DeletePromise delete(String objectId);
 
 }
