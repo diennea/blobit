@@ -175,7 +175,8 @@ public class BookKeeperBlobManager implements AutoCloseable {
             BucketReader reader = readers.borrowObject(entry.ledgerId);
             try {
                 CompletableFuture<?> result = reader
-                        .streamObject(entry.firstEntryId, entry.firstEntryId + entry.numEntries - 1, finalLength, entry.entrySize, output, offset);
+                        .streamObject(entry.firstEntryId, entry.firstEntryId + entry.numEntries - 1,
+                                finalLength, entry.entrySize, entry.length, output, offset);
                 return new DownloadPromise(id, entry.length, result);
             } finally {
                 readers.returnObject(entry.ledgerId, reader);

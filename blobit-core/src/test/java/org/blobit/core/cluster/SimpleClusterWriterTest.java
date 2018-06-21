@@ -201,7 +201,7 @@ public class SimpleClusterWriterTest {
                     if (id != null) { // failed writes do not carry id an id                        
                         byte[] data = bucket.get(id).get();
                         assertEquals(expectedSize, data.length);
-                        Arrays.equals(TEST_DATA, 0, expectedSize, data, 0, data.length);
+//                        Arrays.equals(TEST_DATA, 0, expectedSize, data, 0, data.length);
                     } else {
                         assertTrue(expectedSize > TEST_DATA.length);
                     }
@@ -238,17 +238,18 @@ public class SimpleClusterWriterTest {
 
                 String id = bucket.put(TEST_DATA).get();
 
-                int[] offsets = {0, 10};
+//                int[] offsets = {0, 10};
+                int[] offsets = {10};
 
                 for (int offset : offsets) {
                     int[] maxLengths = {
-                        0, /* no read ? */
-                        10,
-                        1040,
-                        configuration.getMaxEntrySize() + 10 /* second entry */,
-//                        configuration.getMaxEntrySize() * 2, /* bad value (not working yet) */
-                        TEST_DATA.length,
-                        TEST_DATA.length + 100 /* bigger than original len*/
+//                        0, /* no read ? */
+//                        10,
+//                        1040,
+//                        configuration.getMaxEntrySize() + 10 /* second entry */,
+                        configuration.getMaxEntrySize() * 2, /* bad value (not working yet) */
+//                        TEST_DATA.length,
+//                        TEST_DATA.length + 100 /* bigger than original len*/
                     };
                     List<DownloadPromise> results = new ArrayList<>();
                     List<ByteArrayOutputStream> resultStreams = new ArrayList<>();
@@ -279,7 +280,7 @@ public class SimpleClusterWriterTest {
                         LOG.info("testcase offset " + offset + ", "+downloadPromise.id+" originalExpectedSize "+ originalExpectedSize+", expected size " + expectedSize + " ->  (object len " + TEST_DATA.length + ") actual "+data.length);
                                                                                                
                         assertEquals(expectedSize, data.length);
-                        Arrays.equals(TEST_DATA, offset, offset + expectedSize, data, 0, data.length);
+//                        Arrays.equals(TEST_DATA, offset, offset + expectedSize, data, 0, data.length);
                         assertEquals(expectedSize, contentLength.intValue());
 
                     }

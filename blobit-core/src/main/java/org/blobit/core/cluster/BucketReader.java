@@ -113,8 +113,9 @@ public class BucketReader {
 
     }
 
-    public CompletableFuture<?> streamObject(long firstEntryId, long last, long length, int entrySize, OutputStream output, long offset) {
-//        LOG.info("streamObject ledgerId: " + firstEntryId + ", lastEntryId " + last + ", stream len " + length + ", entrySize " + entrySize + ", offset=" + offset);
+    public CompletableFuture<?> streamObject(long firstEntryId, long last,
+            long length, int entrySize, long objectLength, OutputStream output, long offset) {
+        LOG.info("streamObject ledgerId: " + firstEntryId + ", lastEntryId " + last + ", stream len " + length + ", entrySize " + entrySize + ", offset=" + offset);
         pendingReads.incrementAndGet();
 
         // skip first chunks
@@ -125,6 +126,9 @@ public class BucketReader {
 
         long scheduledLength = 0;
         long remainingLength = length;
+        if (remainingLength > objectLength) {
+            remainingLength = objectLength;
+        }
 
         // offset now is valid only for the first entry
         int _remainingOffsetFirstEntry = (int) offset;
@@ -132,15 +136,22 @@ public class BucketReader {
         long currentEntryId = firstEntryId;
 
         AtomicLong totalWrittenToStream = new AtomicLong();
-
+        boolean firstEntry = true;
         while (scheduledLength < length) {
-
+            long sizeUpToEntry = (currentEntryId - firstEntryId) * entrySize;
+            int currentEntrySize = currentEntryId == last ? (int) (objectLength - sizeUpToEntry) : entrySize;
             final long _currentEntryId = currentEntryId;
-            final int _bytesToDownload = remainingLength > entrySize ? entrySize : (int) remainingLength;
-//            LOG.info("scheduledLength:" + scheduledLength + ", _currentEntryId " + _currentEntryId + ", _bytesToDownload:" + _bytesToDownload+" __remainingOffsetFirstEntry "+_remainingOffsetFirstEntry);
+            
+            long readFromThisEntry = firstEntry ? (currentEntrySize - _remainingOffsetFirstEntry) : currentEntrySize;
 
-            remainingLength -= (_bytesToDownload - _remainingOffsetFirstEntry);
+            final int _bytesToDownload = (int) readFromThisEntry;
 
+            LOG.info("scheduledLength:" + scheduledLength + "/"+length+", _currentEntryId " + _currentEntryId + ", currentEntrySize:" + currentEntrySize + ", _bytesToDownload:" + _bytesToDownload + " __remainingOffsetFirstEntry " + _remainingOffsetFirstEntry + "  remainingLength " + remainingLength+", readFromThisEntry:" + readFromThisEntry);
+            firstEntry = false;
+            remainingLength -= readFromThisEntry;
+
+            scheduledLength += readFromThisEntry;
+            LOG.info("newscheduledLength:" + scheduledLength);
             if (currentStage == null) {
                 // first one, a little special
                 currentStage = lh.readUnconfirmedAsync(_currentEntryId, _currentEntryId)
@@ -154,7 +165,7 @@ public class BucketReader {
                                 ByteBuf buf = entry.getEntryBuffer();
                                 int readable = buf.readableBytes();
                                 final int toRead = Math.min(_bytesToDownload, readable - _remainingOffsetFirstEntry);
-//                                LOG.info("received data for first entry, id " + _currentEntryId + ", readable = " + readable + ", _remainingOffsetFirstEntry:" + _remainingOffsetFirstEntry + ", toread " + toRead + ", _bytesToDownload:" + _bytesToDownload);
+                                LOG.info("received data for first entry, id " + _currentEntryId + ", readable = " + readable + ", _remainingOffsetFirstEntry:" + _remainingOffsetFirstEntry + ", toread " + toRead + ", _bytesToDownload:" + _bytesToDownload);
                                 byte[] data = new byte[toRead];
                                 buf.skipBytes(_remainingOffsetFirstEntry);
                                 buf.readBytes(data, 0, toRead);
@@ -167,7 +178,7 @@ public class BucketReader {
                                 } catch (IOException err) {
                                     throw new ObjectManagerRuntimeException(new ObjectManagerException(err));
                                 }
-//                                LOG.info("received data for first entry, id " + _currentEntryId + ", written !, total " + _bytesToDownload);
+                                LOG.info("received data for first entry, id " + _currentEntryId + ", written !, total " + _bytesToDownload);
                             }
                             return null;
                         });
@@ -178,7 +189,7 @@ public class BucketReader {
                         LOG.log(Level.INFO, "prev stage completed with error", error);
                         nextStage.completeExceptionally(error);
                     } else {
-//                        LOG.info("prev stage completed, now sending readUnconfirmedAsync for " + _currentEntryId);
+                        LOG.info("prev stage completed, now sending readUnconfirmedAsync for " + _currentEntryId);
                         lh.readUnconfirmedAsync(_currentEntryId, _currentEntryId)
                                 .handle((Iterable<LedgerEntry> entries, Throwable u) -> {
                                     if (u != null) {
@@ -189,7 +200,7 @@ public class BucketReader {
                                         ByteBuf buf = entry.getEntryBuffer();
                                         int readable = buf.readableBytes();
                                         final int toRead = Math.min(_bytesToDownload, readable);
-//                                        LOG.info("received data for non-first entry, id " + _currentEntryId + ", readable = " + readable + ", _remainingOffsetFirstEntry:" + _remainingOffsetFirstEntry + ", toread " + toRead + ", _bytesToDownload:" + _bytesToDownload);
+                                        LOG.info("received data for non-first entry, id " + _currentEntryId + ", readable = " + readable + ", _remainingOffsetFirstEntry:" + _remainingOffsetFirstEntry + ", toread " + toRead + ", _bytesToDownload:" + _bytesToDownload);
                                         byte[] data = new byte[toRead];
                                         buf.readBytes(data, 0, toRead);
                                         entry.close();
@@ -201,7 +212,7 @@ public class BucketReader {
                                         } catch (IOException err) {
                                             throw new ObjectManagerRuntimeException(new ObjectManagerException(err));
                                         }
-//                                        LOG.info("received data for non-first entry, id " + _currentEntryId + ", written !, total " + _bytesToDownload);
+                                        LOG.info("received data for non-first entry, id " + _currentEntryId + ", written !, total " + _bytesToDownload);
                                     }
                                     nextStage.complete(null);
                                     return null;
@@ -212,11 +223,11 @@ public class BucketReader {
                 currentStage = nextStage;
             }
             currentEntryId++;
-            scheduledLength += entrySize;
+
         }
 
         return currentStage.handle((a, b) -> {
-//            LOG.info("completed read, totalWrittenToStream: " + totalWrittenToStream);
+            LOG.info("completed read, totalWrittenToStream: " + totalWrittenToStream);
             pendingReads.decrementAndGet();
             return null;
         });
