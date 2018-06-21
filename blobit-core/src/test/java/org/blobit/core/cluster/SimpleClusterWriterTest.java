@@ -246,7 +246,7 @@ public class SimpleClusterWriterTest {
                         10,
                         1040,
                         configuration.getMaxEntrySize() + 10 /* second entry */,
-//                        configuration.getMaxEntrySize() * 2, /* other bad value */
+//                        configuration.getMaxEntrySize() * 2, /* bad value (not working yet) */
                         TEST_DATA.length,
                         TEST_DATA.length + 100 /* bigger than original len*/
                     };
@@ -276,7 +276,7 @@ public class SimpleClusterWriterTest {
                             expectedSize = TEST_DATA.length - offset;
                         }
                         byte[] data = stream.toByteArray();
-                        LOG.info("testcase offset " + offset + ", originalExpectedSize "+ originalExpectedSize+", expected size " + expectedSize + " ->  (object len " + TEST_DATA.length + ") actual "+data.length);
+                        LOG.info("testcase offset " + offset + ", "+downloadPromise.id+" originalExpectedSize "+ originalExpectedSize+", expected size " + expectedSize + " ->  (object len " + TEST_DATA.length + ") actual "+data.length);
                                                                                                
                         assertEquals(expectedSize, data.length);
                         Arrays.equals(TEST_DATA, offset, offset + expectedSize, data, 0, data.length);
