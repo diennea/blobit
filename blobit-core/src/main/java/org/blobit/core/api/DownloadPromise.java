@@ -25,24 +25,24 @@ import java.util.concurrent.TimeoutException;
 import org.apache.bookkeeper.common.concurrent.FutureUtils;
 
 /**
- * Result of a Put, it reports immediately the ID of the object
- *
- * @author enrico.olivelli
+ * Handle to a download operatoin
  */
-public final class PutPromise {
+public class DownloadPromise {
 
+    public final long length;
     public final String id;
+
     public final CompletableFuture<?> future;
 
-    public PutPromise(String id, CompletableFuture<?> future) {
+    public DownloadPromise(String id, long length, CompletableFuture<?> future) {
         this.id = id;
+        this.length = length;
         this.future = future;
     }
 
-    public String get(long timeout, TimeUnit t) throws InterruptedException, ObjectManagerException, TimeoutException {
+    public void get(long timeout, TimeUnit t) throws InterruptedException, ObjectManagerException, TimeoutException {
         try {
             FutureUtils.result(future, timeout, t);
-            return id;
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             throw ie;
@@ -55,10 +55,9 @@ public final class PutPromise {
         }
     }
 
-    public String get() throws InterruptedException, ObjectManagerException {
+    public void get() throws InterruptedException, ObjectManagerException {
         try {
             FutureUtils.result(future);
-            return id;
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             throw ie;
@@ -70,5 +69,4 @@ public final class PutPromise {
             throw new ObjectManagerException(err);
         }
     }
-
 }

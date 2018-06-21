@@ -40,6 +40,8 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.apache.bookkeeper.common.concurrent.FutureUtils;
+import org.blobit.core.api.BucketHandle;
 
 /**
  * Emulates the Swift Object API, only for using the CosBench
@@ -57,9 +59,9 @@ public class SwiftAPIAdapter extends HttpServlet {
     private final ObjectManager objectManager;
 
     private final Cache<String, String> mapping = CacheBuilder
-        .newBuilder()
-        .maximumSize(5000)
-        .build();
+            .newBuilder()
+            .maximumSize(5000)
+            .build();
 
     public SwiftAPIAdapter(ObjectManager objectManager) {
         this.objectManager = objectManager;
@@ -91,10 +93,11 @@ public class SwiftAPIAdapter extends HttpServlet {
                 }
 
                 try {
-                    LOG.log(Level.FINEST, "[SWIFT] get object " + objectId + " as " + resultId);
-                    byte[] payload = objectManager
-                        .get(container, resultId)
-                        .get();
+                    LOG.log(Level.FINEST, "[SWIFT] get object {0} as {1}", new Object[]{objectId, resultId});
+                    BucketHandle bucket = objectManager.getBucket(container);
+                    byte[] payload = bucket
+                            .get(resultId)
+                            .get();
                     resp.setStatus(HttpServletResponse.SC_OK, "OK " + objectId + " as " + resultId);
                     resp.setContentLength(payload.length);
                     try (OutputStream os = resp.getOutputStream()) {
@@ -102,7 +105,7 @@ public class SwiftAPIAdapter extends HttpServlet {
                     }
                 } catch (InterruptedException err) {
                     resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, err + "");
-                } catch (ExecutionException err) {
+                } catch (ObjectManagerException err) {
                     resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, err.getCause() + "");
                     LOG.log(Level.SEVERE, "Error while getting " + remainingPath, err.getCause());
                 }
@@ -113,24 +116,35 @@ public class SwiftAPIAdapter extends HttpServlet {
                 try {
                     int slash = remainingPath.indexOf('/');
                     if (slash <= 0) {
-                        objectManager.createBucket(remainingPath, remainingPath, BucketConfiguration.DEFAULT).get();
+                        FutureUtils.result(objectManager.createBucket(remainingPath, remainingPath, BucketConfiguration.DEFAULT));
 //                        System.out.println("[SWIFT] create bucket " + remainingPath);
                         resp.setStatus(HttpServletResponse.SC_CREATED, "OK created bucket " + remainingPath);
                     } else {
                         String container = remainingPath.substring(0, slash);
                         String objectId = remainingPath.substring(slash + 1);
                         String resultId;
-                        try (InputStream in = req.getInputStream()) {
-                            byte[] payload = IOUtils.toByteArray(in);
-                            resultId = objectManager.put(container, payload).get();
+                        BucketHandle bucket = objectManager.getBucket(container);
+                        long expectedContentLen = req.getContentLengthLong();
+                        if (expectedContentLen == -1L) {
+                            // we must read the content
+                            try (InputStream in = req.getInputStream()) {
+                                byte[] payload = IOUtils.toByteArray(in);
+                                resultId = bucket.put(payload).get();
+                            }
+                        } else {
+                            // streaming directly from client to bookkeeper
+                            resultId = bucket.put(expectedContentLen, req.getInputStream()).get();
                         }
-                        LOG.log(Level.FINEST, "put {0} as {1} in {2}", new Object[]{objectId, resultId, container});
+                        LOG.log(Level.FINEST, "put {0} ((3} bytes) as {1} in {2}", new Object[]{objectId, resultId, container, expectedContentLen});
                         mapping.put(remainingPath, resultId);
                         resp.setStatus(HttpServletResponse.SC_CREATED, "OK " + objectId + " as " + resultId);
                     }
                 } catch (InterruptedException err) {
                     resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, err + "");
-                } catch (ExecutionException err) {
+                } catch (ObjectManagerException err) {
+                    resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, err.getCause() + "");
+                    LOG.log(Level.SEVERE, "Error while putting " + remainingPath, err.getCause());
+                } catch (Exception err) {
                     resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, err.getCause() + "");
                     LOG.log(Level.SEVERE, "Error while putting " + remainingPath, err.getCause());
                 }

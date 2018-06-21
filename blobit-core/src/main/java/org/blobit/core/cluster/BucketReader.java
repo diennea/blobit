@@ -19,7 +19,6 @@
  */
 package org.blobit.core.cluster;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
@@ -32,10 +31,13 @@ import org.apache.bookkeeper.client.api.LedgerEntry;
 import org.blobit.core.api.ObjectManagerException;
 
 import io.netty.buffer.ByteBuf;
-import java.util.ArrayList;
+import java.io.IOException;
+import java.io.OutputStream;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.bookkeeper.client.api.DigestType;
 import org.apache.bookkeeper.client.api.ReadHandle;
+import org.blobit.core.api.ObjectManagerRuntimeException;
 
 /**
  * Writes all data for a given bucket
@@ -84,49 +86,157 @@ public class BucketReader {
         LOG.log(Level.INFO, "Opened BucketReader for ledger {0}", ledgerId);
     }
 
-    public CompletableFuture<byte[]> readObject(long entryId, long last) {
+    public CompletableFuture<byte[]> readObject(long entryId, long last, int length) {
 
         pendingReads.incrementAndGet();
         return lh.readUnconfirmedAsync(entryId, last)
-                .handle((Iterable<org.apache.bookkeeper.client.api.LedgerEntry> entries, Throwable u) -> {
+                .handle((Iterable<LedgerEntry> entries, Throwable u) -> {
                     pendingReads.decrementAndGet();
                     if (u != null) {
                         valid = false;
-                        throw new RuntimeException(u);
-                    }
-                    int size = 0;
-                    List<ByteBuf> buffers = new ArrayList<>((int) (1 + last - entryId));
-                    for (LedgerEntry entry : entries) {
-                        ByteBuf buf = entry.getEntryBuffer();
-                        size += buf.readableBytes();
-                        buffers.add(buf);
+                        throw new ObjectManagerRuntimeException(new ObjectManagerException(u));
                     }
 
-                    final byte[] data = new byte[size];
+                    final byte[] data = new byte[length];
                     int offset = 0;
-                    for (ByteBuf buf : buffers) {
+
+                    for (LedgerEntry entry : entries) {
+                        ByteBuf buf = entry.getEntryBuffer();
                         int readable = buf.readableBytes();
                         buf.readBytes(data, offset, readable);
                         offset += readable;
-                        buf.release();
+                        entry.close();
                     }
 
                     return data;
                 });
+
+    }
+
+    public CompletableFuture<?> streamObject(long firstEntryId, long last, long length, int entrySize, OutputStream output, long offset) {
+//        LOG.info("streamObject ledgerId: " + firstEntryId + ", lastEntryId " + last + ", stream len " + length + ", entrySize " + entrySize + ", offset=" + offset);
+        pendingReads.incrementAndGet();
+
+        // skip first chunks
+        while (offset >= entrySize) {
+            firstEntryId++;
+            offset -= entrySize;
+        }
+
+        long scheduledLength = 0;
+        long remainingLength = length;
+
+        // offset now is valid only for the first entry
+        int _remainingOffsetFirstEntry = (int) offset;
+        CompletableFuture<?> currentStage = null;
+        long currentEntryId = firstEntryId;
+
+        AtomicLong totalWrittenToStream = new AtomicLong();
+
+        while (scheduledLength < length) {
+
+            final long _currentEntryId = currentEntryId;
+            final int _bytesToDownload = remainingLength > entrySize ? entrySize : (int) remainingLength;
+//            LOG.info("scheduledLength:" + scheduledLength + ", _currentEntryId " + _currentEntryId + ", _bytesToDownload:" + _bytesToDownload+" __remainingOffsetFirstEntry "+_remainingOffsetFirstEntry);
+
+            remainingLength -= (_bytesToDownload - _remainingOffsetFirstEntry);
+
+            if (currentStage == null) {
+                // first one, a little special
+                currentStage = lh.readUnconfirmedAsync(_currentEntryId, _currentEntryId)
+                        .handle((Iterable<LedgerEntry> entries, Throwable u) -> {
+                            if (u != null) {
+                                valid = false;
+                                throw new ObjectManagerRuntimeException(new ObjectManagerException(u));
+                            }
+
+                            for (LedgerEntry entry : entries) {
+                                ByteBuf buf = entry.getEntryBuffer();
+                                int readable = buf.readableBytes();
+                                final int toRead = Math.min(_bytesToDownload, readable - _remainingOffsetFirstEntry);
+//                                LOG.info("received data for first entry, id " + _currentEntryId + ", readable = " + readable + ", _remainingOffsetFirstEntry:" + _remainingOffsetFirstEntry + ", toread " + toRead + ", _bytesToDownload:" + _bytesToDownload);
+                                byte[] data = new byte[toRead];
+                                buf.skipBytes(_remainingOffsetFirstEntry);
+                                buf.readBytes(data, 0, toRead);
+                                entry.close();
+
+                                // write to client                        
+                                try {
+                                    output.write(data, 0, toRead);
+                                    totalWrittenToStream.addAndGet(toRead);
+                                } catch (IOException err) {
+                                    throw new ObjectManagerRuntimeException(new ObjectManagerException(err));
+                                }
+//                                LOG.info("received data for first entry, id " + _currentEntryId + ", written !, total " + _bytesToDownload);
+                            }
+                            return null;
+                        });
+            } else {
+                CompletableFuture nextStage = new CompletableFuture();
+                currentStage.handle((value, error) -> {
+                    if (error != null) {
+                        LOG.log(Level.INFO, "prev stage completed with error", error);
+                        nextStage.completeExceptionally(error);
+                    } else {
+//                        LOG.info("prev stage completed, now sending readUnconfirmedAsync for " + _currentEntryId);
+                        lh.readUnconfirmedAsync(_currentEntryId, _currentEntryId)
+                                .handle((Iterable<LedgerEntry> entries, Throwable u) -> {
+                                    if (u != null) {
+                                        valid = false;
+                                        throw new ObjectManagerRuntimeException(new ObjectManagerException(u));
+                                    }
+                                    for (LedgerEntry entry : entries) {
+                                        ByteBuf buf = entry.getEntryBuffer();
+                                        int readable = buf.readableBytes();
+                                        final int toRead = Math.min(_bytesToDownload, readable);
+//                                        LOG.info("received data for non-first entry, id " + _currentEntryId + ", readable = " + readable + ", _remainingOffsetFirstEntry:" + _remainingOffsetFirstEntry + ", toread " + toRead + ", _bytesToDownload:" + _bytesToDownload);
+                                        byte[] data = new byte[toRead];
+                                        buf.readBytes(data, 0, toRead);
+                                        entry.close();
+
+                                        // write to client                        
+                                        try {
+                                            output.write(data, 0, toRead);
+                                            totalWrittenToStream.addAndGet(toRead);
+                                        } catch (IOException err) {
+                                            throw new ObjectManagerRuntimeException(new ObjectManagerException(err));
+                                        }
+//                                        LOG.info("received data for non-first entry, id " + _currentEntryId + ", written !, total " + _bytesToDownload);
+                                    }
+                                    nextStage.complete(null);
+                                    return null;
+                                });
+                    }
+                    return null;
+                });
+                currentStage = nextStage;
+            }
+            currentEntryId++;
+            scheduledLength += entrySize;
+        }
+
+        return currentStage.handle((a, b) -> {
+//            LOG.info("completed read, totalWrittenToStream: " + totalWrittenToStream);
+            pendingReads.decrementAndGet();
+            return null;
+        });
     }
 
     public boolean isValid() {
         return valid;
+
     }
 
     public void close() {
         LOG.log(Level.SEVERE, "closing {0}", this);
         blobManager.scheduleReaderDisposal(this);
+
     }
 
     void releaseResources() {
         if (pendingReads.get() > 0) {
             blobManager.scheduleReaderDisposal(this);
+
         } else {
             if (owningHandle) {
                 try {

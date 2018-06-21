@@ -38,6 +38,8 @@ import org.junit.rules.TemporaryFolder;
 import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
 import java.util.concurrent.CompletableFuture;
+import org.blobit.core.api.BucketHandle;
+import org.blobit.core.api.GetPromise;
 
 public class SimpleClusterReadWriteTest {
 
@@ -69,8 +71,9 @@ public class SimpleClusterReadWriteTest {
                 long _start = System.currentTimeMillis();
                 manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
                 List<PutPromise> batch = new ArrayList<>();
+                BucketHandle bucket = manager.getBucket(BUCKET_ID);
                 for (int i = 0; i < 1000; i++) {
-                    batch.add(manager.put(BUCKET_ID, TEST_DATA));
+                    batch.add(bucket.put(TEST_DATA));
 
 //                    Thread.sleep(1);
                 }
@@ -88,13 +91,13 @@ public class SimpleClusterReadWriteTest {
 
                 _start = _stopWrite;
 
-                List<CompletableFuture<byte[]>> read = new ArrayList<>();
+                List<GetPromise> read = new ArrayList<>();
                 for (String id : ids) {
 //                    System.out.println("waiting for id " + id);
-                    read.add(manager.get(null, id));
+                    read.add(bucket.get(id));
 
                 }
-                for (CompletableFuture<byte[]> get : read) {
+                for (GetPromise get : read) {
                     Assert.assertArrayEquals(TEST_DATA, get.get());
                 }
 

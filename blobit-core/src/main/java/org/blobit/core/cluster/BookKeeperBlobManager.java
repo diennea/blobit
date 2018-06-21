@@ -20,6 +20,8 @@
 package org.blobit.core.cluster;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,8 +33,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -52,6 +53,8 @@ import org.apache.commons.pool2.impl.GenericKeyedObjectPool;
 import org.apache.commons.pool2.impl.GenericKeyedObjectPoolConfig;
 import org.blobit.core.api.BucketMetadata;
 import org.blobit.core.api.Configuration;
+import org.blobit.core.api.DownloadPromise;
+import org.blobit.core.api.GetPromise;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.PutPromise;
 import static org.blobit.core.cluster.BucketWriter.BK_METADATA_BUCKET_ID;
@@ -74,6 +77,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
     final GenericKeyedObjectPool<Long, BucketReader> readers;
     private final int replicationFactor;
     private final long maxBytesPerLedger;
+    private final int maxEntrySize;
     private final ExecutorService callbacksExecutor;
     private final ExecutorService threadpool = Executors.newSingleThreadExecutor();
     private ConcurrentMap<Long, BucketWriter> activeWriters = new ConcurrentHashMap<>();
@@ -88,9 +92,35 @@ public class BookKeeperBlobManager implements AutoCloseable {
         }
     }
 
+    public PutPromise put(String bucketId, long len, InputStream in) {
+        if (len == 0) {
+            // very special case, the empty blob
+            CompletableFuture<Void> result = new CompletableFuture<>();
+            result.complete(null);
+            return new PutPromise(BKEntryId.EMPTY_ENTRY_ID, result);
+        }
+        try {
+            BucketWriter writer = writers.borrowObject(bucketId);
+            try {
+                return writer
+                        .writeBlob(bucketId, len, in);
+            } finally {
+                writers.returnObject(bucketId, writer);
+            }
+        } catch (Exception err) {
+            return new PutPromise(null, wrapGenericException(err));
+        }
+    }
+
     public PutPromise put(String bucketId, byte[] data, int offset, int len) {
         if (data.length < offset + len || offset < 0 || len < 0) {
             throw new IndexOutOfBoundsException();
+        }
+        if (len == 0) {
+            // very special case, the empty blob
+            CompletableFuture<Void> result = new CompletableFuture<>();
+            result.complete(null);
+            return new PutPromise(BKEntryId.EMPTY_ENTRY_ID, result);
         }
         try {
             BucketWriter writer = writers.borrowObject(bucketId);
@@ -105,25 +135,82 @@ public class BookKeeperBlobManager implements AutoCloseable {
         }
     }
 
-    private <T> CompletableFuture<T> wrapGenericException(Exception err) {
+    static <T> CompletableFuture<T> wrapGenericException(Exception err) {
         CompletableFuture<T> error = new CompletableFuture<>();
         error.completeExceptionally(new ObjectManagerException(err));
         return error;
     }
 
-    public CompletableFuture<byte[]> get(String bucketId, String id) {
+    static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
+
+    DownloadPromise download(String bucketId, String id, Consumer<Long> lengthCallback, OutputStream output, int offset, long length) {
+        if (id == null) {
+            return new DownloadPromise(id, 0, wrapGenericException(new IllegalArgumentException("null id")));
+        }
+        if (BKEntryId.EMPTY_ENTRY_ID.equals(id) || length == 0) {
+            lengthCallback.accept(0L);
+            CompletableFuture<byte[]> result = new CompletableFuture<>();
+            result.complete(EMPTY_BYTE_ARRAY);
+            return new DownloadPromise(id, 0, result);
+        }
         try {
             BKEntryId entry = BKEntryId.parseId(id);
+
+            // notify the called about the expected length (for instance an HTTP server will send the Content-Length header)
+            long finalLength;
+            if (length < 0) {
+                finalLength = entry.length;
+            } else {
+                finalLength = Math.min(length, entry.length);
+            }
+            if (finalLength < 0) {
+                finalLength = 0;
+            }
+            if (finalLength > entry.length - offset) {
+                lengthCallback.accept(entry.length - offset);
+            } else {
+                lengthCallback.accept(finalLength);
+            }
+
             BucketReader reader = readers.borrowObject(entry.ledgerId);
             try {
-                CompletableFuture<byte[]> result = reader
-                        .readObject(entry.firstEntryId, entry.lastEntryId);
-                return result;
+                CompletableFuture<?> result = reader
+                        .streamObject(entry.firstEntryId, entry.firstEntryId + entry.numEntries - 1, finalLength, entry.entrySize, output, offset);
+                return new DownloadPromise(id, entry.length, result);
             } finally {
                 readers.returnObject(entry.ledgerId, reader);
             }
         } catch (Exception err) {
-            return wrapGenericException(err);
+            return new DownloadPromise(id, 0, wrapGenericException(err));
+        }
+    }
+
+    GetPromise get(String bucketId, String id) {
+        if (id == null) {
+            return new GetPromise(id, 0, wrapGenericException(new IllegalArgumentException("null id")));
+        }
+        if (BKEntryId.EMPTY_ENTRY_ID.equals(id)) {
+            CompletableFuture<byte[]> result = new CompletableFuture<>();
+            result.complete(EMPTY_BYTE_ARRAY);
+            return new GetPromise(id, 0, result);
+        }
+        try {
+            BKEntryId entry = BKEntryId.parseId(id);
+            // as we are returing a byte[] we are limited to an int length
+            if (entry.length >= Integer.MAX_VALUE) {
+                return new GetPromise(id, 0, wrapGenericException(new UnsupportedOperationException("Cannot read an " + entry.length + " bytes object into a byte[]")));
+            }
+            final int resultSize = (int) entry.length;
+            BucketReader reader = readers.borrowObject(entry.ledgerId);
+            try {
+                CompletableFuture<byte[]> result = reader
+                        .readObject(entry.firstEntryId, entry.firstEntryId + entry.numEntries - 1, resultSize);
+                return new GetPromise(id, entry.length, result);
+            } finally {
+                readers.returnObject(entry.ledgerId, reader);
+            }
+        } catch (Exception err) {
+            return new GetPromise(id, 0, wrapGenericException(err));
         }
     }
 
@@ -132,7 +219,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
         @Override
         public PooledObject<BucketWriter> makeObject(String bucketId) throws Exception {
             BucketWriter writer = new BucketWriter(bucketId,
-                    bookKeeper, replicationFactor, maxBytesPerLedger, metadataStorageManager, BookKeeperBlobManager.this);
+                    bookKeeper, replicationFactor, maxEntrySize, maxBytesPerLedger, metadataStorageManager, BookKeeperBlobManager.this);
             activeWriters.put(writer.getId(), writer);
             DefaultPooledObject<BucketWriter> be = new DefaultPooledObject<>(writer);
             return be;
@@ -202,6 +289,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
         try {
             this.replicationFactor = configuration.getReplicationFactor();
             this.maxBytesPerLedger = configuration.getMaxBytesPerLedger();
+            this.maxEntrySize = configuration.getMaxEntrySize();
             this.metadataStorageManager = metadataStorageManager;
             int concurrentWrites = configuration.getConcurrentWriters();
             int concurrentReaders = configuration.getMaxReaders();

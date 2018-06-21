@@ -52,6 +52,9 @@ public class Configuration {
     public static final String MAX_BYTES_PER_LEDGER = "max.bytes.per.ledger";
     public static final int MAX_BYTES_PER_LEDGER_DEFAULT = 1024 * 1024 * 2;
 
+    public static final String MAX_ENTRY_SIZE = "max.entry.size";
+    public static final int MAX_ENTRY_SIZE_DEFAULT = 64 * 1024;
+
     public static final String CUNCURRENT_WRITERS = "concurrent.writers";
     public static final int CUNCURRENT_WRITERS_DEFAULT = 1;
 
@@ -137,6 +140,15 @@ public class Configuration {
 
     public long getMaxBytesPerLedger() {
         return Long.parseLong(properties.getProperty(MAX_BYTES_PER_LEDGER, MAX_BYTES_PER_LEDGER_DEFAULT + ""));
+    }
+
+    public Configuration setMaxEntrySize(int value) {
+        properties.put(MAX_ENTRY_SIZE, value + "");
+        return this;
+    }
+
+    public int getMaxEntrySize() {
+        return Integer.parseInt(properties.getProperty(MAX_ENTRY_SIZE, MAX_ENTRY_SIZE_DEFAULT + ""));
     }
 
     public Configuration setConcurrentWriters(int v) {

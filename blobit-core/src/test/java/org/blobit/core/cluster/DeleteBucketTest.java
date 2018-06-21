@@ -33,6 +33,7 @@ import org.junit.rules.TemporaryFolder;
 import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
 import java.sql.Connection;
+import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.ObjectManager;
 import static org.junit.Assert.assertNull;
 import org.junit.runners.model.Statement;
@@ -65,8 +66,9 @@ public class DeleteBucketTest {
                     .setZookeeperUrl(env.getAddress());
             try (ObjectManager manager = (ClusterObjectManager) ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
-                String id = manager.put(BUCKET_ID, TEST_DATA).get();
-                Assert.assertArrayEquals(manager.get(BUCKET_ID, id).get(), TEST_DATA);
+                BucketHandle bucket = manager.getBucket(BUCKET_ID);
+                String id = bucket.put(TEST_DATA).get();
+                Assert.assertArrayEquals(bucket.get(id).get(), TEST_DATA);
                 manager.deleteBucket(BUCKET_ID).get();
                 assertNull(manager.getBucketMetadata(BUCKET_ID));
 
@@ -97,8 +99,9 @@ public class DeleteBucketTest {
                     .setZookeeperUrl(env.getAddress());
             try (ObjectManager manager = (ClusterObjectManager) ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
-                String id = manager.put(BUCKET_ID, TEST_DATA).get();
-                Assert.assertArrayEquals(manager.get(BUCKET_ID, id).get(), TEST_DATA);
+                BucketHandle bucket = manager.getBucket(BUCKET_ID);
+                String id = bucket.put(TEST_DATA).get();
+                Assert.assertArrayEquals(bucket.get(id).get(), TEST_DATA);
                 manager.deleteBucket(BUCKET_ID).get();
                 assertNull(manager.getBucketMetadata(BUCKET_ID));
                 manager.cleanup();

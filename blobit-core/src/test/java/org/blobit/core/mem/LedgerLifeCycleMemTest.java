@@ -26,7 +26,6 @@ import static org.junit.Assert.fail;
 import java.util.Collection;
 import java.util.Properties;
 import java.util.Random;
-import java.util.concurrent.ExecutionException;
 
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.Configuration;
@@ -37,6 +36,8 @@ import org.junit.Assert;
 import org.junit.Test;
 
 import herddb.server.ServerConfiguration;
+import org.blobit.core.api.BucketHandle;
+import org.blobit.core.api.ObjectManagerException;
 
 public class LedgerLifeCycleMemTest {
 
@@ -54,22 +55,22 @@ public class LedgerLifeCycleMemTest {
         dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
 
         Configuration configuration
-            = new Configuration()
-                .setType(Configuration.TYPE_MEM)
-                .setConcurrentWriters(10);
+                = new Configuration()
+                        .setType(Configuration.TYPE_MEM)
+                        .setConcurrentWriters(10);
         try (LocalManager manager = (LocalManager) ObjectManagerFactory.createObjectManager(configuration, null);) {
             long _start = System.currentTimeMillis();
-
+            BucketHandle bucket = manager.getBucket(BUCKET_ID);
             try {
-                manager.put(BUCKET_ID, TEST_DATA).get();
+                bucket.put(TEST_DATA).get();
                 fail();
-            } catch (ExecutionException ok) {
+            } catch (ObjectManagerException ok) {
                 ok.printStackTrace();
             }
 
             manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
-            String id = manager.put(BUCKET_ID, TEST_DATA).get();
-            Assert.assertArrayEquals(manager.get(BUCKET_ID, id).get(), TEST_DATA);
+            String id = bucket.put(TEST_DATA).get();
+            Assert.assertArrayEquals(bucket.get(id).get(), TEST_DATA);
 
             {
                 Collection<LedgerMetadata> ledgers = manager.listLedgersbyBucketId(BUCKET_ID);
@@ -88,7 +89,7 @@ public class LedgerLifeCycleMemTest {
 
             assertEquals(0, manager.listDeletableLedgers(BUCKET_ID).size());
 
-            manager.delete(BUCKET_ID, id).get();
+            bucket.delete(id).get();
 
             {
                 Collection<LedgerMetadata> ledgers = manager.listLedgersbyBucketId(BUCKET_ID);

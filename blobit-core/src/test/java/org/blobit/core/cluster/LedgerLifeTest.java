@@ -40,6 +40,8 @@ import org.junit.rules.TemporaryFolder;
 
 import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
+import org.blobit.core.api.BucketHandle;
+import org.blobit.core.api.ObjectManagerException;
 
 public class LedgerLifeTest {
 
@@ -55,33 +57,33 @@ public class LedgerLifeTest {
     }
 
     @Test
-    public void testNoTalespaces() throws Exception {
+    public void testNoTablespaces() throws Exception {
         Properties dsProperties = new Properties();
         dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
         try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
-            HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
+                HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
             env.startBookie();
             Configuration configuration
-                = new Configuration()
-                    .setType(Configuration.TYPE_BOOKKEEPER)
-                    .setUseTablespaces(false)
-                    .setConcurrentWriters(10)
-                    .setZookeeperUrl(env.getAddress());
+                    = new Configuration()
+                            .setType(Configuration.TYPE_BOOKKEEPER)
+                            .setUseTablespaces(false)
+                            .setConcurrentWriters(10)
+                            .setZookeeperUrl(env.getAddress());
             try (ClusterObjectManager manager = (ClusterObjectManager) ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
 
                 HerdDBMetadataStorageManager metadataManager = manager.getMetadataManager();
-
+                BucketHandle bucket = manager.getBucket(BUCKET_ID);
                 try {
-                    manager.put(BUCKET_ID, TEST_DATA).get();
+                    bucket.put(TEST_DATA).get();
                     fail();
-                } catch (ExecutionException ok) {
+                } catch (ObjectManagerException ok) {
                     ok.printStackTrace();
                 }
 
                 manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
-                String id = manager.put(BUCKET_ID, TEST_DATA).get();
-                Assert.assertArrayEquals(manager.get(BUCKET_ID, id).get(), TEST_DATA);
+                String id = bucket.put(TEST_DATA).get();
+                Assert.assertArrayEquals(bucket.get(id).get(), TEST_DATA);
 
                 {
                     Collection<LedgerMetadata> ledgers = metadataManager.listLedgersbyBucketId(BUCKET_ID);
@@ -100,7 +102,7 @@ public class LedgerLifeTest {
 
                 assertEquals(0, metadataManager.listDeletableLedgers(BUCKET_ID).size());
 
-                manager.delete(BUCKET_ID, id).get();
+                bucket.delete(id).get();
 
                 {
                     Collection<LedgerMetadata> ledgers = metadataManager.listLedgersbyBucketId(BUCKET_ID);
@@ -139,28 +141,28 @@ public class LedgerLifeTest {
         Properties dsProperties = new Properties();
         dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
         try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
-            HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
+                HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
             env.startBookie();
             Configuration configuration
-                = new Configuration()
-                    .setType(Configuration.TYPE_BOOKKEEPER)
-                    .setConcurrentWriters(10)
-                    .setZookeeperUrl(env.getAddress());
+                    = new Configuration()
+                            .setType(Configuration.TYPE_BOOKKEEPER)
+                            .setConcurrentWriters(10)
+                            .setZookeeperUrl(env.getAddress());
             try (ClusterObjectManager manager = (ClusterObjectManager) ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
 
                 HerdDBMetadataStorageManager metadataManager = manager.getMetadataManager();
-
+                BucketHandle bucket = manager.getBucket(BUCKET_ID);
                 try {
-                    manager.put(BUCKET_ID, TEST_DATA).get();
+                    bucket.put(TEST_DATA).get();
                     fail();
-                } catch (ExecutionException ok) {
+                } catch (ObjectManagerException ok) {
                     ok.printStackTrace();
                 }
 
                 metadataManager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT);
-                String id = manager.put(BUCKET_ID, TEST_DATA).get();
-                Assert.assertArrayEquals(manager.get(BUCKET_ID, id).get(), TEST_DATA);
+                String id = bucket.put(TEST_DATA).get();
+                Assert.assertArrayEquals(bucket.get(id).get(), TEST_DATA);
 
                 {
                     Collection<LedgerMetadata> ledgers = metadataManager.listLedgersbyBucketId(BUCKET_ID);
@@ -179,7 +181,7 @@ public class LedgerLifeTest {
 
                 assertEquals(0, metadataManager.listDeletableLedgers(BUCKET_ID).size());
 
-                manager.delete(BUCKET_ID, id).get();
+                bucket.delete(id).get();
 
                 {
                     Collection<LedgerMetadata> ledgers = metadataManager.listLedgersbyBucketId(BUCKET_ID);

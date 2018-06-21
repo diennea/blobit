@@ -34,8 +34,9 @@ import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
 import java.util.Map;
 import org.apache.bookkeeper.client.BKException;
-import org.apache.bookkeeper.common.concurrent.FutureUtils;
 import org.apache.commons.pool2.impl.DefaultPooledObjectInfo;
+import org.blobit.core.api.BucketHandle;
+import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.util.TestUtils;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -68,9 +69,9 @@ public class WritersPoolTest {
                             .setZookeeperUrl(env.getAddress());
             try (ClusterObjectManager manager = (ClusterObjectManager) ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
-
+                BucketHandle bucket = manager.getBucket(BUCKET_ID);
                 // perform a put, a new writer must be allocated
-                manager.put(BUCKET_ID, TEST_DATA).get();
+                bucket.put(TEST_DATA).get();
 
                 BookKeeperBlobManager blobManager = manager.getBlobManager();
                 {
@@ -82,7 +83,7 @@ public class WritersPoolTest {
                     assertEquals(1, writerStats.getBorrowedCount());
 
                     // new put, same writer
-                    manager.put(BUCKET_ID, TEST_DATA).get();
+                    bucket.put(TEST_DATA).get();
                     assertEquals(2, writerStats.getBorrowedCount());
                 }
 
@@ -94,7 +95,7 @@ public class WritersPoolTest {
 
                 {
                     // new put, new writer, we have passed MaxBytesPerLedger
-                    manager.put(BUCKET_ID, TEST_DATA).get();
+                    bucket.put(TEST_DATA).get();
                     Map<String, List<DefaultPooledObjectInfo>> all = blobManager.writers.listAllObjects();
                     List<DefaultPooledObjectInfo> writers = all.get(BUCKET_ID);
                     assertEquals(1, writers.size());
@@ -107,8 +108,8 @@ public class WritersPoolTest {
 
                 {
                     // put will fail, writer will be eventually disposed
-                    RuntimeException error = TestUtils.expectThrows(RuntimeException.class,
-                            () -> FutureUtils.result(manager.put(BUCKET_ID, TEST_DATA).future));
+                    ObjectManagerException error = TestUtils.expectThrows(ObjectManagerException.class,
+                            () -> bucket.put(TEST_DATA).get());
                     assertTrue(error.getCause() instanceof BKException.BKNotEnoughBookiesException);
                     Map<String, List<DefaultPooledObjectInfo>> all = blobManager.writers.listAllObjects();
                     assertTrue(all.isEmpty());
@@ -119,7 +120,7 @@ public class WritersPoolTest {
 
                 {
                     // put will succeeed
-                    manager.put(BUCKET_ID, TEST_DATA).get();
+                    bucket.put(TEST_DATA).get();
                     Map<String, List<DefaultPooledObjectInfo>> all = blobManager.writers.listAllObjects();
                     assertEquals(1, all.size());
                 }

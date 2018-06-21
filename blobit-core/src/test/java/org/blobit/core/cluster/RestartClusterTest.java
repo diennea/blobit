@@ -36,6 +36,7 @@ import org.junit.rules.TemporaryFolder;
 
 import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
+import org.blobit.core.api.BucketHandle;
 
 public class RestartClusterTest {
 
@@ -68,14 +69,16 @@ public class RestartClusterTest {
             /* First ObjectManager */
             try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
-                PutPromise put = manager.put(BUCKET_ID, TEST_DATA);
+                BucketHandle bucket = manager.getBucket(BUCKET_ID);
+                PutPromise put = bucket.put(TEST_DATA);
                 insertedID = put.get();
-                Assert.assertArrayEquals(TEST_DATA, manager.get(null, insertedID).get());
+                Assert.assertArrayEquals(TEST_DATA, bucket.get(insertedID).get());
             }
 
             /* Second ObjectManager */
             try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
-                Assert.assertArrayEquals(TEST_DATA, manager.get(null, insertedID).get());
+                BucketHandle bucket = manager.getBucket(BUCKET_ID);
+                Assert.assertArrayEquals(TEST_DATA, bucket.get(insertedID).get());
             }
         }
     }

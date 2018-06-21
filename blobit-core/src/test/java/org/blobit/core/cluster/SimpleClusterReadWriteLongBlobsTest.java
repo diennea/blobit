@@ -46,6 +46,7 @@ import herddb.server.ServerConfiguration;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.SimpleFormatter;
+import org.blobit.core.api.BucketHandle;
 
 public class SimpleClusterReadWriteLongBlobsTest {
 
@@ -85,19 +86,20 @@ public class SimpleClusterReadWriteLongBlobsTest {
         Properties dsProperties = new Properties();
         dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
         try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
-            HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
+                HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
             env.startBookie();
             Configuration configuration
-                = new Configuration()
-                    .setType(Configuration.TYPE_BOOKKEEPER)
-                    .setConcurrentWriters(10)
-                    .setZookeeperUrl(env.getAddress());
+                    = new Configuration()
+                            .setType(Configuration.TYPE_BOOKKEEPER)
+                            .setConcurrentWriters(10)
+                            .setZookeeperUrl(env.getAddress());
 
             try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
                 Collection<PutPromise> batch = new LinkedBlockingQueue<>();
 
                 manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
+                BucketHandle bucket = manager.getBucket(BUCKET_ID);
                 ExecutorService exec = Executors.newFixedThreadPool(4);
 
                 for (int i = 0; i < 100; i++) {
@@ -105,7 +107,7 @@ public class SimpleClusterReadWriteLongBlobsTest {
                     exec.submit(new Runnable() {
                         @Override
                         public void run() {
-                            batch.add(manager.put(BUCKET_ID, TEST_DATA));
+                            batch.add(bucket.put(TEST_DATA));
                         }
                     });
                 }
@@ -119,7 +121,7 @@ public class SimpleClusterReadWriteLongBlobsTest {
 
                 for (String id : ids) {
 //                    System.out.println("waiting for id " + id);
-                    Assert.assertArrayEquals(TEST_DATA, manager.get(null, id).get());
+                    Assert.assertArrayEquals(TEST_DATA, bucket.get(id).get());
                 }
 
                 long _stop = System.currentTimeMillis();
