@@ -28,34 +28,50 @@ class BKEntryId {
 
     public final long ledgerId;
     public final long firstEntryId;
-    public final long lastEntryId;
+    public final int entrySize;
+    public final long length;
+    public final int numEntries;
 
-    public BKEntryId(long ledgerId, long firstEntryId, long lastEntryId) {
+    public BKEntryId(long ledgerId, long firstEntryId, int entrySize, long length, int numEntries) {
         this.ledgerId = ledgerId;
         this.firstEntryId = firstEntryId;
-        this.lastEntryId = lastEntryId;
+        this.entrySize = entrySize;
+        this.length = length;
+        this.numEntries = numEntries;
     }
 
     public String toId() {
-        return ledgerId + "-" + firstEntryId + "-" + lastEntryId;
+        return formatId(ledgerId, firstEntryId, entrySize, length, numEntries);
     }
 
-    static String formatId(long id, long firstEntryId, long lastEntryId) {
+    static String formatId(long ledgerId, long firstEntryId, int entrySize, long length, int numEntries) {
         StringBuilder res = new StringBuilder();
-        res.append(id);
+        res.append(ledgerId);
         res.append('-');
         res.append(firstEntryId);
         res.append('-');
-        res.append(lastEntryId);
+        res.append(entrySize);
+        res.append('-');
+        res.append(length);
+        res.append('-');
+        res.append(numEntries);
         return res.toString();
     }
 
     public static BKEntryId parseId(String id) {
         String[] split = id.split("-");
         return new BKEntryId(
-            Long.parseLong(split[0]),
-            Long.parseLong(split[1]),
-            Long.parseLong(split[2]));
+                Long.parseLong(split[0]),
+                Long.parseLong(split[1]),
+                Integer.parseInt(split[2]),
+                Long.parseLong(split[3]),
+                Integer.parseInt(split[4])
+        );
+    }
+
+    @Override
+    public String toString() {
+        return "BKEntryId{" + "ledgerId=" + ledgerId + ", firstEntryId=" + firstEntryId + ", entrySize=" + entrySize + ", length=" + length + ", numEntries=" + numEntries + '}';
     }
 
 }

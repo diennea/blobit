@@ -84,7 +84,7 @@ public class BucketReader {
         LOG.log(Level.INFO, "Opened BucketReader for ledger {0}", ledgerId);
     }
 
-    public CompletableFuture<byte[]> readObject(long entryId, long last) {
+    public CompletableFuture<byte[]> readObject(long entryId, long last, int length) {
 
         pendingReads.incrementAndGet();
         return lh.readUnconfirmedAsync(entryId, last)
@@ -94,21 +94,16 @@ public class BucketReader {
                         valid = false;
                         throw new RuntimeException(u);
                     }
-                    int size = 0;
-                    List<ByteBuf> buffers = new ArrayList<>((int) (1 + last - entryId));
+
+                    final byte[] data = new byte[length];
+                    int offset = 0;
+
                     for (LedgerEntry entry : entries) {
                         ByteBuf buf = entry.getEntryBuffer();
-                        size += buf.readableBytes();
-                        buffers.add(buf);
-                    }
-
-                    final byte[] data = new byte[size];
-                    int offset = 0;
-                    for (ByteBuf buf : buffers) {
                         int readable = buf.readableBytes();
                         buf.readBytes(data, offset, readable);
                         offset += readable;
-                        buf.release();
+                        entry.close();
                     }
 
                     return data;

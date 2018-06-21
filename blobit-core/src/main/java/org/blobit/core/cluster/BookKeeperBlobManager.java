@@ -114,10 +114,15 @@ public class BookKeeperBlobManager implements AutoCloseable {
     public CompletableFuture<byte[]> get(String bucketId, String id) {
         try {
             BKEntryId entry = BKEntryId.parseId(id);
+            // as we are returing a byte[] we are limited to an int length
+            if (entry.length >= Integer.MAX_VALUE) {
+                return wrapGenericException(new UnsupportedOperationException("Cannot read an " + entry.length + " bytes object into a byte[]"));
+            }
+            final int resultSize = (int) entry.length;
             BucketReader reader = readers.borrowObject(entry.ledgerId);
             try {
                 CompletableFuture<byte[]> result = reader
-                        .readObject(entry.firstEntryId, entry.lastEntryId);
+                        .readObject(entry.firstEntryId, entry.firstEntryId + entry.numEntries - 1, resultSize);
                 return result;
             } finally {
                 readers.returnObject(entry.ledgerId, reader);

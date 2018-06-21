@@ -177,15 +177,15 @@ public class BucketWriter {
                         throw new RuntimeException(u);
                     }
                     try {
-                        metadataStorageManager.registerObject(bucketId, id, firstEntryId, lastEntryId, data.length);
+                        metadataStorageManager.registerObject(bucketId, id, firstEntryId, numEntries, MAX_ENTRY_SIZE, data.length);
                         return null;
                     } catch (Throwable err) {
-                        LOG.log(Level.SEVERE, "bad error while completing blob " + BKEntryId.formatId(lh.getId(), firstEntryId, lastEntryId), err);
+                        LOG.log(Level.SEVERE, "bad error while completing blob", err);
                         throw new RuntimeException(err);
                     }
                 }, callbacksExecutor);
         return new PutPromise(BKEntryId
-                .formatId(lh.getId(), firstEntryId, lastEntryId), afterMetadata);
+                .formatId(lh.getId(), firstEntryId, MAX_ENTRY_SIZE, len, numEntries), afterMetadata);
     }
 
     public boolean isValid() {
@@ -232,7 +232,8 @@ public class BucketWriter {
     /**
      * Release resources or schedule them to release.
      *
-     * @return {@code true} if really released, {@code false} otherwise (rescheduled or already closed)
+     * @return {@code true} if really released, {@code false} otherwise
+     * (rescheduled or already closed)
      */
     boolean releaseResources() {
         if (pendingWrites.get() > 0) {

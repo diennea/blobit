@@ -129,21 +129,20 @@ public class HerdDBMetadataStorageManager {
  /* ************** */
     private static final String CREATE_BLOBS_TABLE
             = "CREATE TABLE " + BLOB_TABLE
-            + " (ledger_id LONG, entry_id LONG, last_entry_id LONG, size LONG, PRIMARY KEY (ledger_id, entry_id))";
+            + " (ledger_id LONG, entry_id LONG, num_entries INTEGER, entry_size INTEGER, size LONG, PRIMARY KEY (ledger_id, entry_id))";
 
     private static final String REGISTER_BLOB
-            = "INSERT INTO " + BLOB_TABLE + " (ledger_id, entry_id, last_entry_id, size) VALUES (?,?,?,?)";
+            = "INSERT INTO " + BLOB_TABLE + " (ledger_id, entry_id, num_entries, entry_size, size) VALUES (?,?,?,?,?)";
 
     private static final String DELETE_BLOB
             = "DELETE FROM " + BLOB_TABLE + " WHERE ledger_id=? AND entry_id=?";
 
     private static final String LIST_BLOBS_BY_LEDGER
-            = "SELECT entry_id,last_entry_id,size FROM " + BLOB_TABLE + " WHERE ledger_id=?";
+            = "SELECT ledger_id, entry_id, num_entries, entry_size, size FROM " + BLOB_TABLE + " WHERE ledger_id=?";
 
-    private static final String DELETE_BLOBS_BY_BUCKET_UUID(String uuid) {
-        return "DELETE FROM " + BLOB_TABLE
-                + " WHERE ledger_id IN (SELECT ledger_id FROM " + LEDGER_TABLE + " WHERE bucket_uuid='" + uuid + "')";
-    }
+    private static final String DELETE_BLOBS_BY_BUCKET_UUID
+            = "DELETE FROM " + BLOB_TABLE
+            + " WHERE ledger_id IN (SELECT ledger_id FROM " + LEDGER_TABLE + " WHERE bucket_uuid=?)";
 
     private final DataSource datasource;
     private final String bucketsTablespace;
@@ -284,14 +283,16 @@ public class HerdDBMetadataStorageManager {
     }
 
     public void registerObject(String bucketId,
-            long ledgerId, long entryId, long lastEntryId, long size) throws ObjectManagerException {
+            long ledgerId, long entryId, int num_entries, int entry_size, long size) throws ObjectManagerException {
 
         try (Connection connection = getConnectionForBucket(bucketId);
                 PreparedStatement ps = connection.prepareStatement(REGISTER_BLOB)) {
             ps.setLong(1, ledgerId);
             ps.setLong(2, entryId);
-            ps.setLong(3, lastEntryId);
-            ps.setLong(4, size);
+            ps.setLong(3, num_entries);
+            ps.setLong(4, entry_size);
+            ps.setLong(5, size);
+            
             ps.executeUpdate();
         } catch (SQLException err) {
             throw new ObjectManagerException(err);
@@ -321,10 +322,18 @@ public class HerdDBMetadataStorageManager {
                 List<ObjectMetadata> res = new ArrayList<>();
 
                 while (rs.next()) {
-                    BKEntryId entryId = new BKEntryId(ledgerId, rs.getLong(1), rs.getLong(2));
+                    long ledger_id = rs.getLong(1);
+                    if (ledger_id != ledgerId) {
+                        throw new ObjectManagerException("Inconsistency " + ledger_id + " <> " + ledgerId);
+                    }
+                    long entry_id = rs.getLong(2);
+                    int num_entries = rs.getInt(3);
+                    int entry_size = rs.getInt(4);
+                    long size = rs.getLong(5);
+
                     res.add(new ObjectMetadata(
-                            entryId.toId(),
-                            rs.getLong(3)
+                            BKEntryId.formatId(ledgerId, entry_id, entry_size, size, num_entries),
+                            size
                     )
                     );
                 }
@@ -528,8 +537,9 @@ public class HerdDBMetadataStorageManager {
             }
 
             try (Connection connection = getConnectionForBucketTableSpace(bucket);
-                    PreparedStatement ps_delete_blobs = connection.prepareStatement(DELETE_BLOBS_BY_BUCKET_UUID(bucket.getUuid()));
+                    PreparedStatement ps_delete_blobs = connection.prepareStatement(DELETE_BLOBS_BY_BUCKET_UUID);
                     PreparedStatement ps_delete_ledgers = connection.prepareStatement(DELETE_LEDGERS_BY_BUCKET_UUID);) {
+                ps_delete_blobs.setString(1, bucket.getUuid());
                 ps_delete_ledgers.setString(1, bucket.getUuid());
                 ps_delete_ledgers.executeUpdate();
                 ps_delete_blobs.executeUpdate();

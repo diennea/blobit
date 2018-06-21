@@ -55,7 +55,7 @@ public class LedgerLifeTest {
     }
 
     @Test
-    public void testNoTalespaces() throws Exception {
+    public void testNoTablespaces() throws Exception {
         Properties dsProperties = new Properties();
         dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
         try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
