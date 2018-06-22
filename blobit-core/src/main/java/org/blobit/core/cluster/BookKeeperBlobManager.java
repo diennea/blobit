@@ -150,12 +150,17 @@ public class BookKeeperBlobManager implements AutoCloseable {
         if (BKEntryId.EMPTY_ENTRY_ID.equals(id) || length == 0) {
             lengthCallback.accept(0L);
             CompletableFuture<byte[]> result = new CompletableFuture<>();
-            result.complete(EMPTY_BYTE_ARRAY);
+            result.complete(null);
             return new DownloadPromise(id, 0, result);
         }
         try {
             BKEntryId entry = BKEntryId.parseId(id);
-
+            if (offset >= entry.length) {
+                lengthCallback.accept(0L);
+                CompletableFuture<byte[]> result = new CompletableFuture<>();
+                result.complete(null);
+                return new DownloadPromise(id, 0, result);
+            }
             // notify the called about the expected length (for instance an HTTP server will send the Content-Length header)
             long finalLength;
             if (length < 0) {

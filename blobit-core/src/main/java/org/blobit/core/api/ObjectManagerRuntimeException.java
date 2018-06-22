@@ -26,7 +26,7 @@ package org.blobit.core.api;
  */
 public class ObjectManagerRuntimeException extends RuntimeException {
 
-    public ObjectManagerRuntimeException(ObjectManagerException cause) {
+    public ObjectManagerRuntimeException(Throwable cause) {
         super(cause);
     }
 

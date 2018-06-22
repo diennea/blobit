@@ -219,6 +219,7 @@ public class SimpleClusterWriterTest {
 
     @Test
     public void testStreamingReads() throws Exception {
+
         Properties dsProperties = new Properties();
         dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
         try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
@@ -228,7 +229,7 @@ public class SimpleClusterWriterTest {
                     = new Configuration()
                             .setType(Configuration.TYPE_BOOKKEEPER)
                             .setConcurrentWriters(4)
-                            .setMaxEntrySize(TEST_DATA.length / 2 - 1)
+                            .setMaxEntrySize(64 * 1024)
                             .setZookeeperUrl(env.getAddress());
             try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
@@ -236,53 +237,80 @@ public class SimpleClusterWriterTest {
                 manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
 
-                String id = bucket.put(TEST_DATA).get();
-
-//                int[] offsets = {0, 10};
-                int[] offsets = {10};
-
-                for (int offset : offsets) {
-                    int[] maxLengths = {
-//                        0, /* no read ? */
-//                        10,
-//                        1040,
-//                        configuration.getMaxEntrySize() + 10 /* second entry */,
-                        configuration.getMaxEntrySize() * 2, /* bad value (not working yet) */
-//                        TEST_DATA.length,
-//                        TEST_DATA.length + 100 /* bigger than original len*/
+                int[] testdatasizes = {
+                    0,
+                    10,
+                    configuration.getMaxEntrySize(),
+                    configuration.getMaxEntrySize() + 1,
+                    configuration.getMaxEntrySize() * 2,
+                    configuration.getMaxEntrySize() * 2 + 1,
+                    configuration.getMaxEntrySize() * 3 - 1,
+                    configuration.getMaxEntrySize() * 3,
+                    configuration.getMaxEntrySize() * 3 + 2
                     };
-                    List<DownloadPromise> results = new ArrayList<>();
-                    List<ByteArrayOutputStream> resultStreams = new ArrayList<>();
-                    List<AtomicLong> contentLengths = new ArrayList<>();
-                    for (int maxLength : maxLengths) {
-                        ByteArrayOutputStream out = new ByteArrayOutputStream();
-                        AtomicLong dataToReceive = new AtomicLong();
-                        DownloadPromise putResult = bucket.download(id, dataToReceive::set, out, offset, maxLength);
-                        results.add(putResult);
-                        resultStreams.add(out);
-                        contentLengths.add(dataToReceive);
-                    }
-                    for (int i = 0; i < maxLengths.length; i++) {
-                        int originalExpectedSize = maxLengths[i];
-                        
+                
+                for (int testdatasize : testdatasizes) {
+                    final byte[] testdata = new byte[testdatasize];
+                    Random random = new Random();
+                    random.nextBytes(testdata);
 
-                        DownloadPromise downloadPromise = results.get(i);
-                        ByteArrayOutputStream stream = resultStreams.get(i);
+                    String id = bucket.put(testdata).get();
 
-                        AtomicLong contentLength = contentLengths.get(i);
-                        // wait for download to complete
-                        downloadPromise.get();
-                        int expectedSize  = originalExpectedSize;
-                        if (expectedSize > TEST_DATA.length - offset) {
-                            expectedSize = TEST_DATA.length - offset;
+                    int[] offsets = {0,
+                        10,
+                        configuration.getMaxEntrySize() / 2,
+                        configuration.getMaxEntrySize(),
+                        configuration.getMaxEntrySize() * 2 - 1,
+                        configuration.getMaxEntrySize() * 2,
+                        configuration.getMaxEntrySize() * 2 + 1,
+                        testdata.length / 2,
+                        testdata.length,
+                        testdata.length + 100};
+
+                    for (int offset : offsets) {
+                        int[] maxLengths = {
+                            0, /* no read ? */
+                            10,
+                            1040,
+                            configuration.getMaxEntrySize() + 10 /* second entry */,
+                            configuration.getMaxEntrySize() * 2, /* bad value (not working yet) */
+                            testdata.length,
+                            testdata.length + 100 /* bigger than original len*/};
+                        List<DownloadPromise> results = new ArrayList<>();
+                        List<ByteArrayOutputStream> resultStreams = new ArrayList<>();
+                        List<AtomicLong> contentLengths = new ArrayList<>();
+                        for (int maxLength : maxLengths) {
+                            ByteArrayOutputStream out = new ByteArrayOutputStream();
+                            AtomicLong dataToReceive = new AtomicLong();
+                            DownloadPromise putResult = bucket.download(id, dataToReceive::set, out, offset, maxLength);
+                            results.add(putResult);
+                            resultStreams.add(out);
+                            contentLengths.add(dataToReceive);
                         }
-                        byte[] data = stream.toByteArray();
-                        LOG.info("testcase offset " + offset + ", "+downloadPromise.id+" originalExpectedSize "+ originalExpectedSize+", expected size " + expectedSize + " ->  (object len " + TEST_DATA.length + ") actual "+data.length);
-                                                                                               
-                        assertEquals(expectedSize, data.length);
-//                        Arrays.equals(TEST_DATA, offset, offset + expectedSize, data, 0, data.length);
-                        assertEquals(expectedSize, contentLength.intValue());
+                        for (int i = 0; i < maxLengths.length; i++) {
+                            int originalExpectedSize = maxLengths[i];
 
+                            DownloadPromise downloadPromise = results.get(i);
+                            ByteArrayOutputStream stream = resultStreams.get(i);
+
+                            AtomicLong contentLength = contentLengths.get(i);
+                            // wait for download to complete
+                            downloadPromise.get();
+                            int expectedSize = originalExpectedSize;
+                            if (offset > testdata.length) {
+                                expectedSize = 0;
+                            }
+                            if (expectedSize > 0 && expectedSize > testdata.length - offset) {
+                                expectedSize = testdata.length - offset;
+                            }
+                            byte[] data = stream.toByteArray();
+                            LOG.info("testcase datasize " + testdata.length + ", offset " + offset + ", " + downloadPromise.id + " originalExpectedSize " + originalExpectedSize + ", expected size " + expectedSize + " ->  (object len " + testdata.length + ") actual " + data.length);
+
+                            assertEquals(expectedSize, data.length);
+//                        Arrays.equals(TEST_DATA, offset, offset + expectedSize, data, 0, data.length);
+                            assertEquals(expectedSize, contentLength.intValue());
+
+                        }
                     }
                 }
 
