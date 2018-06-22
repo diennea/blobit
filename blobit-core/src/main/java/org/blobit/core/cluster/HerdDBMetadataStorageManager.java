@@ -58,6 +58,7 @@ public class HerdDBMetadataStorageManager {
     private static final String BUCKET_TABLE = "buckets";
     private static final String LEDGER_TABLE = "ledgers";
     private static final String BLOB_TABLE = "objects";
+    private static final String BLOBNAMES_TABLE = "objectsname";
 
     private String CREATE_TABLESPACE(String schema, int replicaCount) {
         return "CREATE TABLESPACE '" + schema + "','wait:60000','expectedreplicacount:" + replicaCount + "'";
@@ -129,21 +130,38 @@ public class HerdDBMetadataStorageManager {
  /* ************** */
     private static final String CREATE_BLOBS_TABLE
             = "CREATE TABLE " + BLOB_TABLE
-            + " (ledger_id LONG, entry_id LONG, num_entries INTEGER, entry_size INTEGER, size LONG, PRIMARY KEY (ledger_id, entry_id))";
+            + " (ledger_id LONG, entry_id LONG, num_entries INTEGER, entry_size INTEGER, size LONG, name STRING, PRIMARY KEY (ledger_id, entry_id))";
 
     private static final String REGISTER_BLOB
-            = "INSERT INTO " + BLOB_TABLE + " (ledger_id, entry_id, num_entries, entry_size, size) VALUES (?,?,?,?,?)";
+            = "INSERT INTO " + BLOB_TABLE + " (ledger_id, entry_id, num_entries, entry_size, size, name) VALUES (?,?,?,?,?,?)";
 
     private static final String DELETE_BLOB
             = "DELETE FROM " + BLOB_TABLE + " WHERE ledger_id=? AND entry_id=?";
 
     private static final String LIST_BLOBS_BY_LEDGER
-            = "SELECT ledger_id, entry_id, num_entries, entry_size, size FROM " + BLOB_TABLE + " WHERE ledger_id=?";
+            = "SELECT ledger_id, entry_id, num_entries, entry_size, size, name FROM " + BLOB_TABLE + " WHERE ledger_id=?";
 
     private static final String DELETE_BLOBS_BY_BUCKET_UUID
             = "DELETE FROM " + BLOB_TABLE
             + " WHERE ledger_id IN (SELECT ledger_id FROM " + LEDGER_TABLE + " WHERE bucket_uuid=?)";
 
+    /* ************** */
+ /* **** NAMES**** */
+ /* ************** */
+    private static final String CREATE_BLOBNAMES_TABLE
+            = "CREATE TABLE " + BLOBNAMES_TABLE
+            + " (name STRING PRIMARY KEY, objectid STRING)";
+
+    private static final String REGISTER_BLOBNAME
+            = "INSERT INTO " + BLOBNAMES_TABLE + " (name, objectid) VALUES (?,?)";
+
+    private static final String LOOKUP_BLOB_BY_NAME
+            = "SELECT objectid FROM " + BLOBNAMES_TABLE + " where name=?";
+
+    private static final String DELETE_BLOBNAME
+            = "DELETE FROM " + BLOBNAMES_TABLE + " where name=?";
+
+    
     private final DataSource datasource;
     private final String bucketsTablespace;
     private final int bucketsTableSpacesReplicaCount;
@@ -203,6 +221,7 @@ public class HerdDBMetadataStorageManager {
 
             ensureTable(tablespaceName, LEDGER_TABLE, CREATE_LEDGERS_TABLE);
             ensureTable(tablespaceName, BLOB_TABLE, CREATE_BLOBS_TABLE);
+            ensureTable(tablespaceName, BLOBNAMES_TABLE, CREATE_BLOBNAMES_TABLE);
 
             reloadBuckets();
 
@@ -283,29 +302,45 @@ public class HerdDBMetadataStorageManager {
     }
 
     public void registerObject(String bucketId,
-            long ledgerId, long entryId, int num_entries, int entry_size, long size) throws ObjectManagerException {
+            long ledgerId, long entryId, int num_entries, int entry_size, long size, String objectId, String name) throws ObjectManagerException {
 
         try (Connection connection = getConnectionForBucket(bucketId);
-                PreparedStatement ps = connection.prepareStatement(REGISTER_BLOB)) {
+                PreparedStatement ps = connection.prepareStatement(REGISTER_BLOB);
+                PreparedStatement psName = connection.prepareStatement(REGISTER_BLOBNAME);) {
             ps.setLong(1, ledgerId);
             ps.setLong(2, entryId);
             ps.setLong(3, num_entries);
             ps.setLong(4, entry_size);
             ps.setLong(5, size);
-            
+            ps.setString(6, name);
+
             ps.executeUpdate();
+
+            if (name != null) {
+                psName.setString(1, name);
+                psName.setString(2, objectId);
+                psName.executeUpdate();
+            }
+
         } catch (SQLException err) {
             throw new ObjectManagerException(err);
         }
     }
 
-    public void deleteObject(String bucketId, long ledgerId, long entryId) throws ObjectManagerException {
+    public void deleteObject(String bucketId, long ledgerId, long entryId, String name) throws ObjectManagerException {
 
         try (Connection connection = getConnectionForBucket(bucketId);
-                PreparedStatement ps = connection.prepareStatement(DELETE_BLOB)) {
+                PreparedStatement ps = connection.prepareStatement(DELETE_BLOB);
+                PreparedStatement psName = connection.prepareStatement(DELETE_BLOBNAME);
+                ) {
             ps.setLong(1, ledgerId);
             ps.setLong(2, entryId);
             ps.executeUpdate();
+            
+            if (name != null) {
+                psName.setString(1, name);
+                psName.executeUpdate();
+            }
         } catch (SQLException err) {
             throw new ObjectManagerException(err);
         }
@@ -584,6 +619,23 @@ public class HerdDBMetadataStorageManager {
             try (Statement s = connection.createStatement();) {
                 s.executeUpdate(DROP_TABLESPACE(tableSpaceName));
             }
+        }
+    }
+
+    String lookupObjectByName(String bucketId, String name) throws ObjectManagerException {
+
+        try (Connection connection = getConnectionForBucket(bucketId);
+                PreparedStatement ps = connection.prepareStatement(LOOKUP_BLOB_BY_NAME)) {
+            ps.setString(1, name);
+            ps.executeUpdate();
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getString(1);
+                }
+            }
+            return null;
+        } catch (SQLException err) {
+            throw new ObjectManagerException(err);
         }
     }
 

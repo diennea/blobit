@@ -62,14 +62,14 @@ public class LedgerLifeCycleMemTest {
             long _start = System.currentTimeMillis();
             BucketHandle bucket = manager.getBucket(BUCKET_ID);
             try {
-                bucket.put(TEST_DATA).get();
+                bucket.put(null, TEST_DATA).get();
                 fail();
             } catch (ObjectManagerException ok) {
                 ok.printStackTrace();
             }
 
             manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
-            String id = bucket.put(TEST_DATA).get();
+            String id = bucket.put(null, TEST_DATA).get();
             Assert.assertArrayEquals(bucket.get(id).get(), TEST_DATA);
 
             {

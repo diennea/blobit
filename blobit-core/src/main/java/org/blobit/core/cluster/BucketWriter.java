@@ -132,7 +132,7 @@ public class BucketWriter {
     }
 
     @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
-    PutPromise writeBlob(String bucketId, byte[] data, int offset, int len) {
+    PutPromise writeBlob(String bucketId, String name, byte[] data, int offset, int len) {
 
         if (len == 0) {
             CompletableFuture<Void> result = new CompletableFuture<>();
@@ -182,7 +182,8 @@ public class BucketWriter {
                 throw new ObjectManagerRuntimeException(new ObjectManagerException(u));
             }
             try {
-                metadataStorageManager.registerObject(bucketId, id, firstEntryId, numEntries, maxEntrySize, len);
+                metadataStorageManager.registerObject(bucketId, id,
+                        firstEntryId, numEntries, maxEntrySize, len, blobId, name);
                 return null;
             } catch (Throwable err) {
                 LOG.log(Level.SEVERE, "bad error while completing blob", err);
@@ -193,7 +194,7 @@ public class BucketWriter {
     }
 
     @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
-    PutPromise writeBlob(String bucketId, long len, InputStream in) {
+    PutPromise writeBlob(String bucketId, String name, long len, InputStream in) {
 
         if (len == 0) {
             CompletableFuture<Void> result = new CompletableFuture<>();
@@ -282,7 +283,9 @@ public class BucketWriter {
                         throw new RuntimeException(u);
                     }
                     try {
-                        metadataStorageManager.registerObject(bucketId, id, firstEntryId, numEntries, maxEntrySize, len);
+                        metadataStorageManager
+                                .registerObject(bucketId, id, firstEntryId,
+                                        numEntries, maxEntrySize, len, blobId, name);
                         return null;
                     } catch (Throwable err) {
                         LOG.log(Level.SEVERE, "bad error while completing blob", err);

@@ -74,7 +74,7 @@ public class ReadersPoolTest {
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
                 BucketHandle bucketReaders = managerReaders.getBucket(BUCKET_ID);
                 // perform a put, a new writer must be allocated
-                String blobId = bucket.put(TEST_DATA).get();
+                String blobId = bucket.put(null, TEST_DATA).get();
                 BKEntryId entryId = BKEntryId.parseId(blobId);
 
                 BookKeeperBlobManager blobManagerReaders = managerReaders.getBlobManager();
@@ -121,7 +121,7 @@ public class ReadersPoolTest {
                     assertEquals(1, readerStats.getBorrowedCount());
                 }
 
-                String blobId2 = bucket.put(TEST_DATA).get();
+                String blobId2 = bucket.put(null, TEST_DATA).get();
                 BKEntryId entryId2 = BKEntryId.parseId(blobId2);
                 Assert.assertNotEquals(entryId.ledgerId, entryId2.ledgerId);
 
@@ -135,7 +135,7 @@ public class ReadersPoolTest {
                 assertEquals(1, readerStats2.getBorrowedCount());
 
                 // third ledger, we have concurrentReaders = 2, so we can read concurrently only from 2 ledgers
-                String blobId3 = bucket.put(TEST_DATA).get();
+                String blobId3 = bucket.put(null, TEST_DATA).get();
                 BKEntryId entryId3 = BKEntryId.parseId(blobId3);
                 Assert.assertNotEquals(entryId.ledgerId, entryId3.ledgerId);
                 Assert.assertNotEquals(entryId2.ledgerId, entryId3.ledgerId);
@@ -165,7 +165,7 @@ public class ReadersPoolTest {
                 manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
                 // perform a put, a new writer must be allocated
-                String blobId = bucket.put(TEST_DATA).get();
+                String blobId = bucket.put(null, TEST_DATA).get();
                 System.out.println("blobId:" + blobId);
                 BKEntryId entryId = BKEntryId.parseId(blobId);
 
@@ -217,7 +217,7 @@ public class ReadersPoolTest {
                 {
                     // put will fail, writer will be eventually disposed
                     ObjectManagerException error = TestUtils.expectThrows(ObjectManagerException.class,
-                            () -> bucket.put(TEST_DATA).get());
+                            () -> bucket.put(null, TEST_DATA).get());
                     assertTrue(error.getCause() instanceof BKException.BKNotEnoughBookiesException);
                     Map<String, List<DefaultPooledObjectInfo>> allWriters = blobManager.writers.listAllObjects();
                     assertTrue(allWriters.isEmpty());
@@ -236,7 +236,7 @@ public class ReadersPoolTest {
                     assertEquals(1, readerStats.getBorrowedCount());
                 }
 
-                String blobId2 = bucket.put(TEST_DATA).get();
+                String blobId2 = bucket.put(null, TEST_DATA).get();
                 BKEntryId entryId2 = BKEntryId.parseId(blobId2);
                 Assert.assertNotEquals(entryId.ledgerId, entryId2.ledgerId);
 
@@ -251,12 +251,12 @@ public class ReadersPoolTest {
 
                 // third ledger, we have concurrentReaders = 2, so we can read concurrently only from 2 ledgers
                 // we need to create a new ledger
-                bucket.put(TEST_DATA).get();
-                bucket.put(TEST_DATA).get();
-                bucket.put(TEST_DATA).get();
-                bucket.put(TEST_DATA).get();
+                bucket.put(null, TEST_DATA).get();
+                bucket.put(null, TEST_DATA).get();
+                bucket.put(null, TEST_DATA).get();
+                bucket.put(null, TEST_DATA).get();
 
-                String blobId3 = bucket.put(TEST_DATA).get();
+                String blobId3 = bucket.put(null, TEST_DATA).get();
                 BKEntryId entryId3 = BKEntryId.parseId(blobId3);
                 Assert.assertNotEquals(entryId.ledgerId, entryId3.ledgerId);
                 Assert.assertNotEquals(entryId2.ledgerId, entryId3.ledgerId);

@@ -83,7 +83,7 @@ public class SimpleClusterTest {
                 ObjectManager client = ServerMain.getRunningInstance().getClient();
                 client.createBucket("mybucket", "mybucket", BucketConfiguration.DEFAULT);
                 BucketHandle bucket = client.getBucket("mybucket");
-                String id = bucket.put("test".getBytes(StandardCharsets.UTF_8)).get();
+                String id = bucket.put(null, "test".getBytes(StandardCharsets.UTF_8)).get();
                 bucket.get(id).get();
 
 //                Thread.sleep(Integer.MAX_VALUE);

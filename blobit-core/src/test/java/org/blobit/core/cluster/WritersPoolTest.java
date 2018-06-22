@@ -71,7 +71,7 @@ public class WritersPoolTest {
                 manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
                 // perform a put, a new writer must be allocated
-                bucket.put(TEST_DATA).get();
+                bucket.put(null, TEST_DATA).get();
 
                 BookKeeperBlobManager blobManager = manager.getBlobManager();
                 {
@@ -83,7 +83,7 @@ public class WritersPoolTest {
                     assertEquals(1, writerStats.getBorrowedCount());
 
                     // new put, same writer
-                    bucket.put(TEST_DATA).get();
+                    bucket.put(null, TEST_DATA).get();
                     assertEquals(2, writerStats.getBorrowedCount());
                 }
 
@@ -95,7 +95,7 @@ public class WritersPoolTest {
 
                 {
                     // new put, new writer, we have passed MaxBytesPerLedger
-                    bucket.put(TEST_DATA).get();
+                    bucket.put(null, TEST_DATA).get();
                     Map<String, List<DefaultPooledObjectInfo>> all = blobManager.writers.listAllObjects();
                     List<DefaultPooledObjectInfo> writers = all.get(BUCKET_ID);
                     assertEquals(1, writers.size());
@@ -109,7 +109,7 @@ public class WritersPoolTest {
                 {
                     // put will fail, writer will be eventually disposed
                     ObjectManagerException error = TestUtils.expectThrows(ObjectManagerException.class,
-                            () -> bucket.put(TEST_DATA).get());
+                            () -> bucket.put(null, TEST_DATA).get());
                     assertTrue(error.getCause() instanceof BKException.BKNotEnoughBookiesException);
                     Map<String, List<DefaultPooledObjectInfo>> all = blobManager.writers.listAllObjects();
                     assertTrue(all.isEmpty());
@@ -120,7 +120,7 @@ public class WritersPoolTest {
 
                 {
                     // put will succeeed
-                    bucket.put(TEST_DATA).get();
+                    bucket.put(null, TEST_DATA).get();
                     Map<String, List<DefaultPooledObjectInfo>> all = blobManager.writers.listAllObjects();
                     assertEquals(1, all.size());
                 }

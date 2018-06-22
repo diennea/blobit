@@ -70,7 +70,7 @@ public class RestartClusterTest {
             try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
-                PutPromise put = bucket.put(TEST_DATA);
+                PutPromise put = bucket.put(null, TEST_DATA);
                 insertedID = put.get();
                 Assert.assertArrayEquals(TEST_DATA, bucket.get(insertedID).get());
             }

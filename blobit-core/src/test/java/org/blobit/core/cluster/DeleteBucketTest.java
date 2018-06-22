@@ -67,7 +67,7 @@ public class DeleteBucketTest {
             try (ObjectManager manager = (ClusterObjectManager) ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
-                String id = bucket.put(TEST_DATA).get();
+                String id = bucket.put(null, TEST_DATA).get();
                 Assert.assertArrayEquals(bucket.get(id).get(), TEST_DATA);
                 manager.deleteBucket(BUCKET_ID).get();
                 assertNull(manager.getBucketMetadata(BUCKET_ID));
@@ -100,7 +100,7 @@ public class DeleteBucketTest {
             try (ObjectManager manager = (ClusterObjectManager) ObjectManagerFactory.createObjectManager(configuration, datasource);) {
                 manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
-                String id = bucket.put(TEST_DATA).get();
+                String id = bucket.put(null, TEST_DATA).get();
                 Assert.assertArrayEquals(bucket.get(id).get(), TEST_DATA);
                 manager.deleteBucket(BUCKET_ID).get();
                 assertNull(manager.getBucketMetadata(BUCKET_ID));

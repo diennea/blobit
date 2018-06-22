@@ -87,18 +87,19 @@ public class LocalManager implements ObjectManager {
     private class BucketHandleImpl implements BucketHandle {
 
         private final String bucketId;
+        private ConcurrentHashMap<String, String> objectNames = new ConcurrentHashMap<>();
 
         public BucketHandleImpl(String bucketId) {
             this.bucketId = bucketId;
         }
 
         @Override
-        public PutPromise put(byte[] data) {
-            return put(data, 0, data.length);
+        public PutPromise put(String name, byte[] data) {
+            return put(name, data, 0, data.length);
         }
 
         @Override
-        public PutPromise put(long length, InputStream input) {
+        public PutPromise put(String name, long length, InputStream input) {
             DataInputStream ii = new DataInputStream(input);
             // we are in-memory, we can store only 'small' objects
             byte[] content = new byte[(int) length];
@@ -109,12 +110,12 @@ public class LocalManager implements ObjectManager {
                 res.completeExceptionally(err);
                 return new PutPromise(null, res);
             }
-            return put(content);
+            return put(name, content);
         }
 
         @Override
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
-        public PutPromise put(byte[] data, int offset, int len) {
+        public PutPromise put(String name, byte[] data, int offset, int len) {
             try {
                 if (offset != 0 && len < data.length) {
                     byte[] copy = new byte[len];
@@ -123,6 +124,9 @@ public class LocalManager implements ObjectManager {
                 }
                 MemEntryId res = getMemBucket(bucketId).getCurrentLedger().put(data);
                 /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
+                if (name != null) {
+                    objectNames.put(name, res.toId());
+                }
                 return new PutPromise(res.toId(), CompletableFuture.<Void>completedFuture(null));
             } catch (ObjectManagerException err) {
                 CompletableFuture<Void> res = new CompletableFuture<>();
@@ -144,6 +148,36 @@ public class LocalManager implements ObjectManager {
                 res.completeExceptionally(err);
                 return new GetPromise(objectId, 0, res);
             }
+        }
+
+        @Override
+        public GetPromise getByName(String name) {
+            if (name == null || !objectNames.contains(name)) {
+                CompletableFuture<byte[]> res = new CompletableFuture<>();
+                res.completeExceptionally(new ObjectManagerException("not found"));
+                return new GetPromise(null, 0, res);
+            }
+            return get(objectNames.get(name));
+        }
+
+        @Override
+        public DownloadPromise downloadByName(String name, Consumer<Long> lengthCallback, OutputStream output, int offset, long length) {
+            if (name == null || !objectNames.contains(name)) {
+                CompletableFuture<byte[]> res = new CompletableFuture<>();
+                res.completeExceptionally(new ObjectManagerException("not found"));
+                return new DownloadPromise(null, 0, res);
+            }
+            return download(objectNames.get(name), lengthCallback, output, offset, length);
+        }
+
+        @Override
+        public DeletePromise deleteByName(String name) {
+            if (name == null || !objectNames.contains(name)) {
+                CompletableFuture<byte[]> res = new CompletableFuture<>();
+                res.completeExceptionally(new ObjectManagerException("not found"));
+                return new DeletePromise(null, res);
+            }
+            return delete(objectNames.get(name));
         }
 
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")

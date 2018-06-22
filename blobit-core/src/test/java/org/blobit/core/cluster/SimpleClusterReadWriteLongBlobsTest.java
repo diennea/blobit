@@ -107,7 +107,7 @@ public class SimpleClusterReadWriteLongBlobsTest {
                     exec.submit(new Runnable() {
                         @Override
                         public void run() {
-                            batch.add(bucket.put(TEST_DATA));
+                            batch.add(bucket.put(null, TEST_DATA));
                         }
                     });
                 }

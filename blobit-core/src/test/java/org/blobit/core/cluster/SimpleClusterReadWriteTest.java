@@ -73,7 +73,7 @@ public class SimpleClusterReadWriteTest {
                 List<PutPromise> batch = new ArrayList<>();
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
                 for (int i = 0; i < 1000; i++) {
-                    batch.add(bucket.put(TEST_DATA));
+                    batch.add(bucket.put(null, TEST_DATA));
 
 //                    Thread.sleep(1);
                 }

@@ -74,18 +74,33 @@ public class ClusterObjectManager implements ObjectManager {
         }
 
         @Override
-        public PutPromise put(long length, InputStream input) {
-            return blobManager.put(bucketId, length, input);
+        public PutPromise put(String name, long length, InputStream input) {
+            return blobManager.put(bucketId, name, length, input);
         }
 
         @Override
-        public PutPromise put(byte[] data) {
-            return put(data, 0, data.length);
+        public PutPromise put(String name, byte[] data) {
+            return put(name, data, 0, data.length);
         }
 
         @Override
-        public PutPromise put(byte[] data, int offset, int len) {
-            return blobManager.put(bucketId, data, offset, len);
+        public PutPromise put(String name, byte[] data, int offset, int len) {
+            return blobManager.put(bucketId, name, data, offset, len);
+        }
+
+        @Override
+        public GetPromise getByName(String name) {
+            try {
+                String objectId = metadataManager.lookupObjectByName(bucketId, name);
+                if (objectId == null) {
+                    CompletableFuture<byte[]> res = new CompletableFuture<>();
+                    res.completeExceptionally(new ObjectManagerException("not found"));
+                    return new GetPromise(null, 0, res);
+                }
+                return blobManager.get(bucketId, objectId);
+            } catch (ObjectManagerException err) {
+                return new GetPromise(null, 0, BookKeeperBlobManager.wrapGenericException(err));
+            }
         }
 
         @Override
@@ -99,8 +114,38 @@ public class ClusterObjectManager implements ObjectManager {
         }
 
         @Override
+        public DownloadPromise downloadByName(String name, Consumer<Long> lengthCallback, OutputStream output, int offset, long length) {
+            try {
+                String objectId = metadataManager.lookupObjectByName(bucketId, name);
+                if (objectId == null) {
+                    CompletableFuture<byte[]> res = new CompletableFuture<>();
+                    res.completeExceptionally(new ObjectManagerException("not found"));
+                    return new DownloadPromise(null, 0, res);
+                }
+                return blobManager.download(bucketId, objectId, lengthCallback, output, offset, length);
+            } catch (ObjectManagerException err) {
+                return new DownloadPromise(null, 0, BookKeeperBlobManager.wrapGenericException(err));
+            }
+        }
+
+        @Override
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
+        public DeletePromise deleteByName(String name) {
+            try {
+                String objectId = metadataManager.lookupObjectByName(bucketId, name);
+                return delete(objectId, name);
+            } catch (ObjectManagerException err) {
+                return new DeletePromise(null, BookKeeperBlobManager.wrapGenericException(err));
+            }
+        }
+
+        @Override
         public DeletePromise delete(String objectId) {
+            return delete(objectId, null);
+        }
+        
+        @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
+        private DeletePromise delete(String objectId, String name) {
             if (objectId == null) {
                 return new DeletePromise(null, BookKeeperBlobManager.wrapGenericException(new IllegalArgumentException("null id")));
             }
@@ -112,7 +157,7 @@ public class ClusterObjectManager implements ObjectManager {
             } else {
                 try {
                     BKEntryId bk = BKEntryId.parseId(objectId);
-                    metadataManager.deleteObject(bucketId, bk.ledgerId, bk.firstEntryId);
+                    metadataManager.deleteObject(bucketId, bk.ledgerId, bk.firstEntryId, name);
                     result.complete(null);
                 } catch (ObjectManagerException ex) {
                     result.completeExceptionally(ex);

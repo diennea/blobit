@@ -58,11 +58,6 @@ public class SwiftAPIAdapter extends HttpServlet {
     @SuppressFBWarnings("SE_BAD_FIELD")
     private final ObjectManager objectManager;
 
-    private final Cache<String, String> mapping = CacheBuilder
-            .newBuilder()
-            .maximumSize(5000)
-            .build();
-
     public SwiftAPIAdapter(ObjectManager objectManager) {
         this.objectManager = objectManager;
     }
@@ -86,15 +81,11 @@ public class SwiftAPIAdapter extends HttpServlet {
                 }
                 String container = remainingPath.substring(0, slash);
                 String objectId = remainingPath.substring(slash + 1);
-                String resultId = mapping.getIfPresent(remainingPath);
-                if (resultId == null) {
-                    resp.sendError(HttpServletResponse.SC_NOT_FOUND, "Not found " + requestUri);
-                    return;
-                }
+                String name = remainingPath;
 
-                LOG.log(Level.FINEST, "[SWIFT] get object {0} as {1}", new Object[]{objectId, resultId});
+                LOG.log(Level.FINEST, "[SWIFT] get object {0} as {1}", new Object[]{objectId, name});
                 BucketHandle bucket = objectManager.getBucket(container);
-                bucket.download(resultId, (contentLength) -> {
+                bucket.downloadByName(name, (contentLength) -> {
                     resp.setContentLengthLong(contentLength);
                     resp.setStatus(HttpServletResponse.SC_OK);
                 }, resp.getOutputStream(), 0 /* offset */, -1 /* maxlen */).future
@@ -120,6 +111,7 @@ public class SwiftAPIAdapter extends HttpServlet {
                     } else {
                         String container = remainingPath.substring(0, slash);
                         String objectId = remainingPath.substring(slash + 1);
+                        String name = remainingPath;
                         String resultId;
                         BucketHandle bucket = objectManager.getBucket(container);
                         long expectedContentLen = req.getContentLengthLong();
@@ -127,14 +119,14 @@ public class SwiftAPIAdapter extends HttpServlet {
                             // we must read the content
                             try (InputStream in = req.getInputStream()) {
                                 byte[] payload = IOUtils.toByteArray(in);
-                                resultId = bucket.put(payload).get();
+                                resultId = bucket.put(name, payload).get();
                             }
                         } else {
                             // streaming directly from client to bookkeeper
-                            resultId = bucket.put(expectedContentLen, req.getInputStream()).get();
+                            resultId = bucket.put(name, expectedContentLen, req.getInputStream()).get();
                         }
                         LOG.log(Level.FINEST, "put {0} ((3} bytes) as {1} in {2}", new Object[]{objectId, resultId, container, expectedContentLen});
-                        mapping.put(remainingPath, resultId);
+
                         resp.setStatus(HttpServletResponse.SC_CREATED, "OK " + objectId + " as " + resultId);
                     }
                 } catch (InterruptedException err) {

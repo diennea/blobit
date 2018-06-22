@@ -92,7 +92,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
         }
     }
 
-    public PutPromise put(String bucketId, long len, InputStream in) {
+    public PutPromise put(String bucketId, String name, long len, InputStream in) {
         if (len == 0) {
             // very special case, the empty blob
             CompletableFuture<Void> result = new CompletableFuture<>();
@@ -103,7 +103,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
             BucketWriter writer = writers.borrowObject(bucketId);
             try {
                 return writer
-                        .writeBlob(bucketId, len, in);
+                        .writeBlob(bucketId, name, len, in);
             } finally {
                 writers.returnObject(bucketId, writer);
             }
@@ -112,7 +112,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
         }
     }
 
-    public PutPromise put(String bucketId, byte[] data, int offset, int len) {
+    public PutPromise put(String bucketId, String name, byte[] data, int offset, int len) {
         if (data.length < offset + len || offset < 0 || len < 0) {
             throw new IndexOutOfBoundsException();
         }
@@ -126,7 +126,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
             BucketWriter writer = writers.borrowObject(bucketId);
             try {
                 return writer
-                        .writeBlob(bucketId, data, offset, len);
+                        .writeBlob(bucketId, name, data, offset, len);
             } finally {
                 writers.returnObject(bucketId, writer);
             }
