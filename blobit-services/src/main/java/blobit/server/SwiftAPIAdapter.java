@@ -44,7 +44,7 @@ import org.apache.bookkeeper.common.concurrent.FutureUtils;
 import org.blobit.core.api.BucketHandle;
 
 /**
- * Emulates the Swift Object API, only for using the CosBench
+ * Emulates the OpenStack Swift Object API, only for using the CosBench
  *
  * @author enrico.olivelli
  */
@@ -92,23 +92,21 @@ public class SwiftAPIAdapter extends HttpServlet {
                     return;
                 }
 
-                try {
-                    LOG.log(Level.FINEST, "[SWIFT] get object {0} as {1}", new Object[]{objectId, resultId});
-                    BucketHandle bucket = objectManager.getBucket(container);
-                    byte[] payload = bucket
-                            .get(resultId)
-                            .get();
-                    resp.setStatus(HttpServletResponse.SC_OK, "OK " + objectId + " as " + resultId);
-                    resp.setContentLength(payload.length);
-                    try (OutputStream os = resp.getOutputStream()) {
-                        os.write(payload);
-                    }
-                } catch (InterruptedException err) {
-                    resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, err + "");
-                } catch (ObjectManagerException err) {
-                    resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, err.getCause() + "");
-                    LOG.log(Level.SEVERE, "Error while getting " + remainingPath, err.getCause());
-                }
+                LOG.log(Level.FINEST, "[SWIFT] get object {0} as {1}", new Object[]{objectId, resultId});
+                BucketHandle bucket = objectManager.getBucket(container);
+                bucket.download(resultId, (contentLength) -> {
+                    resp.setContentLengthLong(contentLength);
+                    resp.setStatus(HttpServletResponse.SC_OK);
+                }, resp.getOutputStream(), 0 /* offset */, -1 /* maxlen */).future
+                        .handle((v, error) -> {
+                            try {
+                                error.printStackTrace();
+                                resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, error + "");
+                            } catch (IOException err) {
+                                err.printStackTrace();
+                            }
+                            return null;
+                        });
                 return;
             }
             case "PUT": {
