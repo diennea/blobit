@@ -33,8 +33,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.logging.LogManager;
 
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.ObjectManager;
@@ -45,14 +43,10 @@ import org.junit.rules.TemporaryFolder;
 
 import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
+import org.blobit.core.api.BucketHandle;
 import org.blobit.core.cluster.ZKTestEnv;
 
 public class BenchWriterTest {
-
-    static {
-        LogManager.getLogManager().reset();
-        Logger.getRootLogger().setLevel(Level.INFO);
-    }
 
     @Rule
     public final TemporaryFolder tmp = new TemporaryFolder(new File("target").getAbsoluteFile());
@@ -90,9 +84,10 @@ public class BenchWriterTest {
                     long _start = System.currentTimeMillis();
 
                     Collection<Future<String>> batch = new ConcurrentLinkedQueue<>();
+                    BucketHandle bucket = blobManager.getBucket(BUCKET_ID);
                     for (int i = 0; i < TEST_SIZE; i++) {
                         long _entrystart = System.currentTimeMillis();
-                        CompletableFuture res = blobManager.put(BUCKET_ID, TEST_DATA).future;
+                        CompletableFuture res = bucket.put(null, TEST_DATA).future;
                         res.handle((a, b) -> {
                             totalTime.add(System.currentTimeMillis() - _entrystart);
                             return a;

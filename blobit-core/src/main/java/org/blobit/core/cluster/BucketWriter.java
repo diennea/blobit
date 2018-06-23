@@ -105,6 +105,7 @@ public class BucketWriter {
                     .withWriteQuorumSize(replicationFactor)
                     .withEnsembleSize(replicationFactor)
                     .withDigestType(DigestType.CRC32C)
+//                    .withWriteFlags(WriteFlag.DEFERRED_SYNC)
                     .withPassword(DUMMY_PWD)
                     .withCustomMetadata(ledgerMetadata)
                     .makeAdv()

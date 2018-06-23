@@ -26,22 +26,17 @@ import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.LongAdder;
-import java.util.logging.LogManager;
 
-import org.apache.bookkeeper.client.AsyncCallback;
-import org.apache.bookkeeper.client.BKException;
 import org.apache.bookkeeper.client.BookKeeper;
-import org.apache.bookkeeper.client.LedgerHandle;
 import org.apache.bookkeeper.conf.ClientConfiguration;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
-import org.blobit.core.cluster.ZKTestEnv;
+import org.apache.bookkeeper.client.api.DigestType;
+import org.apache.bookkeeper.client.api.WriteHandle;
 
 /**
  *
@@ -49,12 +44,7 @@ import org.blobit.core.cluster.ZKTestEnv;
  */
 public class BookKeeperWriteTest {
 
-    static {
-        LogManager.getLogManager().reset();
-        Logger.getRootLogger().setLevel(Level.INFO);
-    }
-
-    private static final byte[] TEST_DATA = new byte[35*1024];
+    private static final byte[] TEST_DATA = new byte[35 * 1024];
     private static final int TEST_SIZE = 1000;
     private static final int TEST_ITERATIONS = 10;
 
@@ -82,47 +72,45 @@ public class BookKeeperWriteTest {
 
                 for (int j = 0; j < TEST_ITERATIONS; j++) {
                     try (
-                        LedgerHandle lh = bk.createLedger(1, 1, 1, BookKeeper.DigestType.CRC32, new byte[0])) {
-                        LongAdder totalTime = new LongAdder();
-                        long _start = System.currentTimeMillis();
-                        Collection<CompletableFuture> batch = new ConcurrentLinkedQueue<>();
-                        for (int i = 0; i < TEST_SIZE; i++) {
-                            CompletableFuture cf = new CompletableFuture();
-                            batch.add(cf);
-                            lh.asyncAddEntry(data, new AsyncCallback.AddCallback() {
+                            WriteHandle lh = bk.
+                                    newCreateLedgerOp()
+                                    .withAckQuorumSize(1)
+                                    .withEnsembleSize(1)
+                                    .withWriteQuorumSize(1)
+                                    .withPassword(new byte[0])
+                                    .withDigestType(DigestType.CRC32C)
+                                    .execute()
+                                    .get()) {
+                                LongAdder totalTime = new LongAdder();
+                                long _start = System.currentTimeMillis();
+                                Collection<CompletableFuture> batch = new ConcurrentLinkedQueue<>();
+                                for (int i = 0; i < TEST_SIZE; i++) {
+                                    long start = System.currentTimeMillis();
 
-                                long start = System.currentTimeMillis();
-
-                                @Override
-                                public void addComplete(int rc, LedgerHandle lh, long entryId, Object ctx) {
-                                    long now = System.currentTimeMillis();
-                                    CompletableFuture _cf = (CompletableFuture) ctx;
-                                    if (rc == BKException.Code.OK) {
-                                        _cf.complete("");
-                                    } else {
-                                        _cf.completeExceptionally(BKException.create(rc));
-                                    }
-                                    totalTime.add(now - start);
-                                }
-                            }, cf);
+                                    CompletableFuture<Long> cf = lh.appendAsync(data);
+                                    cf.handle((id, error) -> {
+                                        totalTime.add(System.currentTimeMillis() - start);
+                                        return null;
+                                    });
+                                    batch.add(cf);
 
 //                          Thread.sleep(1);
-                        }
-                        assertEquals(TEST_SIZE, batch.size());
-                        for (CompletableFuture f : batch) {
-                            f.get();
-                        }
-                        long _stop = System.currentTimeMillis();
-                        double delta = _stop - _start;
-                        System.out.printf("#" + j + " Wall clock time: " + delta + " ms, "
-                            // + "total callbacks time: " + totalTime.sum() + " ms, "
-                            + "size %.3f MB -> %.2f ms per entry (latency),"
-                            + "%.1f ms per entry (throughput) %.1f MB/s throughput%n",
-                            (TEST_DATA.length / (1024 * 1024d)),
-                            (totalTime.sum() * 1d / TEST_SIZE),
-                            (delta / TEST_SIZE),
-                            ((((TEST_SIZE * TEST_DATA.length) / (1024 * 1024d))) / (delta / 1000d)));
-                    }
+                                }
+                                assertEquals(TEST_SIZE, batch.size());
+                                for (CompletableFuture f : batch) {
+                                    f.get();
+                                }
+                                long _stop = System.currentTimeMillis();
+                                double delta = _stop - _start;
+                                System.out.printf("#" + j + " Wall clock time: " + delta + " ms, "
+                                        // + "total callbacks time: " + totalTime.sum() + " ms, "
+                                        + "size %.3f MB -> %.2f ms per entry (latency),"
+                                        + "%.1f ms per entry (throughput) %.1f MB/s throughput%n",
+                                        (TEST_DATA.length / (1024 * 1024d)),
+                                        (totalTime.sum() * 1d / TEST_SIZE),
+                                        (delta / TEST_SIZE),
+                                        ((((TEST_SIZE * TEST_DATA.length) / (1024 * 1024d))) / (delta / 1000d)));
+                            }
                 }
 
             }

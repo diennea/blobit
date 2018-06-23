@@ -34,8 +34,6 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.logging.LogManager;
 
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.ObjectManager;
@@ -46,21 +44,17 @@ import org.junit.rules.TemporaryFolder;
 
 import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
-import org.blobit.core.cluster.ZKTestEnv;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class BenchWriterSynchClientsTest {
-
-    static {
-        LogManager.getLogManager().reset();
-        Logger.getRootLogger().setLevel(Level.INFO);
-    }
 
     @Rule
     public final TemporaryFolder tmp = new TemporaryFolder(new File("target").getAbsoluteFile());
 
     private static final String BUCKET_ID = "mybucket";
     private static final byte[] TEST_DATA = new byte[35 * 1024];
-    private static final int TEST_SIZE = 1000;
+    private static final int TEST_SIZE = 10000;
     private static final int TEST_ITERATIONS = 10;
     private static final int CLIENT_WRITERS = 10;
     private static final int CONCURRENT_WRITERS = 10;
@@ -153,7 +147,7 @@ public class BenchWriterSynchClientsTest {
     private void writeData(int tname, ObjectManager blobManager, AtomicInteger counter, LongAdder totalTime) throws InterruptedException, ExecutionException {
         String tName = Thread.currentThread().getName();
         long _entrystart = System.currentTimeMillis();
-        CompletableFuture<?> res = blobManager.put(BUCKET_ID + tname, TEST_DATA).future;
+        CompletableFuture<?> res = blobManager.getBucket(BUCKET_ID + tname).put(null, TEST_DATA).future;
         res.handle((a, b) -> {
             if (b != null) {
                 throw new RuntimeException(b);

@@ -35,8 +35,6 @@ import org.apache.bookkeeper.client.BKException;
 import org.apache.bookkeeper.client.BookKeeper;
 import org.apache.bookkeeper.client.LedgerHandle;
 import org.apache.bookkeeper.conf.ClientConfiguration;
-import org.apache.log4j.Level;
-import org.apache.log4j.Logger;
 import org.blobit.core.cluster.ZKTestEnv;
 import org.junit.Rule;
 import org.junit.Test;
@@ -47,11 +45,6 @@ import org.junit.rules.TemporaryFolder;
  * @author enrico.olivelli
  */
 public class BookKeeperWriteSynchClientsTest {
-
-    static {
-        LogManager.getLogManager().reset();
-        Logger.getRootLogger().setLevel(Level.INFO);
-    }
 
     private static final byte[] TEST_DATA = new byte[35 * 1024];
     private static final int TEST_SIZE = 1000;
