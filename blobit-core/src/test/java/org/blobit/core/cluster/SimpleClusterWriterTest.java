@@ -35,6 +35,7 @@ import org.junit.rules.TemporaryFolder;
 
 import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
+import io.netty.util.internal.PlatformDependent;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
@@ -149,7 +150,8 @@ public class SimpleClusterWriterTest {
                 }
                 for (int i = 0; i < 1000; i++) {
                     bucket.getByName("foo" + i).get();
-                    bucket.downloadByName("foo" + i, (l)->{}, new ByteArrayOutputStream(), 0, -1).get();
+                    bucket.downloadByName("foo" + i, (l) -> {
+                    }, new ByteArrayOutputStream(), 0, -1).get();
                     bucket.deleteByName("foo" + i).get();
                 }
 
@@ -243,6 +245,7 @@ public class SimpleClusterWriterTest {
                         byte[] data = bucket.get(id).get();
                         assertEquals(expectedSize, data.length);
 //                        Arrays.equals(TEST_DATA, 0, expectedSize, data, 0, data.length);
+                        PlatformDependent.equals(TEST_DATA, 0, data, 0, expectedSize);
                     } else {
                         assertTrue(expectedSize > TEST_DATA.length);
                     }
@@ -348,9 +351,13 @@ public class SimpleClusterWriterTest {
                             LOG.info("testcase datasize " + testdata.length + ", offset " + offset + ", " + downloadPromise.id + " originalExpectedSize " + originalExpectedSize + ", expected size " + expectedSize + " ->  (object len " + testdata.length + ") actual " + data.length);
 
                             assertEquals(expectedSize, data.length);
-//                        Arrays.equals(TEST_DATA, offset, offset + expectedSize, data, 0, data.length);
+                            if (offset >= testdata.length) {
+                                assertEquals(0, data.length);
+                            } else {
+                                PlatformDependent.equals(testdata, offset, data, 0, expectedSize);
+                            }
                             assertEquals(expectedSize, contentLength.intValue());
-
+                            
                         }
                     }
                 }
