@@ -32,6 +32,9 @@ import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.LogManager;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.ObjectManager;
@@ -52,6 +55,8 @@ public class ServerMain implements AutoCloseable {
     private boolean started;
     private String uiurl;
 
+    private ScheduledExecutorService gcThread;
+
     // API
     private ObjectManager client;
     private HerdDBDataSource datasource;
@@ -65,7 +70,9 @@ public class ServerMain implements AutoCloseable {
 
     @Override
     public void close() {
-
+        if (gcThread != null) {
+            gcThread.shutdown();
+        }
         if (server != null) {
             try {
                 server.close();
@@ -200,7 +207,18 @@ public class ServerMain implements AutoCloseable {
         server = new Server(config);
         server.start();
 
+        int gcPeriod = config.getInt(ServerConfiguration.PROPERTY_GC_PERIOD, ServerConfiguration.PROPERTY_GC_PERIOD_DEFAULT);
+
         boolean httpEnabled = config.getBoolean("http.enable", true);
+        if (httpEnabled || gcPeriod > 0) {
+            datasource = new HerdDBDataSource();
+            String herdDbUrl = config.getString("database.url", "jdbc:herddb:zookeeper:" + config
+                    .getString(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT));
+            datasource.setUrl(herdDbUrl);
+            Configuration clientConfiguration = new Configuration(configuration);
+            client = ObjectManagerFactory
+                    .createObjectManager(clientConfiguration, datasource);
+        }
         if (httpEnabled) {
             String httphost = config.getString("http.host", "localhost");
             String httpadvertisedhost = config.getString("http.advertised.host", httphost);
@@ -215,18 +233,17 @@ public class ServerMain implements AutoCloseable {
                 Files.createDirectories(webUi.toPath());
             }
             WebAppContext webApp = new WebAppContext(new File("web/api").getAbsolutePath(), "/api");
-            datasource = new HerdDBDataSource();
-            String herdDbUrl = config.getString("database.url", "jdbc:herddb:zookeeper:" + config
-                .getString(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT));
-            datasource.setUrl(herdDbUrl);
-            Configuration clientConfiguration = new Configuration(configuration);
-            client = ObjectManagerFactory
-                .createObjectManager(clientConfiguration, datasource);
             webApp.addServlet(new ServletHolder(new SwiftAPIAdapter(client)), "/");
             contexts.addHandler(webApp);
             uiurl = "http://" + httpadvertisedhost + ":" + httpadvertisedport + "/";
             System.out.println("Listening for client (http) connections on " + httphost + ":" + httpport);
             httpserver.start();
+        }
+        if (gcPeriod > 0) {
+            gcThread = Executors.newSingleThreadScheduledExecutor();
+            gcThread.scheduleAtFixedRate(() -> {
+                client.gc();
+            }, gcPeriod, gcPeriod, TimeUnit.MINUTES);
         }
 
         System.out.println("BlobIt server starter");

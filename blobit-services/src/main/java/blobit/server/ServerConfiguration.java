@@ -54,6 +54,13 @@ public final class ServerConfiguration {
     public static final int PROPERTY_PORT_DEFAULT = 2183;
     public static final int PROPERTY_ZOOKEEPER_SESSIONTIMEOUT_DEFAULT = 40000;
 
+    /**
+     * Automatic GC in minutes. Use 0 to disable
+     */
+    public static final String PROPERTY_GC_PERIOD = "server.gc.period";
+    public static final int PROPERTY_GC_PERIOD_DEFAULT = 60;
+
+    
     public ServerConfiguration(Properties properties) {
         this.properties = new Properties();
         this.properties.putAll(properties);

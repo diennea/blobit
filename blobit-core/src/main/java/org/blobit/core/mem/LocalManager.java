@@ -228,6 +228,13 @@ public class LocalManager implements ObjectManager {
                 return new DeletePromise(objectId, res);
             }
         }
+
+        public void gc() {
+            try {
+                getMemBucket(bucketId).gc();
+            } catch (ObjectManagerException ex) {
+            }
+        }
     }
 
     @Override
@@ -273,14 +280,6 @@ public class LocalManager implements ObjectManager {
     @Override
     public void start() {
 
-    }
-
-    @Override
-    public void gc(String bucketId) {
-        try {
-            getMemBucket(bucketId).gc();
-        } catch (ObjectManagerException ex) {
-        }
     }
 
     @Override

@@ -68,14 +68,9 @@ public interface ObjectManager extends AutoCloseable {
     public BucketMetadata getBucketMetadata(String bucketId) throws ObjectManagerException;
 
     /**
-     * Release resources allocated by a bucket but no more in use
-     *
-     * @param bucketId
-     */
-    public void gc(String bucketId);
-
-    /**
-     * Loops over every bucket and performs {@link #gc(java.lang.String) }
+     * Loops over every bucket and performs {@link #gc(java.lang.String) }.
+     * This method can be called concurrencly by several clients in the cluster.
+     * Usually this action iw performed periodically by server nodes.
      *
      * @see #gc(java.lang.String)
      */

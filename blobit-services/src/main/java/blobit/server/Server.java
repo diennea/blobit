@@ -23,6 +23,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -47,14 +50,16 @@ public class Server {
     }
 
     public void start() throws Exception {
-        boolean startBookie = configuration.getBoolean(herddb.server.ServerConfiguration.PROPERTY_BOOKKEEPER_START,
-            herddb.server.ServerConfiguration.PROPERTY_BOOKKEEPER_START_DEFAULT);
+        boolean startBookie = configuration.getBoolean(ServerConfiguration.PROPERTY_BOOKKEEPER_START,
+                ServerConfiguration.PROPERTY_BOOKKEEPER_START_DEFAULT);
         if (startBookie && embeddedBookie != null) {
             this.embeddedBookie.start();
         }
+
     }
 
     public void close() {
+
         if (this.embeddedBookie != null) {
             this.embeddedBookie.close();
         }

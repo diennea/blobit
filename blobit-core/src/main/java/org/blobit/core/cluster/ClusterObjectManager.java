@@ -73,6 +73,14 @@ public class ClusterObjectManager implements ObjectManager {
             this.bucketId = bucketId;
         }
 
+        public void gc() {
+            try {
+                gcBucket(bucketId);
+            } catch (ObjectManagerException err) {
+                LOG.log(Level.SEVERE, "error while cleaning " + bucketId, err);
+            }
+        }
+
         @Override
         public PutPromise put(String name, long length, InputStream input) {
             return blobManager.put(bucketId, name, length, input);
@@ -143,7 +151,7 @@ public class ClusterObjectManager implements ObjectManager {
         public DeletePromise delete(String objectId) {
             return delete(objectId, null);
         }
-        
+
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
         private DeletePromise delete(String objectId, String name) {
             if (objectId == null) {
@@ -181,15 +189,6 @@ public class ClusterObjectManager implements ObjectManager {
     @Override
     public void listBuckets(Consumer<BucketMetadata> consumer) throws ObjectManagerException {
         metadataManager.listBuckets(consumer);
-    }
-
-    @Override
-    public void gc(String bucketId) {
-        try {
-            gcBucket(bucketId);
-        } catch (ObjectManagerException ex) {
-            LOG.log(Level.SEVERE, "Error during ledger management", ex);
-        }
     }
 
     @Override

@@ -148,4 +148,12 @@ public interface BucketHandle {
      */
     public DeletePromise deleteByName(String objectId);
 
+    
+    /**
+     * Release space allocated by a bucket but no more in use.
+     * This method can be called concurrently from several clients in the cluster.
+     *
+     */
+    public void gc();
+
 }
