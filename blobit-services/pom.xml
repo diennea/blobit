@@ -60,6 +60,11 @@
             <version>${libs.bookkeeper}</version>
         </dependency>
         <dependency>
+            <groupId>org.herddb</groupId>
+            <artifactId>herddb-core</artifactId>
+            <version>${libs.herddb}</version>
+        </dependency>
+        <dependency>
             <groupId>org.apache.curator</groupId>
             <artifactId>curator-test</artifactId>
             <version>${libs.curator}</version>

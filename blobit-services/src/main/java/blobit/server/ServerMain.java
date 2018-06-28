@@ -50,6 +50,7 @@ public class ServerMain implements AutoCloseable {
 
     private final Properties configuration;
     private final PidFileLocker pidFileLocker;
+    private herddb.server.Server database;
     private Server server;
     private org.eclipse.jetty.server.Server httpserver;
     private boolean started;
@@ -94,6 +95,15 @@ public class ServerMain implements AutoCloseable {
         if (client != null) {
             client.close();
         }
+        if (database != null) {
+            try {
+                database.close();
+            } catch (Exception ex) {
+                Logger.getLogger(ServerMain.class.getName()).log(Level.SEVERE, null, ex);
+            } finally {
+                database = null;
+            }
+        }
         if (datasource != null) {
             datasource.close();
         }
@@ -103,7 +113,7 @@ public class ServerMain implements AutoCloseable {
 
     public static void main(String... args) {
         try {
-            LOG.severe("Starting BlobkIt");
+            LOG.severe("Starting BlobIt");
             Properties configuration = new Properties();
 
             boolean configFileFromParameter = false;
@@ -204,6 +214,24 @@ public class ServerMain implements AutoCloseable {
 
         ServerConfiguration config = new ServerConfiguration(this.configuration);
 
+        boolean startDatabase = config.getBoolean(ServerConfiguration.PROPERTY_BOOKKEEPER_START, ServerConfiguration.PROPERTY_BOOKKEEPER_START_DEFAULT);
+        if (startDatabase) {
+            herddb.server.ServerConfiguration databaseConfiguration = new herddb.server.ServerConfiguration();
+            for (Object _key : this.configuration.keySet()) {
+                String key = _key.toString();
+                String value = this.configuration.getProperty(key);
+                if (key.startsWith("herddb.")) {
+                    key = key.substring("herddb.".length());
+                    LOG.log(Level.SEVERE, "setting {0}={1} on Embedded HerdDB Server", new Object[]{key, value});
+                    databaseConfiguration.set(key, value);
+                }
+
+            }
+            database = new herddb.server.Server(databaseConfiguration);
+            database.start();
+            database.waitForStandaloneBoot();
+        }
+
         server = new Server(config);
         server.start();
 
@@ -212,9 +240,13 @@ public class ServerMain implements AutoCloseable {
         boolean httpEnabled = config.getBoolean("http.enable", true);
         if (httpEnabled || gcPeriod > 0) {
             datasource = new HerdDBDataSource();
-            String herdDbUrl = config.getString("database.url", "jdbc:herddb:zookeeper:" + config
-                    .getString(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT));
-            datasource.setUrl(herdDbUrl);
+            if (database != null) {
+                datasource.setUrl(database.getJdbcUrl());
+            } else {
+                String herdDbUrl = config.getString("database.url", "jdbc:herddb:zookeeper:" + config
+                        .getString(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT));
+                datasource.setUrl(herdDbUrl);
+            }
             Configuration clientConfiguration = new Configuration(configuration);
             client = ObjectManagerFactory
                     .createObjectManager(clientConfiguration, datasource);

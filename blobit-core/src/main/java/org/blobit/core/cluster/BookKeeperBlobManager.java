@@ -302,10 +302,12 @@ public class BookKeeperBlobManager implements AutoCloseable {
             this.callbacksExecutor = Executors.newFixedThreadPool(concurrentWrites);
             ClientConfiguration clientConfiguration = new ClientConfiguration();
             clientConfiguration.setThrottleValue(0);
-            clientConfiguration.setZkLedgersRootPath(PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT);
-            clientConfiguration.setEnsemblePlacementPolicy(DefaultEnsemblePlacementPolicy.class);
             clientConfiguration.setLedgerManagerFactoryClass(HierarchicalLedgerManagerFactory.class);
             clientConfiguration.setEnableDigestTypeAutodetection(true);
+
+            clientConfiguration.setZkLedgersRootPath(PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT);
+            clientConfiguration.setZkServers(configuration.getZookkeeperUrl());
+
 //            clientConfiguration.setUseV2WireProtocol(true);
             for (String key : configuration.keys()) {
                 if (key.startsWith("bookkeeper.")) {
@@ -313,7 +315,8 @@ public class BookKeeperBlobManager implements AutoCloseable {
                     clientConfiguration.setProperty(rawKey, configuration.getProperty(key));
                 }
             }
-            clientConfiguration.setZkServers(configuration.getZookkeeperUrl());
+            LOG.info("ObjectManager will use BookKeeper ensemble at " + configuration.getZookkeeperUrl() + ", that is BK configuration bookkeeper.metadataServiceUri=" + clientConfiguration.getMetadataServiceUriUnchecked());
+
             GenericKeyedObjectPoolConfig configWriters = new GenericKeyedObjectPoolConfig();
             configWriters.setMaxTotalPerKey(concurrentWrites);
             configWriters.setMaxIdlePerKey(concurrentWrites);

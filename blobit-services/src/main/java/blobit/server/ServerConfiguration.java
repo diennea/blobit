@@ -40,6 +40,9 @@ public final class ServerConfiguration {
     public static final String PROPERTY_ZOOKEEPER_SESSIONTIMEOUT = "server.zookeeper.session.timeout";
     public static final String PROPERTY_ZOOKEEPER_PATH = "server.zookeeper.path";
 
+    public static final String PROPERTY_DATABASE_START = "server.database.start";
+    public static final boolean PROPERTY_DATABASE_START_DEFAULT = true;
+    
     public static final String PROPERTY_BOOKKEEPER_START = "server.bookkeeper.start";
     public static final boolean PROPERTY_BOOKKEEPER_START_DEFAULT = true;
 

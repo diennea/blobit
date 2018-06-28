@@ -62,7 +62,7 @@ public class Configuration {
     public static final int MAX_READERS_DEFAULT = 100;
 
     public static final String ZOOKEEPER_URL = "zookeeper.url";
-    public static final String ZOOKEEPER_URL_DEFAULT = "localhost:1821";
+    public static final String ZOOKEEPER_URL_DEFAULT = "localhost:2181";
 
     public Configuration() {
         this.properties = new Properties();

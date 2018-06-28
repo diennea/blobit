@@ -48,51 +48,48 @@ public class SimpleClusterTest {
     public void test() throws Exception {
 
         try (TestingServer zookeeperServer = new TestingServer(-1, folder.newFolder("zk"));) {
-            herddb.server.ServerConfiguration herdDbserverConfig = new herddb.server.ServerConfiguration(folder.newFolder("herddb").toPath());
 
-            herdDbserverConfig.set(herddb.server.ServerConfiguration.PROPERTY_MODE,
-                    herddb.server.ServerConfiguration.PROPERTY_MODE_STANDALONE);
+            File tmpConfFile = folder.newFile("test.server_cluster.properties");
 
-            try (herddb.server.Server server = new herddb.server.Server(herdDbserverConfig)) {
-                server.start();
-                server.waitForStandaloneBoot();
+            try (InputStream in = SimpleClusterTest.class.getResourceAsStream("/conf/test.server_cluster.properties")) {
+                Properties props = new Properties();
+                props.load(in);
 
-                File tmpConfFile = folder.newFile("test.server_cluster.properties");
+                props.put(ServerConfiguration.PROPERTY_BASEDIR, folder.newFolder().getAbsolutePath());
+                props.put(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, zookeeperServer.getConnectString());
 
-                try (InputStream in = SimpleClusterTest.class.getResourceAsStream("/conf/test.server_cluster.properties")) {
-                    Properties props = new Properties();
-                    props.load(in);
-                    props.put(ServerConfiguration.PROPERTY_BASEDIR, folder.newFolder().getAbsolutePath());
-                    props.put(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, zookeeperServer.getConnectString());
-                    props.put(Configuration.ZOOKEEPER_URL, zookeeperServer.getConnectString());
-                    props.put("database.url", server.getJdbcUrl());
-                    try (FileOutputStream oo = new FileOutputStream(tmpConfFile)) {
-                        props.store(oo, "");
-                    }
-                }
-                Thread runner = new Thread(() -> {
-                    ServerMain.main(tmpConfFile.getAbsolutePath());
-                });
-                runner.start();
-                while (ServerMain.getRunningInstance() == null
-                        || !ServerMain.getRunningInstance().isStarted()) {
-                    Thread.sleep(1000);
-                    System.out.println("waiting for boot");
-                }
-
-                ObjectManager client = ServerMain.getRunningInstance().getClient();
-                client.createBucket("mybucket", "mybucket", BucketConfiguration.DEFAULT);
-                BucketHandle bucket = client.getBucket("mybucket");
-                String id = bucket.put(null, "test".getBytes(StandardCharsets.UTF_8)).get();
-                bucket.get(id).get();
-
-//                Thread.sleep(Integer.MAX_VALUE);
-                ServerMain.getRunningInstance().close();
-            } finally {
-                if (ServerMain.getRunningInstance() != null) {
-                    ServerMain.getRunningInstance().close();
+                props.put("herddb." + herddb.server.ServerConfiguration.PROPERTY_BOOKKEEPER_START, "true");
+                props.put("herddb." + herddb.server.ServerConfiguration.PROPERTY_MODE, herddb.server.ServerConfiguration.PROPERTY_MODE_CLUSTER);
+                props.put("herddb." + herddb.server.ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, zookeeperServer.getConnectString());
+                props.put(Configuration.ZOOKEEPER_URL, zookeeperServer.getConnectString());
+                try (FileOutputStream oo = new FileOutputStream(tmpConfFile)) {
+                    props.store(oo, "");
                 }
             }
+            Thread runner = new Thread(() -> {
+                ServerMain.main(tmpConfFile.getAbsolutePath());
+            });
+            runner.start();
+            while (ServerMain.getRunningInstance() == null
+                    || !ServerMain.getRunningInstance().isStarted()) {
+                Thread.sleep(1000);
+                System.out.println("waiting for boot");
+            }
+
+            ObjectManager client = ServerMain.getRunningInstance().getClient();
+            client.createBucket("mybucket", "mybucket", BucketConfiguration.DEFAULT);
+            BucketHandle bucket = client.getBucket("mybucket");
+            String id = bucket.put("myblob", "test".getBytes(StandardCharsets.UTF_8)).get();
+            bucket.get(id).get();
+            bucket.getByName("myblob").get();
+
+//                Thread.sleep(Integer.MAX_VALUE);
+            ServerMain.getRunningInstance().close();
+        } finally {
+            if (ServerMain.getRunningInstance() != null) {
+                ServerMain.getRunningInstance().close();
+            }
         }
+
     }
 }
