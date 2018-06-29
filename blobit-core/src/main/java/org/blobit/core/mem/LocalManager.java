@@ -146,7 +146,7 @@ public class LocalManager implements ObjectManager {
             } catch (ObjectManagerException err) {
                 CompletableFuture<byte[]> res = new CompletableFuture<>();
                 res.completeExceptionally(err);
-                return new GetPromise(objectId, 0, res);
+                return new GetPromise(null, 0, res);
             }
         }
 
@@ -158,6 +158,26 @@ public class LocalManager implements ObjectManager {
                 return new GetPromise(null, 0, res);
             }
             return get(objectNames.get(name));
+        }
+
+        @Override
+        public ObjectMetadata statByName(String objectId) {
+            GetPromise get = getByName(objectId);
+            if (get.id == null) {
+                return null;
+            } else {
+                return new ObjectMetadata(get.id, get.length);
+            }
+        }
+
+        @Override
+        public ObjectMetadata stat(String objectId) {
+            GetPromise get = get(objectId);
+            if (get.id == null) {
+                return null;
+            } else {
+                return new ObjectMetadata(objectId, get.length);
+            }
         }
 
         @Override

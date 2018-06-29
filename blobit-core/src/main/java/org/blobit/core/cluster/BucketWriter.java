@@ -105,7 +105,7 @@ public class BucketWriter {
                     .withWriteQuorumSize(replicationFactor)
                     .withEnsembleSize(replicationFactor)
                     .withDigestType(DigestType.CRC32C)
-//                    .withWriteFlags(WriteFlag.DEFERRED_SYNC)
+                    //                    .withWriteFlags(WriteFlag.DEFERRED_SYNC)
                     .withPassword(DUMMY_PWD)
                     .withCustomMetadata(ledgerMetadata)
                     .makeAdv()
@@ -243,9 +243,13 @@ public class BucketWriter {
                 // because it the object could be larger that 2 GB
                 chunk = new byte[chunkLen];
                 try {
-                    int reallyRead = in.read(chunk);
-                    if (reallyRead != chunkLen) {
-                        throw new EOFException("short read from stream");
+                    int n = 0;
+                    while (n < chunkLen) {
+                        int count = in.read(chunk, 0 + n, chunkLen - n);                        
+                        if (count < 0) {
+                            throw new EOFException("short read from stream, read up to "+n+" expected "+chunkLen+" for chunk #"+i);
+                        }
+                        n += count;
                     }
                 } catch (IOException err) {
                     pendingWrites.decrementAndGet();

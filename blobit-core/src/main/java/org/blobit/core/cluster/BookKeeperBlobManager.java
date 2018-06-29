@@ -40,7 +40,6 @@ import java.util.logging.Logger;
 import org.apache.bookkeeper.client.BKException;
 import org.apache.bookkeeper.client.BookKeeper;
 import org.apache.bookkeeper.client.BookKeeperAdmin;
-import org.apache.bookkeeper.client.DefaultEnsemblePlacementPolicy;
 import org.apache.bookkeeper.client.LedgerHandle;
 import org.apache.bookkeeper.client.LedgerMetadata;
 import org.apache.bookkeeper.common.concurrent.FutureUtils;
@@ -56,6 +55,7 @@ import org.blobit.core.api.Configuration;
 import org.blobit.core.api.DownloadPromise;
 import org.blobit.core.api.GetPromise;
 import org.blobit.core.api.ObjectManagerException;
+import org.blobit.core.api.ObjectMetadata;
 import org.blobit.core.api.PutPromise;
 import static org.blobit.core.cluster.BucketWriter.BK_METADATA_BUCKET_ID;
 import static org.blobit.core.cluster.BucketWriter.BK_METADATA_BUCKET_UUID;
@@ -218,6 +218,20 @@ public class BookKeeperBlobManager implements AutoCloseable {
         } catch (Exception err) {
             return new GetPromise(id, 0, wrapGenericException(err));
         }
+    }
+
+    ObjectMetadata stat(String bucketId, String id) {
+        if (id == null) {
+            return null;
+        }
+        if (BKEntryId.EMPTY_ENTRY_ID.equals(id)) {
+            CompletableFuture<byte[]> result = new CompletableFuture<>();
+            result.complete(EMPTY_BYTE_ARRAY);
+            return new ObjectMetadata(id, 0);
+        }
+
+        BKEntryId entry = BKEntryId.parseId(id);
+        return new ObjectMetadata(id, entry.length);
     }
 
     private final class WritersFactory implements KeyedPooledObjectFactory<String, BucketWriter> {

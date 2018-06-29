@@ -43,6 +43,7 @@ import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.DeletePromise;
 import org.blobit.core.api.DownloadPromise;
 import org.blobit.core.api.GetPromise;
+import org.blobit.core.api.ObjectMetadata;
 
 /**
  * ObjectManager that uses Bookkeeper and HerdDB as clusterable backend
@@ -114,6 +115,20 @@ public class ClusterObjectManager implements ObjectManager {
         @Override
         public GetPromise get(String objectId) {
             return blobManager.get(bucketId, objectId);
+        }
+
+        @Override
+        public ObjectMetadata statByName(String name) throws ObjectManagerException {
+            String objectId = metadataManager.lookupObjectByName(bucketId, name);
+            if (objectId == null) {
+                return null;
+            }
+            return blobManager.stat(bucketId, objectId);
+        }
+
+        @Override
+        public ObjectMetadata stat(String objectId) {
+            return blobManager.stat(bucketId, objectId);
         }
 
         @Override

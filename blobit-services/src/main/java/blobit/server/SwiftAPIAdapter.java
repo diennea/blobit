@@ -21,8 +21,6 @@ package blobit.server;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -36,15 +34,15 @@ import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerException;
 
-import com.google.common.cache.Cache;
-import com.google.common.cache.CacheBuilder;
-
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.Collections;
 import javax.servlet.AsyncContext;
+import javax.servlet.ServletResponse;
 import javax.servlet.annotation.WebServlet;
 import org.apache.bookkeeper.common.concurrent.FutureUtils;
 import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.GetPromise;
+import org.blobit.core.api.ObjectMetadata;
 import org.blobit.core.api.PutPromise;
 
 /**
@@ -89,15 +87,21 @@ public class SwiftAPIAdapter extends HttpServlet {
                 String objectId = remainingPath.substring(slash + 1);
                 String name = remainingPath;
 
-                LOG.log(Level.INFO, "[SWIFT] get object {0} as {1}", new Object[]{objectId, name});
                 BucketHandle bucket = objectManager.getBucket(container);
-                GetPromise byName = bucket.getByName(name);
-                if (byName.id == null) {
-                    resp.sendError(HttpServletResponse.SC_NOT_FOUND, "Not found " + requestUri);
-                    return;
+
+                try {
+                    ObjectMetadata byName = bucket.statByName(name);
+                    LOG.log(Level.INFO, "[SWIFT] head object {0} as {1} -> {2}", new Object[]{objectId, name, byName});
+                    if (byName == null) {
+                        resp.sendError(HttpServletResponse.SC_NOT_FOUND, "Not found " + requestUri);
+                        return;
+                    }
+                    resp.setContentLengthLong(byName.size);
+                    resp.setStatus(HttpServletResponse.SC_OK);
+                } catch (ObjectManagerException err) {
+                    LOG.log(Level.SEVERE, "error", err);
+                    resp.sendError(HttpServletResponse.SC_NOT_FOUND, "Internal error " + err);
                 }
-                resp.setContentLengthLong(byName.length);
-                resp.setStatus(HttpServletResponse.SC_OK);
                 return;
             }
             case "GET": {
@@ -119,18 +123,21 @@ public class SwiftAPIAdapter extends HttpServlet {
                     resp.setContentLengthLong(contentLength);
                     resp.setStatus(HttpServletResponse.SC_OK);
                     try {
+                        // force switch to streaming mode
                         resp.flushBuffer();
                     } catch (IOException err) {
-                        err.printStackTrace();
                     }
                 }, startAsync.getResponse().getOutputStream(), 0 /* offset */, -1 /* maxlen */).future
                         .handle((v, error) -> {
-                            LOG.log(Level.INFO, "[SWIFT] get object {0} as {1} finished", new Object[]{objectId, name});
+
                             try {
+                                HttpServletResponse response = (HttpServletResponse) startAsync.getResponse();
                                 if (error != null) {
-                                    resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, error + "");
+                                    LOG.log(Level.INFO, "[SWIFT] get object {0} as {1} finished, error {2}", new Object[]{objectId, name, error});
+                                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, error + "");
                                 } else {
-                                    resp.setStatus(HttpServletResponse.SC_OK);
+                                    LOG.log(Level.FINER, "[SWIFT] get object {0} as {1} finished", new Object[]{objectId, name});
+                                    response.setStatus(HttpServletResponse.SC_OK);
                                 }
                             } catch (Exception err) {
                                 err.printStackTrace();
@@ -155,39 +162,38 @@ public class SwiftAPIAdapter extends HttpServlet {
                         String name = remainingPath;
                         String resultId;
                         BucketHandle bucket = objectManager.getBucket(container);
-                        long expectedContentLen = req.getContentLengthLong();
-                        long realSize;
-                        LOG.log(Level.INFO, "put {0} ((2} bytes) as {1} ", new Object[]{objectId, container, expectedContentLen});
-//                        if (expectedContentLen == -1L) {
-                            // we must read the content
+                        long expectedContentLen = req.getContentLength();
+                        LOG.log(Level.INFO, "[SWIFT] put name={0} container={1} {3} bytes} ", new Object[]{objectId, container, expectedContentLen});
+                        if (expectedContentLen == -1L) {
+                            // we must read the content, BlobIt needs to know the real size
                             try (InputStream in = req.getInputStream()) {
                                 byte[] payload = IOUtils.toByteArray(in);
-                                realSize = payload.length;
                                 resultId = bucket.put(name, payload).get();
                             }
-//                        } else {
-//                            AsyncContext startAsync = req.startAsync();
-//                            // streaming directly from client to bookkeeper
-//                            PutPromise prom = bucket.put(name, expectedContentLen, startAsync.getRequest().getInputStream());
-//                            prom.future.handle((v, error) -> {
-//                                LOG.log(Level.INFO, "[SWIFT] get object {0} as {1} finished", new Object[]{objectId, name});
-//                                try {
-//                                    if (error != null) {
-//                                        resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, error + "");
-//                                    } else {
-//                                        resp.setStatus(HttpServletResponse.SC_CREATED, "OK " + objectId + " as " + v);
-//                                    }
-//                                } catch (Exception err) {
-//                                    err.printStackTrace();
-//                                } finally {
-//                                    startAsync.complete();
-//                                }
-//                                return null;
-//                            });
-//                            resultId = prom.id;
-//                            realSize = expectedContentLen;
-//                        }
-                        LOG.log(Level.INFO, "put {0} ((3} vs {4} bytes) as {1} in {2}", new Object[]{objectId, resultId, container, expectedContentLen, realSize});
+                        } else {
+                            AsyncContext startAsync = req.startAsync();
+                            // streaming directly from client to bookkeeper
+                            PutPromise prom = bucket.put(name, expectedContentLen, startAsync.getRequest().getInputStream());
+                            prom.future.handle((v, error) -> {
+
+                                try {
+                                    HttpServletResponse response = (HttpServletResponse) startAsync.getResponse();
+                                    if (error != null) {
+                                        LOG.log(Level.INFO, "[SWIFT] put object {0} as {1} finished, error {2}", new Object[]{objectId, name, error});
+                                        response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, error + "");
+                                    } else {
+                                        LOG.log(Level.FINER, "[SWIFT] put object {0} as {1} finished", new Object[]{objectId, name});
+                                        response.setStatus(HttpServletResponse.SC_CREATED, "OK " + objectId + " as " + v);
+                                    }
+                                } catch (Exception err) {
+                                    LOG.log(Level.SEVERE, "Error while putting object in streaming mode", err);
+                                } finally {
+                                    startAsync.complete();
+                                }
+                                return null;
+                            });
+                            resultId = prom.id;
+                        }
 
                     }
                 } catch (InterruptedException err) {

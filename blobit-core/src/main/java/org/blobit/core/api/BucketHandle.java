@@ -32,7 +32,7 @@ public interface BucketHandle {
 
     /**
      * Writes an object.This function is async, you have to check the result of
- the Future in order to get the ID of the stored Object
+     * the Future in order to get the ID of the stored Object
      *
      * @param name the name of the object (optional)
      * @param data
@@ -42,9 +42,9 @@ public interface BucketHandle {
 
     /**
      * Writes an object.This function is async, you have to check the result of
- the Future in order to get the ID of the stored Object This method does
- not close the stream. In case of failure the status of the stream will be
- undefined.
+     * the Future in order to get the ID of the stored Object This method does
+     * not close the stream. In case of failure the status of the stream will be
+     * undefined.
      *
      * @param name the value of name
      * @param length number of bytes to read from the stream
@@ -55,7 +55,7 @@ public interface BucketHandle {
 
     /**
      * Writes an object.This function is async, you have to check the result of
- the Future in order to get the ID of the stored Object
+     * the Future in order to get the ID of the stored Object
      *
      * @param name the value of name
      * @param data array of bytes
@@ -74,17 +74,32 @@ public interface BucketHandle {
      * @return an handle to the operation
      */
     public GetPromise get(String objectId);
-    
-    
+
     /**
-     * Retrieves the contents of an object. This function is async, you have to
-     * check the result of the Future in order to get the effective value. If a
-     * null value is returned as byte[] it means that the object does not exits
+     * Retrieves the contents of an object
      *
      * @param name
      * @return an handle to the operation
      */
     public GetPromise getByName(String name);
+
+    /**
+     * Retrieves the metadata of an object
+     *
+     * @param name
+     * @return an handle to the operation
+     */
+    public ObjectMetadata statByName(String name) throws ObjectManagerException;
+    
+     /**
+     * Retrieves the metadata of an object. This function is async, you have to
+     * check the result of the Future in order to get the effective value. If a
+     * null value is returned as byte[] it means that the object does not exits
+     *
+     * @param objectId
+     * @return an handle to the operation
+     */
+    public ObjectMetadata stat(String objectId) throws ObjectManagerException;
 
     /**
      * Retrieves the contents of an object.This function is async, you have to
@@ -122,7 +137,6 @@ public interface BucketHandle {
      */
     public DownloadPromise downloadByName(String objectId, Consumer<Long> lengthCallback, OutputStream output, int offset, long length);
 
-    
     /**
      * Marks an object for deletion. Space will not be released immediately and
      * object would still be available to readers .
@@ -134,8 +148,7 @@ public interface BucketHandle {
      * @see #gc(java.lang.String)
      */
     public DeletePromise delete(String objectId);
-    
-    
+
     /**
      * Marks an object for deletion. Space will not be released immediately and
      * object would still be available to readers .
@@ -148,10 +161,9 @@ public interface BucketHandle {
      */
     public DeletePromise deleteByName(String objectId);
 
-    
     /**
-     * Release space allocated by a bucket but no more in use.
-     * This method can be called concurrently from several clients in the cluster.
+     * Release space allocated by a bucket but no more in use. This method can
+     * be called concurrently from several clients in the cluster.
      *
      */
     public void gc();
