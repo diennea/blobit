@@ -40,8 +40,12 @@ import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import javax.servlet.AsyncContext;
+import javax.servlet.annotation.WebServlet;
 import org.apache.bookkeeper.common.concurrent.FutureUtils;
 import org.blobit.core.api.BucketHandle;
+import org.blobit.core.api.GetPromise;
+import org.blobit.core.api.PutPromise;
 
 /**
  * Emulates the OpenStack Swift Object API, only for using the CosBench
@@ -50,6 +54,7 @@ import org.blobit.core.api.BucketHandle;
  */
 @SuppressWarnings("serial")
 @SuppressFBWarnings("SE_NO_SERIALVERSIONID")
+@WebServlet(asyncSupported = true)
 public class SwiftAPIAdapter extends HttpServlet {
 
     private static final Logger LOG = Logger.getLogger(SwiftAPIAdapter.class.getName());
@@ -63,8 +68,9 @@ public class SwiftAPIAdapter extends HttpServlet {
     }
 
     @Override
+    @SuppressWarnings("empty-statement")
     protected void service(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        LOG.log(Level.FINEST, "{0} {1}", new Object[]{req.getMethod(), req.getRequestURI()});
+        LOG.log(Level.INFO, "{0} {1}", new Object[]{req.getMethod(), req.getRequestURI()});
 
         String requestUri = req.getRequestURI();
         if (!requestUri.startsWith(API_PATH)) {
@@ -72,6 +78,28 @@ public class SwiftAPIAdapter extends HttpServlet {
             return;
         }
         switch (req.getMethod()) {
+            case "HEAD": {
+                String remainingPath = requestUri.substring(API_PATH.length());
+                int slash = remainingPath.indexOf('/');
+                if (slash <= 0) {
+                    resp.sendError(HttpServletResponse.SC_NOT_FOUND, "Not found " + requestUri);
+                    return;
+                }
+                String container = remainingPath.substring(0, slash);
+                String objectId = remainingPath.substring(slash + 1);
+                String name = remainingPath;
+
+                LOG.log(Level.INFO, "[SWIFT] get object {0} as {1}", new Object[]{objectId, name});
+                BucketHandle bucket = objectManager.getBucket(container);
+                GetPromise byName = bucket.getByName(name);
+                if (byName.id == null) {
+                    resp.sendError(HttpServletResponse.SC_NOT_FOUND, "Not found " + requestUri);
+                    return;
+                }
+                resp.setContentLengthLong(byName.length);
+                resp.setStatus(HttpServletResponse.SC_OK);
+                return;
+            }
             case "GET": {
                 String remainingPath = requestUri.substring(API_PATH.length());
                 int slash = remainingPath.indexOf('/');
@@ -83,18 +111,31 @@ public class SwiftAPIAdapter extends HttpServlet {
                 String objectId = remainingPath.substring(slash + 1);
                 String name = remainingPath;
 
-                LOG.log(Level.FINEST, "[SWIFT] get object {0} as {1}", new Object[]{objectId, name});
+                LOG.log(Level.INFO, "[SWIFT] get object {0} as {1}", new Object[]{objectId, name});
                 BucketHandle bucket = objectManager.getBucket(container);
+                AsyncContext startAsync = req.startAsync();
                 bucket.downloadByName(name, (contentLength) -> {
+                    LOG.log(Level.INFO, "[SWIFT] get object {0} as {1} -> len {2} bytes", new Object[]{objectId, name, contentLength});
                     resp.setContentLengthLong(contentLength);
                     resp.setStatus(HttpServletResponse.SC_OK);
-                }, resp.getOutputStream(), 0 /* offset */, -1 /* maxlen */).future
+                    try {
+                        resp.flushBuffer();
+                    } catch (IOException err) {
+                        err.printStackTrace();
+                    }
+                }, startAsync.getResponse().getOutputStream(), 0 /* offset */, -1 /* maxlen */).future
                         .handle((v, error) -> {
+                            LOG.log(Level.INFO, "[SWIFT] get object {0} as {1} finished", new Object[]{objectId, name});
                             try {
-                                error.printStackTrace();
-                                resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, error + "");
-                            } catch (IOException err) {
+                                if (error != null) {
+                                    resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, error + "");
+                                } else {
+                                    resp.setStatus(HttpServletResponse.SC_OK);
+                                }
+                            } catch (Exception err) {
                                 err.printStackTrace();
+                            } finally {
+                                startAsync.complete();
                             }
                             return null;
                         });
@@ -106,7 +147,7 @@ public class SwiftAPIAdapter extends HttpServlet {
                     int slash = remainingPath.indexOf('/');
                     if (slash <= 0) {
                         FutureUtils.result(objectManager.createBucket(remainingPath, remainingPath, BucketConfiguration.DEFAULT));
-//                        System.out.println("[SWIFT] create bucket " + remainingPath);
+                        System.out.println("[SWIFT] create bucket " + remainingPath);
                         resp.setStatus(HttpServletResponse.SC_CREATED, "OK created bucket " + remainingPath);
                     } else {
                         String container = remainingPath.substring(0, slash);
@@ -115,19 +156,39 @@ public class SwiftAPIAdapter extends HttpServlet {
                         String resultId;
                         BucketHandle bucket = objectManager.getBucket(container);
                         long expectedContentLen = req.getContentLengthLong();
-                        if (expectedContentLen == -1L) {
+                        long realSize;
+                        LOG.log(Level.INFO, "put {0} ((2} bytes) as {1} ", new Object[]{objectId, container, expectedContentLen});
+//                        if (expectedContentLen == -1L) {
                             // we must read the content
                             try (InputStream in = req.getInputStream()) {
                                 byte[] payload = IOUtils.toByteArray(in);
+                                realSize = payload.length;
                                 resultId = bucket.put(name, payload).get();
                             }
-                        } else {
-                            // streaming directly from client to bookkeeper
-                            resultId = bucket.put(name, expectedContentLen, req.getInputStream()).get();
-                        }
-                        LOG.log(Level.FINEST, "put {0} ((3} bytes) as {1} in {2}", new Object[]{objectId, resultId, container, expectedContentLen});
+//                        } else {
+//                            AsyncContext startAsync = req.startAsync();
+//                            // streaming directly from client to bookkeeper
+//                            PutPromise prom = bucket.put(name, expectedContentLen, startAsync.getRequest().getInputStream());
+//                            prom.future.handle((v, error) -> {
+//                                LOG.log(Level.INFO, "[SWIFT] get object {0} as {1} finished", new Object[]{objectId, name});
+//                                try {
+//                                    if (error != null) {
+//                                        resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, error + "");
+//                                    } else {
+//                                        resp.setStatus(HttpServletResponse.SC_CREATED, "OK " + objectId + " as " + v);
+//                                    }
+//                                } catch (Exception err) {
+//                                    err.printStackTrace();
+//                                } finally {
+//                                    startAsync.complete();
+//                                }
+//                                return null;
+//                            });
+//                            resultId = prom.id;
+//                            realSize = expectedContentLen;
+//                        }
+                        LOG.log(Level.INFO, "put {0} ((3} vs {4} bytes) as {1} in {2}", new Object[]{objectId, resultId, container, expectedContentLen, realSize});
 
-                        resp.setStatus(HttpServletResponse.SC_CREATED, "OK " + objectId + " as " + resultId);
                     }
                 } catch (InterruptedException err) {
                     resp.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, err + "");
