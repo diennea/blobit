@@ -145,7 +145,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
 
     DownloadPromise download(String bucketId, String id, Consumer<Long> lengthCallback, OutputStream output, int offset, long length) {
         if (id == null) {
-            return new DownloadPromise(id, 0, wrapGenericException(new IllegalArgumentException("null id")));
+            return new DownloadPromise(null, 0, wrapGenericException(new IllegalArgumentException("null id")));
         }
         if (BKEntryId.EMPTY_ENTRY_ID.equals(id) || length == 0) {
             lengthCallback.accept(0L);
@@ -193,7 +193,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
 
     GetPromise get(String bucketId, String id) {
         if (id == null) {
-            return new GetPromise(id, 0, wrapGenericException(new IllegalArgumentException("null id")));
+            return new GetPromise(null, 0, wrapGenericException(new IllegalArgumentException("null id")));
         }
         if (BKEntryId.EMPTY_ENTRY_ID.equals(id)) {
             CompletableFuture<byte[]> result = new CompletableFuture<>();
