@@ -58,6 +58,7 @@ public class SimpleClusterTest {
                 props.put(ServerConfiguration.PROPERTY_BASEDIR, folder.newFolder().getAbsolutePath());
                 props.put(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, zookeeperServer.getConnectString());
 
+                props.put("herddb." + herddb.server.ServerConfiguration.PROPERTY_BASEDIR, folder.newFolder().getAbsolutePath());
                 props.put("herddb." + herddb.server.ServerConfiguration.PROPERTY_BOOKKEEPER_START, "true");
                 props.put("herddb." + herddb.server.ServerConfiguration.PROPERTY_MODE, herddb.server.ServerConfiguration.PROPERTY_MODE_CLUSTER);
                 props.put("herddb." + herddb.server.ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, zookeeperServer.getConnectString());
@@ -65,6 +66,7 @@ public class SimpleClusterTest {
                 try (FileOutputStream oo = new FileOutputStream(tmpConfFile)) {
                     props.store(oo, "");
                 }
+                System.out.println("props: "+props);
             }
             Thread runner = new Thread(() -> {
                 ServerMain.main(tmpConfFile.getAbsolutePath());
