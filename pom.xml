@@ -144,6 +144,10 @@
             <activation>
                 <activeByDefault>true</activeByDefault>
             </activation>
+            <modules>
+                <module>blobit-core</module>
+                <module>blobit-services</module>
+            </modules>
         </profile>
         <profile>
             <id>benchmarks</id>
