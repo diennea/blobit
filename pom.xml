@@ -12,7 +12,11 @@
             <distribution>repo</distribution>
         </license>
     </licenses> 
-    
+    <scm>
+        <url>https://github.com/diennea/blobit.git</url>        
+        <connection>scm:git:https://github.com/diennea/blobit.git</connection>
+        <developerConnection>scm:git:https://github.com/diennea/blobit.git</developerConnection>
+    </scm>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>                
         <libs.bookkeeper>4.8.1</libs.bookkeeper>
