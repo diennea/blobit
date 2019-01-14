@@ -5,6 +5,9 @@
     <artifactId>blobit</artifactId>
     <version>0.1.0-SNAPSHOT</version>
     <packaging>pom</packaging>
+    <name>blobIt</name>    
+    <url>http://blobit.org</url>
+    <description>A distributed large object storage</description>
     <licenses>
         <license>
             <name>Apache License, Version 2.0</name>
