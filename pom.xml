@@ -12,10 +12,7 @@
             <distribution>repo</distribution>
         </license>
     </licenses> 
-    <modules>
-        <module>blobit-core</module>
-        <module>blobit-services</module>
-    </modules>
+    
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>                
         <libs.bookkeeper>4.8.1</libs.bookkeeper>
@@ -58,6 +55,10 @@
                         <maxHeap>4096</maxHeap>                    
                         <excludeFilterFile>excludeFindBugsFilter.xml</excludeFilterFile>
                     </configuration>
+                </plugin>
+                <plugin>
+                    <artifactId>maven-site-plugin</artifactId>
+                    <version>3.7.1</version>                
                 </plugin>
             </plugins>
         </pluginManagement>        
@@ -110,13 +111,122 @@
             </snapshots>            
             <url>https://dev.majordodo.org/nexus/content/repositories/snapshots/</url>                                       
         </repository>
-    </repositories>   
+    </repositories> 
+   
     <profiles>
+        <profile>
+            <id>default</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+        </profile>
         <profile>
             <id>benchmarks</id>
             <modules>
+                <module>blobit-core</module>
+                <module>blobit-services</module>                    
                 <module>blobit-benchmarks</module>
             </modules>
         </profile>
+        <profile>
+            <!-- Maven Central updloads -->
+            <id>ossrh</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>                
+            </activation>   
+            <modules>
+                <module>blobit-core</module>
+                <module>blobit-services</module>
+            </modules>
+            <distributionManagement>
+                <snapshotRepository>
+                    <id>ossrh</id>
+                    <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+                </snapshotRepository>
+            </distributionManagement>
+            <build>
+                <plugins>   
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <version>2.22.0</version>
+                        <configuration>                                        
+                            <forkCount>1</forkCount>
+                            <reuseForks>false</reuseForks>
+                            <trimStackTrace>false</trimStackTrace>
+                        </configuration>
+                    </plugin>            
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <version>3.8.0</version>
+                        <configuration>
+                            <encoding>${project.build.sourceEncoding}</encoding>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-resources-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <configuration>
+                            <encoding>${project.build.sourceEncoding}</encoding>
+                        </configuration>
+                    </plugin>                
+                    <plugin>
+                        <groupId>org.sonatype.plugins</groupId>
+                        <artifactId>nexus-staging-maven-plugin</artifactId>
+                        <version>1.6.8</version>
+                        <extensions>true</extensions>
+                        <configuration>
+                            <serverId>ossrh</serverId>
+                            <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+                            <autoReleaseAfterClose>true</autoReleaseAfterClose>
+                        </configuration>
+                    </plugin>                               
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <version>3.0.1</version>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <version>3.0.1</version>
+                        <executions>
+                            <execution>
+                                <id>attach-javadocs</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <version>1.6</version>
+                        <executions>
+                            <execution>
+                                <id>sign-artifacts</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>              
+            </build>
+        </profile>     
     </profiles> 
 </project>

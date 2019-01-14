@@ -145,7 +145,6 @@ public interface BucketHandle {
      * @return an handle to the operation
      *
      * @see #gc()
-     * @see #gc(java.lang.String)
      */
     public DeletePromise delete(String objectId);
 
@@ -157,7 +156,6 @@ public interface BucketHandle {
      * @return an handle to the operation
      *
      * @see #gc()
-     * @see #gc(java.lang.String)
      */
     public DeletePromise deleteByName(String objectId);
 

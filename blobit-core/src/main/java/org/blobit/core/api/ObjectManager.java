@@ -23,30 +23,38 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
- * This is the entry point of Blobit
+ * This is the entry point of Blobit.
  *
  * @author enrico.olivelli
  */
 public interface ObjectManager extends AutoCloseable {
 
+    /**
+     * Access to data inside of a Bucket. The Bucket must exist
+     *
+     * @param bucketId
+     * @return The handle.
+     *
+     * @see #createBucket(java.lang.String, java.lang.String,
+     * org.blobit.core.api.BucketConfiguration)
+     * @see #getBucketMetadata(java.lang.String)
+     */
     public BucketHandle getBucket(String bucketId);
-    
+
     /**
      * Creates a new bucket to store data
      *
      * @param bucketId
      * @param tablespaceName
      * @param configuration
-     *
-     * @throws ObjectManagerException
      */
     public CompletableFuture<BucketMetadata> createBucket(String bucketId, String tablespaceName, BucketConfiguration configuration);
 
     /**
-     * Marks an existing bucket for deletion. Space will not be released immediately.
+     * Marks an existing bucket for deletion. Space will not be released
+     * immediately.
      *
      * @param bucketId
-     * @throws ObjectManagerException
      */
     public CompletableFuture<?> deleteBucket(String bucketId);
 
@@ -54,7 +62,6 @@ public interface ObjectManager extends AutoCloseable {
      * List every existing bucket.
      *
      * @param consumer
-     * @return
      * @throws ObjectManagerException
      */
     public void listBuckets(Consumer<BucketMetadata> consumer) throws ObjectManagerException;
@@ -68,11 +75,11 @@ public interface ObjectManager extends AutoCloseable {
     public BucketMetadata getBucketMetadata(String bucketId) throws ObjectManagerException;
 
     /**
-     * Loops over every bucket and performs {@link #gc(java.lang.String) }.
-     * This method can be called concurrencly by several clients in the cluster.
+     * Loops over every bucket and performs {@link BucketHandle#gc()}. This
+     * method can be called concurrencly by several clients in the cluster.
      * Usually this action iw performed periodically by server nodes.
      *
-     * @see #gc(java.lang.String)
+     * @see BucketHandle#gc()
      */
     public void gc();
 
