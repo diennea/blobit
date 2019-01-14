@@ -19,7 +19,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>                
         <libs.bookkeeper>4.8.1</libs.bookkeeper>
-        <libs.herddb>0.8.0</libs.herddb>   
+        <libs.herddb>0.8.1</libs.herddb>   
         <jetty.version>9.4.8.v20171121</jetty.version>
         <libs.jersey>2.27</libs.jersey>             
         <libs.commonspool>2.4.2</libs.commonspool>
