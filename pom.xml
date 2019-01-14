@@ -15,6 +15,23 @@
             <distribution>repo</distribution>
         </license>
     </licenses> 
+    <developers>
+        <developer>
+            <id>eolivelli</id>
+            <name>Enrico Olivelli</name>
+            <organization>Diennea</organization>
+        </developer>
+        <developer>
+            <id>alessandro.luccaroni</id>
+            <name>Alessandro Luccaroni</name>
+            <organization>Diennea</organization>
+        </developer>
+        <developer>
+            <id>diego.salvi</id>
+            <name>Diego Salvi</name>
+            <organization>Diennea</organization>
+        </developer>
+    </developers>
     <scm>
         <url>https://github.com/diennea/blobit.git</url>        
         <connection>scm:git:https://github.com/diennea/blobit.git</connection>
