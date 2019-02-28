@@ -23,9 +23,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -39,20 +36,22 @@ public class Server {
 
     public Server(ServerConfiguration configuration) {
         this.configuration = configuration;
-
-        this.baseDirectory = Paths.get(configuration.getString(ServerConfiguration.PROPERTY_BASEDIR, ServerConfiguration.PROPERTY_BASEDIR_DEFAULT)).toAbsolutePath();
-        try {
-            Files.createDirectories(this.baseDirectory);
-        } catch (IOException ignore) {
-            LOGGER.log(Level.SEVERE, "Cannot create baseDirectory " + this.baseDirectory, ignore);
-        }
-        this.embeddedBookie = new EmbeddedBookie(baseDirectory, configuration);
+        this.baseDirectory = Paths.get(configuration.getString(ServerConfiguration.PROPERTY_BASEDIR,
+                ServerConfiguration.PROPERTY_BASEDIR_DEFAULT)).toAbsolutePath();
     }
 
     public void start() throws Exception {
+
         boolean startBookie = configuration.getBoolean(ServerConfiguration.PROPERTY_BOOKKEEPER_START,
                 ServerConfiguration.PROPERTY_BOOKKEEPER_START_DEFAULT);
+
         if (startBookie && embeddedBookie != null) {
+            try {
+                Files.createDirectories(this.baseDirectory);
+            } catch (IOException ignore) {
+                LOGGER.log(Level.SEVERE, "Cannot create baseDirectory " + this.baseDirectory, ignore);
+            }
+            this.embeddedBookie = new EmbeddedBookie(baseDirectory, configuration);
             this.embeddedBookie.start();
         }
 
