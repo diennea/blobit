@@ -109,7 +109,7 @@ Usually it makes sense to run the GC of a bucket after deleting a batch of BLOBs
 
 # Java Client example
 
-A tipical write looks like this:
+A tipical writer looks like this:
 
 ```
 Configuration configuration
@@ -144,10 +144,18 @@ try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configurat
 }
 ```
 
-Most of the APIs are async and they based on CompletableFuture.
+Most of the APIs are async and they are based on CompletableFuture.
 
 
+## Getting in touch
 
+Feel free to create issues in order to interact with the community.
+
+Documentation will come soon, start with the examples inside the test cases
+in order to understand better how it works.
+
+Please let us know if you are trying out this project, we will be happy to hear about your
+case and help you.
 
 ## License
 
