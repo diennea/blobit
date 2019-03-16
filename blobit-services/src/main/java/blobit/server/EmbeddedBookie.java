@@ -60,9 +60,12 @@ public class EmbeddedBookie implements AutoCloseable {
     public void start() throws Exception {
         org.apache.bookkeeper.conf.ServerConfiguration conf = new org.apache.bookkeeper.conf.ServerConfiguration();
         conf.setZkTimeout(configuration.getInt(ServerConfiguration.PROPERTY_ZOOKEEPER_SESSIONTIMEOUT, ServerConfiguration.PROPERTY_ZOOKEEPER_SESSIONTIMEOUT_DEFAULT));
-        conf.setZkServers(configuration.getString(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT));
-        conf.setZkLedgersRootPath(configuration.getString(ServerConfiguration.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH,
-                ServerConfiguration.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT));
+        String zkServers = configuration.getString(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT);
+        String zkLedgersRootPath = configuration.getString(ServerConfiguration.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH,
+                ServerConfiguration.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT);
+        String metadataServiceUri = "zk+null://" + zkServers.replace(",", ";") + "" + zkLedgersRootPath;
+        LOG.log(Level.INFO, "Embeeded Bookie will use metadataServiceUri: {0}", metadataServiceUri);
+        conf.setMetadataServiceUri(metadataServiceUri);
         conf.setStatisticsEnabled(true);
         conf.setProperty("codahaleStatsJmxEndpoint", "BlobIt_Bookie");
         conf.setStatsProviderClass(CodahaleMetricsProvider.class);

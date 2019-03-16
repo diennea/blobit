@@ -45,7 +45,7 @@ public class Server {
         boolean startBookie = configuration.getBoolean(ServerConfiguration.PROPERTY_BOOKKEEPER_START,
                 ServerConfiguration.PROPERTY_BOOKKEEPER_START_DEFAULT);
 
-        if (startBookie && embeddedBookie != null) {
+        if (startBookie && embeddedBookie == null) {
             try {
                 Files.createDirectories(this.baseDirectory);
             } catch (IOException ignore) {
