@@ -4,7 +4,7 @@ Blobit is a ditributed binary large objects (BLOBs) storage built upon Apache Bo
 
 # Overview
 
-Blobit stores binary objects in buckets, a *bucket* is like a namespace, and this is
+Blobit stores *BLOBS* (binary large objects) in *buckets*, a bucket is like a namespace, and this is
 fundamental to the design of the whole system.
 Blobit has been designed with multitenancy in mind and it is expected that each
 tenant uses its own bucket.
@@ -19,60 +19,135 @@ by default with [HerdDB](https://herddb.org), which is also built upon BookKeepe
 # Architectural overview
 
 BlobIt is designed for performance and expecially low latency in this scenario:
-one client stores a blob and other one immediately reads such blob (from another machine).
+the *writer* stores one BLOB and *readers* immediately read such BLOB (usually from different machines).
 This is the most common path in [EmailSuccess](https://emailsuccess.com), as BlobIt
-is the core data store for it.
-Blobs are supposed to be retained for a couple of weeks.
+is the core datastore for it.
+Blobs are supposed to be retained for a couple of weeks, not for very long term,
+but there is nothing in the design of BlobIt that prevents you for storing data for
+years.
 
-Blobit Clients talk directly to Bookies both for reads and for writes, this way
-we are exploiting directly all of the BookKeeper optimiziations in the write and read path.
+Blobit Clients talk directly to Bookies both for reads and writes, this way
+we are exploiting directly all of the BookKeeper optimizations in the write and read path.
 This architecture is totally decentralized, there is no real BlobIt server.
+You can use the convenience binaries "BlobIt service" that is simply a pre-package bundle
+able to ZooKeeper, BookKeeper, HerdDB and a REST API, (almost) compatible with [Open Stack Swift API](https://docs.openstack.org/swift/latest/api/object_api_v1_overview.html).
 
-You can see BlobIt as an extension to BookKeeper, with a metadata layer which makes it simple to:
+You can see BlobIt as simple extension to BookKeeper, with a metadata layer which makes it simple to:
 - reference Data using a user-supplied name (in form of bucketId/name)
-- organize efficently data in BookKeeper, an allow deletion of blobs.
+- organize efficently data in BookKeeper, an allow deletion of BLOBs.
 
 
-## Writes
+# Writes
 
 Batches of Blobs are stored in BookKeeper ledgers (using the WriteHandleAdv API),
-one ledger will contain more then
-one blob, and BlobIt will collect unused ledger and delete them.
+We are storing more then one BLOB inside one BookKeeper ledger.
+BlobIt will collect unused ledgers and delete them.
 
-When a writer stores a blob it receives immedialy an unique id of the blob,
-this is is unique in the whole cluster, and it is not a key insidee the bucket.
-Such id is a "smart id" and it contains all of the information needed to retrieve
+When a Writer stores a BLOB it receives immedialy an unique ID of the blob,
+this ID is unique in the whole cluster, not only in the scope of the bucket.
+Such ID is a "smart id" and it contains all of the information needed to retrieve
 data without using the metadata service.
-Such id contains information like:
-- the id of the ledger
-- fist entry id
-- number of entries
-- size of the entry
 
-With such information it is possible to read the whole blob or even only parts.
+Such ID contains information like:
+- the ID of the ledger (64bit)
+- fist entry id (64bit)
+- number of entries (32bit)
+- size of the entry (64bit)
+
+With such information it is possible to read the whole BLOB or even only parts.
 An object is immutable and it cannot be modified.
 
-While writing the client can assign a custom name, unique inside the context of the bucket,
-in order to be able to retrieve the object using an application supplied key.
-Using custom ids needs a lookup on the metadata service, and this lookup needs an additionl RPC.
+The client can assign a custom name, unique inside the context of the Bucket,
+Readers will be able to access the object using this key.
+You can assign the same key to another object, this way 
+
+If you are using custom keys the writer and the reader have to perform an additional RPC
+to the metadata service.
 
 # Reads
 
-Blobit client reads data directly from Bookies. Because the objectId
+Blobit clients read data directly from Bookies. Because the objectId
 contains all of the information to access the data.
-In case of lookup by custom id a lookup into the metadata service is needed.
+In case of lookup by custom key a lookup on the metadata service is needed.
 
-The read can read the full Blob of parts of it. BlobIT supports a Streaming API
-for reads, suitable for very large objects: as soon as data comes from BookKeeper
-it is streamed to the application (Think about a Servlet which retrives an object
-and serves it directly to the client).
+The reader can read the full Blob of parts of it.
+BlobIT supports a Streaming API for reads, suitable for very large objects:
+as soon as data comes from BookKeeper it is streamed to the application: Think about
+an HTTP service which retrieves an object and serves it directly to the client.
 
 # Buckets and data locality
 
+You can use Buckets in order to make it possible to store
+data nearby the writer or the reader.
+BlobIt is able to use an *HerdDB tablespace* for each bucket, this way all of the metadata
+of the bucket will be handled using the placement policies configured in the system.
 
-## Metadata service
+This is very important, because each Bucket will be able to survive and work
+indipendently from the others.
 
-Metadata
+A typical scenario is to move readers, writers and the primary copy metadata and data 
+next to each other, and have replicas on other machines/racks.
+Both for the metadata service (HerdDB) and the data service (BookKeeper) replicas
+will be activated immediately as soon as the reference machines are no more available
+without any service outage.
+
+# Deleting data
+
+Data deletion is the most tricky part, because BlobIt is storing more than
+one BLOB inside the same ledeger, so you can delete a ledeger only when there is
+no live BLOB stored in it.
+We have a garbage collector system which makes maintenance of the Bucket and 
+deleted data from BookKeeper when it is no more needed.
+Bookies in turn will do their own Garbage Collection, depending on the configuration.
+So disk space won't be reclaimed as soon as a BLOB is deleted.
+
+BlobIt garbage collection is totally decentralized, any client can run the
+procedure, and it runs per bucket.
+Even in this case it is expected that services which operate on a bucket
+are co-located and take care of running the garbage collection in a timely manner.
+Usually it makes sense to run the GC of a bucket after deleting a batch of BLOBs of the same bucket.
+
+# Java Client example
+
+A tipical write looks like this:
+
+```
+Configuration configuration
+                = new Configuration()
+                    .setType(Configuration.TYPE_BOOKKEEPER)
+                    .setConcurrentWriters(10)
+                    .setUseTablespaces(true)
+                    .setZookeeperUrl(env.getAddress());
+try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {      
+      manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
+
+      BucketHandle bucket = manager.getBucket(BUCKET_ID);
+      String id = bucket.put(null, TEST_DATA).get();
+}
+```
+
+A typical reader looks like this:
+
+```
+Configuration configuration
+                = new Configuration()
+                    .setType(Configuration.TYPE_BOOKKEEPER)
+                    .setConcurrentWriters(10)
+                    .setUseTablespaces(true)
+                    .setZookeeperUrl(env.getAddress());
+try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {      
+      manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
+
+      BucketHandle bucket = manager.getBucket(BUCKET_ID);
+      
+      byte[] data = bucketReaders.get(it).get();
+}
+```
+
+Most of the APIs are async and they based on CompletableFuture.
+
+
+
 
 ## License
 
