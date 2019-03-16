@@ -69,8 +69,7 @@ import static org.blobit.core.cluster.BucketWriter.DUMMY_PWD;
 public class BookKeeperBlobManager implements AutoCloseable {
 
     private static final Logger LOG = Logger.getLogger(BookKeeperBlobManager.class.getName());
-    static final String PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT = "/blobit-bk";
-
+    
     private final HerdDBMetadataStorageManager metadataStorageManager;
     private final BookKeeper bookKeeper;
     final GenericKeyedObjectPool<String, BucketWriter> writers;
