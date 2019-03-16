@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/diennea/blobit.svg?branch=master)](https://travis-ci.org/diennea/blobit)
+
 # Blobit
 
 Blobit is a ditributed binary large objects (BLOBs) storage built upon Apache BookKeeper
