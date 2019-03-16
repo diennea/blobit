@@ -64,6 +64,9 @@ public class Configuration {
     public static final String ZOOKEEPER_URL = "zookeeper.url";
     public static final String ZOOKEEPER_URL_DEFAULT = "localhost:2181";
 
+    public static final String BOOKKEEPER_ZK_LEDGERS_ROOT_PATH = "client.bookkeeper.zk.ledgers.root.path";
+    public static final String BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT = "/blobit-bk";
+
     public Configuration() {
         this.properties = new Properties();
     }
@@ -82,6 +85,10 @@ public class Configuration {
     public Configuration setProperty(String key, Object value) {
         properties.put(key, value);
         return this;
+    }
+    
+    public String getProperty(String key, String defaultValue) {
+        return properties.getProperty(key, defaultValue);
     }
 
     public String getType() {

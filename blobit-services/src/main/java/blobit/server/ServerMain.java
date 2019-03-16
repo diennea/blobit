@@ -214,9 +214,23 @@ public class ServerMain implements AutoCloseable {
 
         ServerConfiguration config = new ServerConfiguration(this.configuration);
 
+        server = new Server(config);
+        // this is only starting the Bookie
+        server.start();
+
         boolean startDatabase = config.getBoolean(ServerConfiguration.PROPERTY_BOOKKEEPER_START, ServerConfiguration.PROPERTY_BOOKKEEPER_START_DEFAULT);
         if (startDatabase) {
             herddb.server.ServerConfiguration databaseConfiguration = new herddb.server.ServerConfiguration();
+            
+            // use the same BookKeeper cluster
+            databaseConfiguration.set(herddb.server.ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, config.getString(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT));
+            String zkServers = config.getString(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT);
+            String zkLedgersRootPath = config.getString(ServerConfiguration.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH,
+                    ServerConfiguration.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT);
+            String metadataServiceUri = "zk+null://" + zkServers.replace(",", ";") + "" + zkLedgersRootPath;
+
+            databaseConfiguration.set("bookkeeper.metadataServiceUri", metadataServiceUri);
+
             for (Object _key : this.configuration.keySet()) {
                 String key = _key.toString();
                 String value = this.configuration.getProperty(key);
@@ -231,10 +245,6 @@ public class ServerMain implements AutoCloseable {
             database.start();
             database.waitForStandaloneBoot();
         }
-
-        server = new Server(config);
-        server.start();
-
         int gcPeriod = config.getInt(ServerConfiguration.PROPERTY_GC_PERIOD, ServerConfiguration.PROPERTY_GC_PERIOD_DEFAULT);
 
         boolean httpEnabled = config.getBoolean("http.enable", true);

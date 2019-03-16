@@ -20,7 +20,6 @@
 package org.blobit.core.cluster;
 
 import java.nio.file.Path;
-import org.apache.bookkeeper.bookie.storage.ldb.DbLedgerStorage;
 
 import org.apache.bookkeeper.client.BookKeeperAdmin;
 import org.apache.bookkeeper.conf.ServerConfiguration;
@@ -30,6 +29,7 @@ import org.apache.bookkeeper.proto.BookieServer;
 import org.apache.bookkeeper.stats.CodahaleMetricsProvider;
 import org.apache.bookkeeper.stats.StatsProvider;
 import org.apache.bookkeeper.util.ReflectionUtils;
+import static org.blobit.core.api.Configuration.BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT;
 import org.blobit.core.util.TestUtils;
 import static org.blobit.core.util.TestUtils.NOOP;
 
@@ -57,7 +57,7 @@ public class ZKTestEnv implements AutoCloseable {
         conf.setZkServers("localhost:1282");
         conf.setLedgerDirNames(new String[]{targetDir.toAbsolutePath().toString()});
         conf.setLedgerManagerFactoryClass(HierarchicalLedgerManagerFactory.class);
-        conf.setZkLedgersRootPath(BookKeeperBlobManager.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT);
+        conf.setZkLedgersRootPath(BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT);
         int numJournals = 1;
         String[] journals = new String[numJournals];
         for (int i = 0; i < journals.length; i++) {

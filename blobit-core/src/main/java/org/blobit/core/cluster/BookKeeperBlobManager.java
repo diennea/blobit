@@ -69,8 +69,7 @@ import static org.blobit.core.cluster.BucketWriter.DUMMY_PWD;
 public class BookKeeperBlobManager implements AutoCloseable {
 
     private static final Logger LOG = Logger.getLogger(BookKeeperBlobManager.class.getName());
-    static final String PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT = "/blobit-bk";
-
+    
     private final HerdDBMetadataStorageManager metadataStorageManager;
     private final BookKeeper bookKeeper;
     final GenericKeyedObjectPool<String, BucketWriter> writers;
@@ -319,8 +318,12 @@ public class BookKeeperBlobManager implements AutoCloseable {
             clientConfiguration.setLedgerManagerFactoryClass(HierarchicalLedgerManagerFactory.class);
             clientConfiguration.setEnableDigestTypeAutodetection(true);
 
-            clientConfiguration.setZkLedgersRootPath(PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT);
-            clientConfiguration.setZkServers(configuration.getZookkeeperUrl());
+            String zkLedgersRootPath = configuration.getProperty(Configuration.BOOKKEEPER_ZK_LEDGERS_ROOT_PATH,
+                    Configuration.BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT);
+            String zkServers = configuration.getZookkeeperUrl();
+            String metadataServiceURI = "zk+null://" + zkServers.replace(",", ";") + zkLedgersRootPath;
+            LOG.log(Level.INFO, "BlobIt client is using BookKeeper metadataservice URI: {0}", metadataServiceURI);
+            clientConfiguration.setMetadataServiceUri(metadataServiceURI);
 
 //            clientConfiguration.setUseV2WireProtocol(true);
             for (String key : configuration.keys()) {
