@@ -114,6 +114,10 @@ Usually it makes sense to run the GC of a bucket after deleting a batch of BLOBs
 A tipical writer looks like this:
 
 ```
+String BUCKET_ID = "test";
+byte[] TEST_DATA = "foo".getBytes();
+HerdDBDataSource datasource = new HerdDBDataSource();
+datasource.setUrl("jdbc:herddb:localhost");
 Configuration configuration
                 = new Configuration()
                     .setType(Configuration.TYPE_BOOKKEEPER)
@@ -131,6 +135,10 @@ try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configurat
 A typical reader looks like this:
 
 ```
+String BUCKET_ID = "test";
+byte[] TEST_DATA = "foo".getBytes();
+HerdDBDataSource datasource = new HerdDBDataSource();
+datasource.setUrl("jdbc:herddb:localhost");
 Configuration configuration
                 = new Configuration()
                     .setType(Configuration.TYPE_BOOKKEEPER)
