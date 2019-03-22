@@ -33,11 +33,11 @@ import java.util.stream.Collectors;
 
 import org.apache.bookkeeper.bookie.Bookie;
 import org.apache.bookkeeper.client.BookKeeperAdmin;
+import org.apache.bookkeeper.common.util.ReflectionUtils;
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory;
 import org.apache.bookkeeper.proto.BookieServer;
-import org.apache.bookkeeper.stats.CodahaleMetricsProvider;
 import org.apache.bookkeeper.stats.StatsProvider;
-import org.apache.bookkeeper.util.ReflectionUtils;
+import org.apache.bookkeeper.stats.codahale.CodahaleMetricsProvider;
 
 /**
  * Utility for starting embedded Apache BookKeeper Server (Bookie)
