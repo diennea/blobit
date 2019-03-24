@@ -38,6 +38,7 @@ You can see BlobIt as simple extension to BookKeeper, with a metadata layer whic
 - reference Data using a user-supplied name (in form of bucketId/name)
 - organize efficently data in BookKeeper, an allow deletion of BLOBs.
 
+![Write path](docs/writepath.png)
 
 # Writes
 
@@ -65,6 +66,27 @@ You can assign the same key to another object, this way
 
 If you are using custom keys the writer and the reader have to perform an additional RPC
 to the metadata service.
+
+![Write path](docs/writerflow.png)
+
+BookKeeper client stores data in immutable ledgers, and performs writes to a 
+quorum of Bookies, which are only dta storage nodes.
+Each ledger will be written to several bookies, and all the information
+needed for data retrival is stored on ZooKeeper.
+ZooKeeper also stores data for Bookie discovery.
+
+So the normal write flow is:
+* create a new ledger:
+  * choose a set of available Bookies using ZooKeeper
+  * write new ledger metadata to ZooKeeper
+*  write each part of the BLOB directly to the Bookies
+*  record on the metadata service (HerdDB) which entries of the ledger contains the data
+  * perform an RPC to the HerdDB tablespace ledger for the bucket to write  metadata
+  * the database will perform a write on BookKeeper (still to a quorum of bookies)
+
+The metadata service is decentralized: each bucket will have a dedicated *tablespace* on HerdDB,
+this leader will be indipendent from the ledgers of other tablespaces of otherbuckets,
+this way the system will scale horizonally with the number of Buckets.
 
 # Reads
 
