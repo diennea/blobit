@@ -1,15 +1,14 @@
 [![Build Status](https://travis-ci.org/diennea/blobit.svg?branch=master)](https://travis-ci.org/diennea/blobit)
 
-# Blobit
+# BlobIt
 
-Blobit is a ditributed binary large objects (BLOBs) storage built upon Apache BookKeeper
+BlobIt is a ditributed binary large objects (BLOBs) storage built upon Apache BookKeeper
 
 # Overview
 
-Blobit stores *BLOBS* (binary large objects) in *buckets*, a bucket is like a namespace, and this is
-fundamental to the design of the whole system.
-Blobit has been designed with multitenancy in mind and it is expected that each
-tenant uses its own bucket.
+BlobIt stores *BLOBS* (binary large objects) in *buckets*, a bucket is like a namespace.
+Multitenanty is fundamental in BlobIt architecture and it is expected that each
+*tenant* uses its own bucket.
 
 Data is stored on a [Apache BookKeeper](https://bookkeeper.apache.org) cluster, 
 and this automagically enables BlobIt to scale horizontally, the more *Bookies* you have
@@ -28,11 +27,11 @@ Blobs are supposed to be retained for a couple of weeks, not for very long term,
 but there is nothing in the design of BlobIt that prevents you for storing data for
 years.
 
-Blobit Clients talk directly to Bookies both for reads and writes, this way
-we are exploiting directly all of the BookKeeper optimizations in the write and read path.
-This architecture is totally decentralized, there is no real BlobIt server.
-You can use the convenience binaries "BlobIt service" that is simply a pre-package bundle
-able to ZooKeeper, BookKeeper, HerdDB and a REST API, (almost) compatible with [Open Stack Swift API](https://docs.openstack.org/swift/latest/api/object_api_v1_overview.html).
+BlobIt clients talk directly to Bookies both for reads and writes, this way
+we are exploiting directly all of the BookKeeper optimizations on the write and read path.
+This architecture is totally decentralized, there is no BlobIt server.
+You can use the convenience binaries [BlobIt service](blobit-service) that is simply a pre-package bundle
+able to run ZooKeeper, BookKeeper, HerdDB and a REST API.
 
 You can see BlobIt as simple extension to BookKeeper, with a metadata layer which makes it simple to:
 - reference Data using a user-supplied name (in form of bucketId/name)
@@ -90,7 +89,7 @@ this way the system will scale horizonally with the number of Buckets.
 
 # Reads
 
-Blobit clients read data directly from Bookies. Because the objectId
+BlobIt clients read data directly from Bookies. Because the objectId
 contains all of the information to access the data.
 In case of lookup by custom key a lookup on the metadata service is needed.
 
@@ -178,6 +177,19 @@ try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configurat
 
 Most of the APIs are async and they are based on CompletableFuture.
 
+REST API
+
+We are delivering a REST service which is (almost) compatible with [Open Stack Swift API](https://docs.openstack.org/swift/latest/api/object_api_v1_overview.html).
+This service is still in ALPHA phase and it is currently used in order to perform
+benchmarks and comparisons with other products.
+
+Security
+
+As BlobIt is mostly a layer on top of BookKeeper, ZooKeeper and HerdDB all of the security
+aspects are handled directly but low level clients.
+Our suggestion is that you enable SASL/Kerberos authentication on all of such services.
+There is no support for other security features, because we expecte the client application
+to be in charge for handling semantics of buckets/blobs.
 
 ## Getting in touch
 
@@ -191,4 +203,4 @@ case and help you.
 
 ## License
 
-Blobit is under [Apache 2 license](http://www.apache.org/licenses/LICENSE-2.0.html).
+BlobIt is under [Apache 2 license](http://www.apache.org/licenses/LICENSE-2.0.html).
