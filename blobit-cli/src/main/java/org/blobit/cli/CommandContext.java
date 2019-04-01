@@ -20,33 +20,13 @@
 package org.blobit.cli;
 
 import com.beust.jcommander.JCommander;
-import com.beust.jcommander.Parameter;
 
 /**
- * Basic CLI
+ *
+ * @author eolivelli
  */
-public class Main {
+public class CommandContext {
 
+    JCommander jCommander;
 
-
-
-    public static void main(String... args) throws Exception {
-        Command command = Main.parseCommandLine(args);
-        command.execute();
-    }
-
-    public static <T extends Command> T parseCommandLine(String[] args) {
-        CommandContext cm = new CommandContext();
-        JCommander jc = JCommander.newBuilder()
-                .addObject(cm)
-                .addCommand("createbucket", new CommandCreateBucket(cm))
-                .addCommand("help", new CommandHelp(cm))
-                .build();
-        cm.jCommander = jc;
-        jc.parse(args);
-        if (jc.getParsedCommand() == null) {
-            return (T) new CommandHelp(cm);
-        }
-        return (T) jc.getCommands().get(jc.getParsedCommand()).getObjects().get(0);
-    }
 }
