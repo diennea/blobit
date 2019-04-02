@@ -59,10 +59,12 @@ public abstract class Command {
         }
         Configuration clientConfig = new Configuration();
         clientConfig.setZookeeperUrl(zk);
-        try (final HerdDBDataSource ds = new HerdDBDataSource();
-                final ObjectManager client = ObjectManagerFactory.createObjectManager(clientConfig, ds)) {
+        try (final HerdDBDataSource ds = new HerdDBDataSource();) {
             ds.setUrl("jdbc:herddb:zookeeper:" + zk + "/herd");
-            procedure.accept(client);
+            ds.setMaxActive(1);
+            try (final ObjectManager client = ObjectManagerFactory.createObjectManager(clientConfig, ds)) {
+                procedure.accept(client);
+            }
         }
     }
 
