@@ -35,12 +35,10 @@ public abstract class Command {
     @Parameter(names = "--zk", description = "ZooKeeper connection string")
     String zk = "localhost:2181";
 
-    @Parameter(names = "--bucket", description = "Name of the bucket")
+    @Parameter(names = "--bucket", description = "Name of the bucket", required = true)
     public String bucket;
 
-    @Parameter(names = "--tablespace", description = "Name of the tablespace bucket")
-    public String tablespace;
-
+  
     CommandContext cm;
 
     public Command(CommandContext cm) {
@@ -54,9 +52,6 @@ public abstract class Command {
     }
 
     public void doWithClient(ProcedureWithClient procedure) throws Exception {
-        if (tablespace == null) {
-            tablespace = bucket;
-        }
         Configuration clientConfig = new Configuration();
         clientConfig.setZookeeperUrl(zk);
         try (final HerdDBDataSource ds = new HerdDBDataSource();) {

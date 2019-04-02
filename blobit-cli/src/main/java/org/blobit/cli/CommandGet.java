@@ -21,32 +21,38 @@ package org.blobit.cli;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
-import org.blobit.core.api.BucketConfiguration;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 
 /**
  *
  * @author eolivelli
  */
-@Parameters(commandDescription = "Creates a bucket")
-public class CommandCreateBucket extends Command {
+@Parameters(commandDescription = "Get a BLOB")
+public class CommandGet extends Command {
 
-    @Parameter(names = "--tablespace", description = "Name of the tablespace for Bucket metadata")
-    public String tablespace;
+    @Parameter(names = "--name", description = "Name of the blob", required = true)
+    public String name;
 
-    public CommandCreateBucket(CommandContext main) {
+    @Parameter(names = "--file", description = "File", required = true)
+    public File file;
+
+    public CommandGet(CommandContext main) {
         super(main);
     }
 
     @Override
     public void execute() throws Exception {
-        if (tablespace == null) {
-            tablespace = bucket;
-        }
-        System.out.println("CREATE BUCKET '" + bucket + "', tablespace '" + tablespace + "'");
+        System.out.println("GET BUCKET '" + bucket + "' NAME '" + name + "' to " + file.getAbsolutePath());
         doWithClient(client -> {
-            client.createBucket(bucket, tablespace, BucketConfiguration.DEFAULT).get();
+            try (OutputStream ii = new BufferedOutputStream(new FileOutputStream(file))) {
+                client.getBucket(bucket)
+                        .downloadByName(name, (l) -> {
+                        }, ii, 0, -1);
+            }
         });
-
     }
 
 }

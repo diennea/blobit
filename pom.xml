@@ -129,7 +129,7 @@
                 <enabled>true</enabled>
             </snapshots>            
             <url>https://repository.apache.org/snapshots/</url>            
-        </repository>
+        </repository>      
         <repository>
             <id>dev.majordodo.org.snapshots</id>
             <snapshots>
@@ -262,4 +262,5 @@
             </build>
         </profile>     
     </profiles> 
+    
 </project>

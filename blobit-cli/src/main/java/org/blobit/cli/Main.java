@@ -38,6 +38,8 @@ public class Main {
                 .addCommand("createbucket", new CommandCreateBucket(cm))
                 .addCommand("deletebucket", new CommandDeleteBucket(cm))
                 .addCommand("gcbucket", new CommandGcBucket(cm))
+                .addCommand("put", new CommandPut(cm))
+                .addCommand("get", new CommandGet(cm))
                 .addCommand("help", new CommandHelp(cm))
                 .build();
         cm.jCommander = jc;
