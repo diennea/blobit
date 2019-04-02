@@ -20,15 +20,11 @@
 package org.blobit.cli;
 
 import com.beust.jcommander.JCommander;
-import com.beust.jcommander.Parameter;
 
 /**
  * Basic CLI
  */
 public class Main {
-
-
-
 
     public static void main(String... args) throws Exception {
         Command command = Main.parseCommandLine(args);
@@ -40,6 +36,8 @@ public class Main {
         JCommander jc = JCommander.newBuilder()
                 .addObject(cm)
                 .addCommand("createbucket", new CommandCreateBucket(cm))
+                .addCommand("deletebucket", new CommandDeleteBucket(cm))
+                .addCommand("gcbucket", new CommandGcBucket(cm))
                 .addCommand("help", new CommandHelp(cm))
                 .build();
         cm.jCommander = jc;

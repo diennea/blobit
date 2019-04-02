@@ -19,30 +19,26 @@
  */
 package org.blobit.cli;
 
-import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
-import herddb.jdbc.HerdDBDataSource;
 import org.blobit.core.api.BucketConfiguration;
-import org.blobit.core.api.Configuration;
-import org.blobit.core.api.ObjectManager;
-import org.blobit.core.api.ObjectManagerFactory;
 
 /**
+ * Delete a bucket
  *
  * @author eolivelli
  */
-@Parameters(commandDescription = "Creates a bucket")
-public class CommandCreateBucket extends Command {
+@Parameters(commandDescription = "Deletes a bucket")
+public class CommandDeleteBucket extends Command {
 
-    public CommandCreateBucket(CommandContext main) {
+    public CommandDeleteBucket(CommandContext main) {
         super(main);
     }
 
     @Override
     public void execute() throws Exception {
-        System.out.println("CREATE BUCKET '" + bucket + "'");
+        System.out.println("DELETE BUCKET '" + bucket + "'");
         doWithClient(client -> {
-            client.createBucket(bucket, tablespace, BucketConfiguration.DEFAULT).get();
+            client.deleteBucket(bucket).get();
         });
 
     }

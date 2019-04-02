@@ -20,6 +20,11 @@
 package org.blobit.cli;
 
 import com.beust.jcommander.Parameter;
+import herddb.jdbc.HerdDBDataSource;
+import java.util.function.Consumer;
+import org.blobit.core.api.Configuration;
+import org.blobit.core.api.ObjectManager;
+import org.blobit.core.api.ObjectManagerFactory;
 
 /**
  *
@@ -29,10 +34,36 @@ public abstract class Command {
 
     @Parameter(names = "--zk", description = "ZooKeeper connection string")
     String zk = "localhost:2181";
+
+    @Parameter(names = "--bucket", description = "Name of the bucket")
+    public String bucket;
+
+    @Parameter(names = "--tablespace", description = "Name of the tablespace bucket")
+    public String tablespace;
+
     CommandContext cm;
 
     public Command(CommandContext cm) {
         this.cm = cm;
+    }
+
+    @FunctionalInterface
+    public interface ProcedureWithClient {
+
+        public void accept(ObjectManager client) throws Exception;
+    }
+
+    public void doWithClient(ProcedureWithClient procedure) throws Exception {
+        if (tablespace == null) {
+            tablespace = bucket;
+        }
+        Configuration clientConfig = new Configuration();
+        clientConfig.setZookeeperUrl(zk);
+        try (final HerdDBDataSource ds = new HerdDBDataSource();
+                final ObjectManager client = ObjectManagerFactory.createObjectManager(clientConfig, ds)) {
+            ds.setUrl("jdbc:herddb:zookeeper:" + zk + "/herd");
+            procedure.accept(client);
+        }
     }
 
     public abstract void execute() throws Exception;

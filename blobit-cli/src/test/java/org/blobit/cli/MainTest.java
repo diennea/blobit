@@ -29,7 +29,7 @@ public class MainTest {
     public void testMain() throws Exception {
         CommandCreateBucket cl = Main.parseCommandLine(new String[]{"createbucket", "--bucket", "foo"});
         System.out.println("res:" + cl);
-        assertEquals("foo", cl.name);
+        assertEquals("foo", cl.bucket);
         assertEquals("localhost:2181", cl.zk);
     }
 
@@ -38,7 +38,7 @@ public class MainTest {
         CommandCreateBucket cl = Main.parseCommandLine(new String[]{"createbucket", "--bucket", "foo",
             "--zk", "localhost:1234"});
         System.out.println("res:" + cl);
-        assertEquals("foo", cl.name);
+        assertEquals("foo", cl.bucket);
         assertEquals("localhost:1234", cl.zk);
     }
 

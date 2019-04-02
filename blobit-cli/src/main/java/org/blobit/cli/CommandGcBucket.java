@@ -19,30 +19,26 @@
  */
 package org.blobit.cli;
 
-import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
-import herddb.jdbc.HerdDBDataSource;
 import org.blobit.core.api.BucketConfiguration;
-import org.blobit.core.api.Configuration;
-import org.blobit.core.api.ObjectManager;
-import org.blobit.core.api.ObjectManagerFactory;
 
 /**
+ * Gc a Bucket
  *
  * @author eolivelli
  */
-@Parameters(commandDescription = "Creates a bucket")
-public class CommandCreateBucket extends Command {
+@Parameters(commandDescription = "Gc a bucket")
+public class CommandGcBucket extends Command {
 
-    public CommandCreateBucket(CommandContext main) {
+    public CommandGcBucket(CommandContext main) {
         super(main);
     }
 
     @Override
     public void execute() throws Exception {
-        System.out.println("CREATE BUCKET '" + bucket + "'");
+        System.out.println("GC BUCKET '" + bucket + "'");
         doWithClient(client -> {
-            client.createBucket(bucket, tablespace, BucketConfiguration.DEFAULT).get();
+            client.getBucket(bucket).gc();
         });
 
     }
