@@ -48,6 +48,7 @@
         <libs.guava>21.0</libs.guava>
         <libs.curator>2.12.0</libs.curator>
         <libs.zookeeper>3.5.4-beta</libs.zookeeper>
+        <libs.jcommmander>1.72</libs.jcommmander>
         <libs.spotbugsannotations>3.1.8</libs.spotbugsannotations>
         <libs.spotbugsmaven>3.1.9</libs.spotbugsmaven>        
     </properties>
@@ -128,7 +129,7 @@
                 <enabled>true</enabled>
             </snapshots>            
             <url>https://repository.apache.org/snapshots/</url>            
-        </repository>
+        </repository>      
         <repository>
             <id>dev.majordodo.org.snapshots</id>
             <snapshots>
@@ -146,6 +147,7 @@
             </activation>
             <modules>
                 <module>blobit-core</module>
+                <module>blobit-cli</module>
                 <module>blobit-services</module>
             </modules>
         </profile>
@@ -153,6 +155,7 @@
             <id>benchmarks</id>
             <modules>
                 <module>blobit-core</module>
+                <module>blobit-cli</module>
                 <module>blobit-services</module>                    
                 <module>blobit-benchmarks</module>
             </modules>
@@ -165,6 +168,7 @@
             </activation>   
             <modules>
                 <module>blobit-core</module>
+                <module>blobit-cli</module>
                 <module>blobit-services</module>
             </modules>
             <distributionManagement>
@@ -258,4 +262,5 @@
             </build>
         </profile>     
     </profiles> 
+    
 </project>

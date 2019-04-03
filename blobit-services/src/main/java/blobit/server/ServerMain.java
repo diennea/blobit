@@ -218,12 +218,13 @@ public class ServerMain implements AutoCloseable {
         // this is only starting the Bookie
         server.start();
 
-        boolean startDatabase = config.getBoolean(ServerConfiguration.PROPERTY_BOOKKEEPER_START, ServerConfiguration.PROPERTY_BOOKKEEPER_START_DEFAULT);
+        boolean startDatabase = config.getBoolean(ServerConfiguration.PROPERTY_DATABASE_START, ServerConfiguration.PROPERTY_DATABASE_START_DEFAULT);
         if (startDatabase) {
             herddb.server.ServerConfiguration databaseConfiguration = new herddb.server.ServerConfiguration();
             
             // use the same BookKeeper cluster
             databaseConfiguration.set(herddb.server.ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, config.getString(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT));
+            databaseConfiguration.set(herddb.server.ServerConfiguration.PROPERTY_MODE, herddb.server.ServerConfiguration.PROPERTY_MODE_CLUSTER);
             String zkServers = config.getString(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT);
             String zkLedgersRootPath = config.getString(ServerConfiguration.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH,
                     ServerConfiguration.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT);
@@ -241,6 +242,7 @@ public class ServerMain implements AutoCloseable {
                 }
 
             }
+            LOG.info("HerdDB configuration: "+databaseConfiguration);
             database = new herddb.server.Server(databaseConfiguration);
             database.start();
             database.waitForStandaloneBoot();

@@ -40,6 +40,10 @@ import org.junit.rules.TemporaryFolder;
  * @author enrico.olivelli
  */
 public class SimpleClusterTest {
+    
+    static {
+        System.setProperty("zookeeper.admin.enableServer", "false");
+    }
 
     @Rule
     public TemporaryFolder folder = new TemporaryFolder();
@@ -48,6 +52,7 @@ public class SimpleClusterTest {
     public void test() throws Exception {
 
         try (TestingServer zookeeperServer = new TestingServer(-1, folder.newFolder("zk"));) {
+            zookeeperServer.start();
 
             File tmpConfFile = folder.newFile("test.server_cluster.properties");
 
@@ -61,17 +66,17 @@ public class SimpleClusterTest {
 
                 props.put("herddb." + herddb.server.ServerConfiguration.PROPERTY_BASEDIR, folder.newFolder().getAbsolutePath());
                 props.put("herddb." + herddb.server.ServerConfiguration.PROPERTY_MODE, herddb.server.ServerConfiguration.PROPERTY_MODE_CLUSTER);
-                
+
                 // client configuration of the BlobIt client started inside the server (For the HTTP API)
                 props.put(Configuration.ZOOKEEPER_URL, zookeeperServer.getConnectString());
                 props.put(Configuration.BOOKKEEPER_ZK_LEDGERS_ROOT_PATH, "/custom-path");
-                
+
                 props.put(ServerConfiguration.PROPERTY_BOOKKEEPER_START, "true");
-                props.put("bookie.allowLoopback","true");
+                props.put("bookie.allowLoopback", "true");
                 try (FileOutputStream oo = new FileOutputStream(tmpConfFile)) {
                     props.store(oo, "");
                 }
-                System.out.println("props: "+props);
+                System.out.println("props: " + props);
             }
             Thread runner = new Thread(() -> {
                 ServerMain.main(tmpConfFile.getAbsolutePath());
@@ -83,12 +88,13 @@ public class SimpleClusterTest {
                 System.out.println("waiting for boot");
             }
 
-            ObjectManager client = ServerMain.getRunningInstance().getClient();
-            client.createBucket("mybucket", "mybucket", BucketConfiguration.DEFAULT);
-            BucketHandle bucket = client.getBucket("mybucket");
-            String id = bucket.put("myblob", "test".getBytes(StandardCharsets.UTF_8)).get();
-            bucket.get(id).get();
-            bucket.getByName("myblob").get();
+            try (ObjectManager client = ServerMain.getRunningInstance().getClient();) {
+                client.createBucket("mybucket", "mybucket", BucketConfiguration.DEFAULT);
+                BucketHandle bucket = client.getBucket("mybucket");
+                String id = bucket.put("myblob", "test".getBytes(StandardCharsets.UTF_8)).get();
+                bucket.get(id).get();
+                bucket.getByName("myblob").get();
+            }
 
 //                Thread.sleep(Integer.MAX_VALUE);
             ServerMain.getRunningInstance().close();
