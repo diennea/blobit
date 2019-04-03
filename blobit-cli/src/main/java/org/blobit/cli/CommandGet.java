@@ -54,6 +54,9 @@ public class CommandGet extends Command {
                 client.getBucket(bucket)
                         .downloadByName(name, (l) -> {
                         }, ii, 0, stat.size);
+                client.getBucket(bucket)
+                        .downloadByName(name, (l) -> {
+                        }, ii, 0, -1);
             }
         });
     }
