@@ -25,6 +25,7 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import org.blobit.core.api.PutPromise;
 
 /**
  *
@@ -48,8 +49,11 @@ public class CommandPut extends Command {
         System.out.println("PUT BUCKET '" + bucket + "' NAME '" + name + "' " + file.length() + " bytes");
         doWithClient(client -> {
             try (InputStream ii = new BufferedInputStream(new FileInputStream(file))) {
-                client.getBucket(bucket)
+                PutPromise put = client.getBucket(bucket)
                         .put(name, file.length(), ii);
+                System.out.println("PUT PROMISE: object id: '" + put.id + "'");
+                put.get();
+                System.out.println("OBJECT WRITTEN SUCCESSFULLY");
             }
         });
     }

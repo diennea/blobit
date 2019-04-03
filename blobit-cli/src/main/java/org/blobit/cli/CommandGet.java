@@ -25,6 +25,7 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
+import org.blobit.core.api.ObjectMetadata;
 
 /**
  *
@@ -48,9 +49,11 @@ public class CommandGet extends Command {
         System.out.println("GET BUCKET '" + bucket + "' NAME '" + name + "' to " + file.getAbsolutePath());
         doWithClient(client -> {
             try (OutputStream ii = new BufferedOutputStream(new FileOutputStream(file))) {
+                ObjectMetadata stat = client.getBucket(bucket).statByName(name);
+                System.out.println("OBJECT ID " + stat.id + ", size: " + stat.size);
                 client.getBucket(bucket)
                         .downloadByName(name, (l) -> {
-                        }, ii, 0, -1);
+                        }, ii, 0, stat.size);
             }
         });
     }

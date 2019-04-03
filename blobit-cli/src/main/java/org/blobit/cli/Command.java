@@ -21,7 +21,6 @@ package org.blobit.cli;
 
 import com.beust.jcommander.Parameter;
 import herddb.jdbc.HerdDBDataSource;
-import java.util.function.Consumer;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerFactory;
@@ -38,7 +37,6 @@ public abstract class Command {
     @Parameter(names = "--bucket", description = "Name of the bucket", required = true)
     public String bucket;
 
-  
     CommandContext cm;
 
     public Command(CommandContext cm) {
@@ -56,7 +54,6 @@ public abstract class Command {
         clientConfig.setZookeeperUrl(zk);
         try (final HerdDBDataSource ds = new HerdDBDataSource();) {
             ds.setUrl("jdbc:herddb:zookeeper:" + zk + "/herd");
-            ds.setMaxActive(1);
             try (final ObjectManager client = ObjectManagerFactory.createObjectManager(clientConfig, ds)) {
                 procedure.accept(client);
             }
