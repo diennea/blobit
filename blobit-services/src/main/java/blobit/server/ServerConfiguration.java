@@ -50,7 +50,7 @@ public final class ServerConfiguration {
     public static final int PROPERTY_BOOKKEEPER_BOOKIE_PORT_DEFAULT = 3181;
 
     public static final String PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH = "server.bookkeeper.zk.ledgers.root.path";
-    public static final String PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT = "/blobit-bk";
+    public static final String PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT = "/ledgers";
 
     public static final String PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT = "localhost:2181";
 
