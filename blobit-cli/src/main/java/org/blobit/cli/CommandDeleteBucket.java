@@ -20,7 +20,6 @@
 package org.blobit.cli;
 
 import com.beust.jcommander.Parameters;
-import org.blobit.core.api.BucketConfiguration;
 
 /**
  * Delete a bucket
@@ -28,7 +27,7 @@ import org.blobit.core.api.BucketConfiguration;
  * @author eolivelli
  */
 @Parameters(commandDescription = "Deletes a bucket")
-public class CommandDeleteBucket extends Command {
+public class CommandDeleteBucket extends BucketCommand {
 
     public CommandDeleteBucket(CommandContext main) {
         super(main);

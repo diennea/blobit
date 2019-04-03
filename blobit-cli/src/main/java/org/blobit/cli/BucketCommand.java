@@ -19,27 +19,20 @@
  */
 package org.blobit.cli;
 
-import com.beust.jcommander.Parameters;
+import com.beust.jcommander.Parameter;
 
 /**
- * Gc a Bucket
+ * A command what works on a bucket
  *
  * @author eolivelli
  */
-@Parameters(commandDescription = "Gc a bucket")
-public class CommandGcBucket extends BucketCommand {
+public abstract class BucketCommand extends Command {
 
-    public CommandGcBucket(CommandContext main) {
-        super(main);
-    }
+    @Parameter(names = "--bucket", description = "Name of the bucket", required = true)
+    public String bucket;
 
-    @Override
-    public void execute() throws Exception {
-        System.out.println("GC BUCKET '" + bucket + "'");
-        doWithClient(client -> {
-            client.getBucket(bucket).gc();
-        });
-
+    public BucketCommand(CommandContext cm) {
+        super(cm);
     }
 
 }

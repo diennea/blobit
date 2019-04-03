@@ -25,18 +25,20 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
+import org.blobit.core.api.DownloadPromise;
+import org.blobit.core.api.ObjectMetadata;
 
 /**
  *
  * @author eolivelli
  */
 @Parameters(commandDescription = "Get a BLOB")
-public class CommandGet extends Command {
+public class CommandGet extends BucketCommand {
 
     @Parameter(names = "--name", description = "Name of the blob", required = true)
     public String name;
 
-    @Parameter(names = "--file", description = "File", required = true)
+    @Parameter(names = "--out", description = "File to write to", required = true)
     public File file;
 
     public CommandGet(CommandContext main) {
@@ -45,12 +47,22 @@ public class CommandGet extends Command {
 
     @Override
     public void execute() throws Exception {
+        long _start = System.currentTimeMillis();
         System.out.println("GET BUCKET '" + bucket + "' NAME '" + name + "' to " + file.getAbsolutePath());
+        if (file.exists()) {
+            throw new Exception("File " + file.getAbsolutePath() + " already exists");
+        }
         doWithClient(client -> {
             try (OutputStream ii = new BufferedOutputStream(new FileOutputStream(file))) {
-                client.getBucket(bucket)
+                DownloadPromise stat = client.getBucket(bucket)
                         .downloadByName(name, (l) -> {
                         }, ii, 0, -1);
+                System.out.println("FOUND OBJECT ID:" + stat.id + ", size " + stat.length + " bytes");
+                stat.get();
+                long _stop = System.currentTimeMillis();
+                double speed = (file.length() * 1000 * 60 * 60.0) / (1024 * 1024.0 * (_stop - _start));
+                System.out.println("OBJECT DOWNLOADED SUCCESSFULLY, " + speed + " MB/h");
+
             }
         });
     }

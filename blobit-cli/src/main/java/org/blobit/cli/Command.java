@@ -21,7 +21,7 @@ package org.blobit.cli;
 
 import com.beust.jcommander.Parameter;
 import herddb.jdbc.HerdDBDataSource;
-import java.util.function.Consumer;
+
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerFactory;
@@ -30,19 +30,16 @@ import org.blobit.core.api.ObjectManagerFactory;
  *
  * @author eolivelli
  */
-public abstract class Command {
+public abstract class Command extends AbstractCommand {
 
     @Parameter(names = "--zk", description = "ZooKeeper connection string")
     String zk = "localhost:2181";
 
-    @Parameter(names = "--bucket", description = "Name of the bucket", required = true)
-    public String bucket;
-
-  
-    CommandContext cm;
+    @Parameter(names = "-v", description = "Provide verbose messages")
+    boolean verbose;
 
     public Command(CommandContext cm) {
-        this.cm = cm;
+        super(cm);
     }
 
     @FunctionalInterface
@@ -56,7 +53,6 @@ public abstract class Command {
         clientConfig.setZookeeperUrl(zk);
         try (final HerdDBDataSource ds = new HerdDBDataSource();) {
             ds.setUrl("jdbc:herddb:zookeeper:" + zk + "/herd");
-            ds.setMaxActive(1);
             try (final ObjectManager client = ObjectManagerFactory.createObjectManager(clientConfig, ds)) {
                 procedure.accept(client);
             }

@@ -28,7 +28,7 @@ import org.blobit.core.api.BucketConfiguration;
  * @author eolivelli
  */
 @Parameters(commandDescription = "Creates a bucket")
-public class CommandCreateBucket extends Command {
+public class CommandCreateBucket extends BucketCommand {
 
     @Parameter(names = "--tablespace", description = "Name of the tablespace for Bucket metadata")
     public String tablespace;

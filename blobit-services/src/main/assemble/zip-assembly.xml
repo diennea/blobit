@@ -35,8 +35,18 @@
     </fileSets>
     <dependencySets>
         <dependencySet>
+            <useProjectArtifact>true</useProjectArtifact>
+            <useStrictFiltering>true</useStrictFiltering>
+            <unpack>false</unpack>           
+            <includes>                
+                <include>org.blobit:blobit-cli:*</include>
+            </includes>            
+            <outputDirectory>.</outputDirectory>
+            <outputFileNameMapping>blobit-cli.jar</outputFileNameMapping>
+        </dependencySet>
+        <dependencySet>
             <excludes>
-                <exclude>org.rocksdb:rocksdbjni:*</exclude>
+                <exclude>org.blobit:blobit-cli:*</exclude>
             </excludes>
             <useProjectArtifact>true</useProjectArtifact>
             <useStrictFiltering>true</useStrictFiltering>

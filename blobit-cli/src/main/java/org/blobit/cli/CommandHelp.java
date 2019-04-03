@@ -26,7 +26,7 @@ import com.beust.jcommander.Parameters;
  * @author eolivelli
  */
 @Parameters(commandDescription = "Help")
-public class CommandHelp extends Command {
+public class CommandHelp extends AbstractCommand {
 
     public CommandHelp(CommandContext main) {
         super(main);
