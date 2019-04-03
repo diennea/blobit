@@ -30,18 +30,16 @@ import org.blobit.core.api.ObjectManagerFactory;
  *
  * @author eolivelli
  */
-public abstract class Command {
+public abstract class Command extends AbstractCommand {
 
     @Parameter(names = "--zk", description = "ZooKeeper connection string")
     String zk = "localhost:2181";
 
-    @Parameter(names = "--bucket", description = "Name of the bucket", required = true)
-    public String bucket;
-
-    CommandContext cm;
+    @Parameter(names = "-v", description = "Provide verbose messages")
+    boolean verbose;
 
     public Command(CommandContext cm) {
-        this.cm = cm;
+        super(cm);
     }
 
     @FunctionalInterface

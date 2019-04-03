@@ -32,12 +32,12 @@ import org.blobit.core.api.PutPromise;
  * @author eolivelli
  */
 @Parameters(commandDescription = "Put a BLOB")
-public class CommandPut extends Command {
+public class CommandPut extends BucketCommand {
 
     @Parameter(names = "--name", description = "Name of the blob", required = true)
     public String name;
 
-    @Parameter(names = "--file", description = "File", required = true)
+    @Parameter(names = "--in", description = "File to read", required = true)
     public File file;
 
     public CommandPut(CommandContext main) {
@@ -46,6 +46,7 @@ public class CommandPut extends Command {
 
     @Override
     public void execute() throws Exception {
+        long _start = System.currentTimeMillis();
         System.out.println("PUT BUCKET '" + bucket + "' NAME '" + name + "' " + file.length() + " bytes");
         doWithClient(client -> {
             try (InputStream ii = new BufferedInputStream(new FileInputStream(file))) {
@@ -53,7 +54,9 @@ public class CommandPut extends Command {
                         .put(name, file.length(), ii);
                 System.out.println("PUT PROMISE: object id: '" + put.id + "'");
                 put.get();
-                System.out.println("OBJECT WRITTEN SUCCESSFULLY");
+                long _stop = System.currentTimeMillis();
+                double speed = (file.length() * 1000 * 60 * 60.0) / (1024 * 1024.0 * (_stop - _start));
+                System.out.println("OBJECT WRITTEN SUCCESSFULLY, " + speed + " MB/h");
             }
         });
     }

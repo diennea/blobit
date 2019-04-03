@@ -20,6 +20,7 @@
 package org.blobit.cli;
 
 import com.beust.jcommander.JCommander;
+import com.beust.jcommander.ParameterException;
 
 /**
  * Basic CLI
@@ -27,13 +28,23 @@ import com.beust.jcommander.JCommander;
 public class Main {
 
     public static void main(String... args) throws Exception {
-        Command command = Main.parseCommandLine(args);
-        command.execute();
+        AbstractCommand command = Main.parseCommandLine(args);
+        try {
+            command.execute();
+        } catch (Exception err) {
+            if (command instanceof Command && ((Command) command).verbose) {
+                err.printStackTrace();
+            } else {
+                System.err.println("An error occurred: " + err.getMessage());
+            }
+            System.exit(1);
+        }
     }
 
-    public static <T extends Command> T parseCommandLine(String[] args) {
+    public static <T extends AbstractCommand> T parseCommandLine(String[] args) throws Exception {
         CommandContext cm = new CommandContext();
         JCommander jc = JCommander.newBuilder()
+                .programName("blobit.sh")
                 .addObject(cm)
                 .addCommand("createbucket", new CommandCreateBucket(cm))
                 .addCommand("deletebucket", new CommandDeleteBucket(cm))
@@ -44,7 +55,12 @@ public class Main {
                 .addCommand("help", new CommandHelp(cm))
                 .build();
         cm.jCommander = jc;
-        jc.parse(args);
+        try {
+            jc.parse(args);
+        } catch (ParameterException err) {
+            System.out.println("Error: " + err.getMessage());
+            return (T) new CommandHelp(cm);
+        }
         if (jc.getParsedCommand() == null) {
             return (T) new CommandHelp(cm);
         }
