@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.blobit</groupId>
     <artifactId>blobit</artifactId>
-    <version>0.2.0-SNAPSHOT</version>
+    <version>0.2.0</version>
     <packaging>pom</packaging>
     <name>blobIt</name>    
     <url>http://blobit.org</url>
@@ -36,7 +36,7 @@
         <url>https://github.com/diennea/blobit.git</url>        
         <connection>scm:git:https://github.com/diennea/blobit.git</connection>
         <developerConnection>scm:git:https://github.com/diennea/blobit.git</developerConnection>
-      <tag>release/0.2</tag>
+      <tag>v0.2.0</tag>
   </scm>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>                
