@@ -25,6 +25,7 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import org.blobit.core.api.Configuration;
 import org.blobit.core.api.PutPromise;
 
 /**
@@ -40,14 +41,26 @@ public class CommandPut extends BucketCommand {
     @Parameter(names = "--in", description = "File to read", required = true)
     public File file;
 
+    @Parameter(names = "-mes", description = "Max extry size, in bytes, defaults to 65536")
+    private int maxEntrySize = 65536;
+
+    @Parameter(names = "-r", description = "Replication factor, defaults to 1")
+    private int replicationFactor = 1;
+
     public CommandPut(CommandContext main) {
         super(main);
     }
 
     @Override
+    protected void modifyConfiguration(Configuration clientConfig) {
+        clientConfig.setMaxEntrySize(maxEntrySize);
+        clientConfig.setReplicationFactor(replicationFactor);
+    }
+
+    @Override
     public void execute() throws Exception {
         long _start = System.currentTimeMillis();
-        System.out.println("PUT BUCKET '" + bucket + "' NAME '" + name + "' " + file.length() + " bytes");
+        System.out.println("PUT BUCKET '" + bucket + "' NAME '" + name + "' " + file.length() + " bytes (maxEntrySize " + maxEntrySize + " butes, replicationFactor: " + replicationFactor + ")");
         doWithClient(client -> {
             try (InputStream ii = new BufferedInputStream(new FileInputStream(file))) {
                 PutPromise put = client.getBucket(bucket)

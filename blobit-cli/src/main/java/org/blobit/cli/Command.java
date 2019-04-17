@@ -38,6 +38,7 @@ public abstract class Command extends AbstractCommand {
     @Parameter(names = "-v", description = "Provide verbose messages")
     boolean verbose;
 
+  
     public Command(CommandContext cm) {
         super(cm);
     }
@@ -48,9 +49,17 @@ public abstract class Command extends AbstractCommand {
         public void accept(ObjectManager client) throws Exception;
     }
 
+    protected void modifyConfiguration(Configuration clientConfig) {
+        
+    }
+    
     public void doWithClient(ProcedureWithClient procedure) throws Exception {
         Configuration clientConfig = new Configuration();
         clientConfig.setZookeeperUrl(zk);
+        clientConfig.setUseTablespaces(true);
+        modifyConfiguration(clientConfig);
+        
+        
         try (final HerdDBDataSource ds = new HerdDBDataSource();) {
             ds.setUrl("jdbc:herddb:zookeeper:" + zk + "/herd");
             try (final ObjectManager client = ObjectManagerFactory.createObjectManager(clientConfig, ds)) {
