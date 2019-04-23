@@ -24,8 +24,16 @@ import com.beust.jcommander.Parameters;
 import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.Configuration;
+import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.PutPromise;
 
 /**
@@ -35,17 +43,23 @@ import org.blobit.core.api.PutPromise;
 @Parameters(commandDescription = "Put a BLOB")
 public class CommandPut extends BucketCommand {
 
-    @Parameter(names = "--name", description = "Name of the blob", required = true)
+    @Parameter(names = "--name", description = "Name of the blob, default to the same name of the file to write")
     public String name;
 
-    @Parameter(names = "--in", description = "File to read", required = true)
+    @Parameter(names = "--checksum", description = "Create a checksum", arity = 1)
+    public boolean checksum = true;
+
+    @Parameter(names = "--deferred-sync", description = "Use DEFERRED_SYNC flag", arity = 1)
+    public boolean deferredSync = false;
+
+    @Parameter(names = "--in", description = "Local file or directory to write", required = true)
     public File file;
 
-    @Parameter(names = "-mes", description = "Max extry size, in bytes, defaults to 65536")
+    @Parameter(names = "--max-entry-size", description = "Max extry size, in bytes, defaults to 65536")
     private int maxEntrySize = 65536;
 
-    @Parameter(names = "-r", description = "Replication factor, defaults to 1")
-    private int replicationFactor = 1;
+    @Parameter(names = "--replication", description = "Replication factor, defaults to 1")
+    public int replication = 1;
 
     public CommandPut(CommandContext main) {
         super(main);
@@ -54,24 +68,67 @@ public class CommandPut extends BucketCommand {
     @Override
     protected void modifyConfiguration(Configuration clientConfig) {
         clientConfig.setMaxEntrySize(maxEntrySize);
-        clientConfig.setReplicationFactor(replicationFactor);
+        clientConfig.setReplicationFactor(replication);
+        clientConfig.setEnableCheckSum(checksum);
+        clientConfig.setDeferredSync(deferredSync);
     }
 
     @Override
     public void execute() throws Exception {
         long _start = System.currentTimeMillis();
-        System.out.println("PUT BUCKET '" + bucket + "' NAME '" + name + "' " + file.length() + " bytes (maxEntrySize " + maxEntrySize + " butes, replicationFactor: " + replicationFactor + ")");
+        AtomicLong totalBytes = new AtomicLong();
+        AtomicInteger totalFiles = new AtomicInteger();
+        if (file.isFile()) {
+            System.out.println("PUT BUCKET '" + bucket + "' NAME '" + name + "' " + file.length() + " bytes (maxEntrySize " + maxEntrySize + " bytes, replicationFactor: " + replication + ", checksum:" + checksum + " deferredSync:" + deferredSync + ")");
+        } else if (file.isDirectory()) {
+            System.out.println("PUT BUCKET '" + bucket + "' DIRECTORY '" + file + "' (maxEntrySize " + maxEntrySize + " bytes, replicationFactor: " + replication + ", checksum:" + checksum + " deferredSync:" + deferredSync + ")");
+        } else {
+            throw new IOException("File " + file + " does not exists");
+        }
+
         doWithClient(client -> {
-            try (InputStream ii = new BufferedInputStream(new FileInputStream(file))) {
-                PutPromise put = client.getBucket(bucket)
-                        .put(name, file.length(), ii);
-                System.out.println("PUT PROMISE: object id: '" + put.id + "'");
-                put.get();
-                long _stop = System.currentTimeMillis();
-                double speed = (file.length() * 1000 * 60 * 60.0) / (1024 * 1024.0 * (_stop - _start));
-                System.out.println("OBJECT WRITTEN SUCCESSFULLY, " + speed + " MB/h");
+            BucketHandle bucketHandle = client.getBucket(bucket);
+            File theFile = file;
+            List<PutPromise> results = new ArrayList<>();
+            writeOrScan(theFile, name, bucketHandle, totalFiles, totalBytes, results);
+            // really wait for all of the operations to finish
+            for (PutPromise pp : results) {
+                pp.get();
             }
+            long _stop = System.currentTimeMillis();
+            double speed = (totalBytes.get() * 1000) / (1024 * 1024.0 * (_stop - _start));
+            System.out.println(totalFiles + " OBJECTs " + (totalBytes.get() / (1024 * 1024)) + " MBs WRITTEN SUCCESSFULLY, " + speed + " MB/s");
         });
+    }
+
+    private static void writeOrScan(File theFile, String name, BucketHandle bucketHandle,
+            AtomicInteger totalFiles, AtomicLong totalBytes, List<PutPromise> results) throws IOException, InterruptedException, ObjectManagerException {
+        if (theFile.isDirectory() && name == null) {
+            File[] children = theFile.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    writeOrScan(child, name, bucketHandle, totalFiles, totalBytes, results);
+                }
+            }
+        } else {
+            writeFile(theFile, name, bucketHandle, totalFiles, totalBytes, results);
+        }
+    }
+
+    private static void writeFile(File file, String name, BucketHandle bucketHandle,
+            AtomicInteger totalCount, AtomicLong totalWritten, List<PutPromise> results)
+            throws IOException, InterruptedException, ObjectManagerException {
+        if (name == null || name.isEmpty()) {
+            name = file.getName();
+        }
+        totalCount.incrementAndGet();
+        try (InputStream ii = new BufferedInputStream(new FileInputStream(file))) {
+            PutPromise put = bucketHandle
+                    .put(name, file.length(), ii);
+            System.out.println("PUT PROMISE: object id: '" + put.id + "' name: '" + name + "'");
+            results.add(put);
+            totalWritten.addAndGet(file.length());
+        }
     }
 
 }

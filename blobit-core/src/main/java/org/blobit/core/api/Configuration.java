@@ -61,6 +61,12 @@ public class Configuration {
     public static final String MAX_READERS = "max.readers";
     public static final int MAX_READERS_DEFAULT = 100;
 
+    public static final String ENABLE_CHECKSUM = "enable.checksum";
+    public static final boolean ENABLE_CHECKSUM_DEFAULT = true;
+
+    public static final String DEFERRED_SYNC = "deferred.sync";
+    public static final boolean DEFERRED_SYNC_DEFAULT = false;
+
     public static final String ZOOKEEPER_URL = "zookeeper.url";
     public static final String ZOOKEEPER_URL_DEFAULT = "localhost:2181";
 
@@ -86,7 +92,7 @@ public class Configuration {
         properties.put(key, value);
         return this;
     }
-    
+
     public String getProperty(String key, String defaultValue) {
         return properties.getProperty(key, defaultValue);
     }
@@ -174,6 +180,24 @@ public class Configuration {
 
     public int getMaxReaders() {
         return Integer.parseInt(properties.getProperty(MAX_READERS, MAX_READERS_DEFAULT + ""));
+    }
+
+    public boolean isEnableChecksum() {
+        return Boolean.parseBoolean(properties.getProperty(ENABLE_CHECKSUM, ENABLE_CHECKSUM_DEFAULT + ""));
+    }
+
+    public Configuration setEnableCheckSum(boolean value) {
+        properties.put(ENABLE_CHECKSUM, value);
+        return this;
+    }
+
+    public boolean isDeferredSync() {
+        return Boolean.parseBoolean(properties.getProperty(DEFERRED_SYNC, DEFERRED_SYNC_DEFAULT + ""));
+    }
+
+    public Configuration setDeferredSync(boolean value) {
+        properties.put(DEFERRED_SYNC, value);
+        return this;
     }
 
     public Collection<String> keys() {
