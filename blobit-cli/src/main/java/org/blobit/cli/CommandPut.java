@@ -35,17 +35,23 @@ import org.blobit.core.api.PutPromise;
 @Parameters(commandDescription = "Put a BLOB")
 public class CommandPut extends BucketCommand {
 
-    @Parameter(names = "--name", description = "Name of the blob", required = true)
+    @Parameter(names = "--name", description = "Name of the blob, default to the same name of the file to write")
     public String name;
+
+    @Parameter(names = "--checksum", description = "Create a checksum")
+    public boolean checksum = true;
+
+    @Parameter(names = "--deferred-sync", description = "Use DEFERRED_SYNC flag")
+    public boolean deferredSync = false;
 
     @Parameter(names = "--in", description = "File to read", required = true)
     public File file;
 
-    @Parameter(names = "-mes", description = "Max extry size, in bytes, defaults to 65536")
+    @Parameter(names = "--max-entry-size", description = "Max extry size, in bytes, defaults to 65536")
     private int maxEntrySize = 65536;
 
-    @Parameter(names = "-r", description = "Replication factor, defaults to 1")
-    private int replicationFactor = 1;
+    @Parameter(names = "--replication", description = "Replication factor, defaults to 1")
+    private int replication = 1;
 
     public CommandPut(CommandContext main) {
         super(main);
@@ -54,13 +60,18 @@ public class CommandPut extends BucketCommand {
     @Override
     protected void modifyConfiguration(Configuration clientConfig) {
         clientConfig.setMaxEntrySize(maxEntrySize);
-        clientConfig.setReplicationFactor(replicationFactor);
+        clientConfig.setReplicationFactor(replication);
+        clientConfig.setEnableCheckSum(checksum);
+        clientConfig.setDeferredSync(deferredSync);
     }
 
     @Override
     public void execute() throws Exception {
+        if (name == null || name.isEmpty()) {
+            name = file.getName();
+        }
         long _start = System.currentTimeMillis();
-        System.out.println("PUT BUCKET '" + bucket + "' NAME '" + name + "' " + file.length() + " bytes (maxEntrySize " + maxEntrySize + " butes, replicationFactor: " + replicationFactor + ")");
+        System.out.println("PUT BUCKET '" + bucket + "' NAME '" + name + "' " + file.length() + " bytes (maxEntrySize " + maxEntrySize + " butes, replicationFactor: " + replication + ", checksum:" + checksum + " deferredSync:" + deferredSync + ")");
         doWithClient(client -> {
             try (InputStream ii = new BufferedInputStream(new FileInputStream(file))) {
                 PutPromise put = client.getBucket(bucket)

@@ -42,10 +42,12 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import org.apache.bookkeeper.client.api.DigestType;
+import org.apache.bookkeeper.client.api.WriteFlag;
 import org.blobit.core.api.BucketMetadata;
 import org.blobit.core.api.ObjectManagerRuntimeException;
 
@@ -68,9 +70,12 @@ public class BucketWriter {
     private AtomicInteger pendingWrites = new AtomicInteger();
     private final long maxBytesPerLedger;
     private final int maxEntrySize;
+    private final boolean deferredSync;
     private final HerdDBMetadataStorageManager metadataStorageManager;
     private final BookKeeperBlobManager blobManager;
     static final byte[] DUMMY_PWD = new byte[0];
+
+    private static final EnumSet<WriteFlag> DEFERRED_SYNC = EnumSet.of(WriteFlag.DEFERRED_SYNC);
     private final Long id;
     private AtomicLong nextEntryId = new AtomicLong();
 
@@ -79,6 +84,8 @@ public class BucketWriter {
             int replicationFactor,
             int maxEntrySize,
             long maxBytesPerLedger,
+            boolean enableChecksum,
+            boolean deferredSync,
             HerdDBMetadataStorageManager metadataStorageManager,
             BookKeeperBlobManager blobManager) throws ObjectManagerException {
 
@@ -99,13 +106,14 @@ public class BucketWriter {
             Map<String, byte[]> ledgerMetadata = new HashMap<>();
             ledgerMetadata.put(BK_METADATA_BUCKET_ID, bucketId.getBytes(StandardCharsets.UTF_8));
             ledgerMetadata.put(BK_METADATA_BUCKET_UUID, bucketUUID.getBytes(StandardCharsets.UTF_8));
+            this.deferredSync = deferredSync;
             this.lh = bookKeeper.
                     newCreateLedgerOp()
                     .withAckQuorumSize(replicationFactor)
                     .withWriteQuorumSize(replicationFactor)
                     .withEnsembleSize(replicationFactor)
-                    .withDigestType(DigestType.CRC32C)
-                    //                    .withWriteFlags(WriteFlag.DEFERRED_SYNC)
+                    .withDigestType(enableChecksum ? DigestType.CRC32C : DigestType.DUMMY)
+                    .withWriteFlags(deferredSync ? DEFERRED_SYNC : WriteFlag.NONE)
                     .withPassword(DUMMY_PWD)
                     .withCustomMetadata(ledgerMetadata)
                     .makeAdv()
@@ -245,9 +253,9 @@ public class BucketWriter {
                 try {
                     int n = 0;
                     while (n < chunkLen) {
-                        int count = in.read(chunk, 0 + n, chunkLen - n);                        
+                        int count = in.read(chunk, 0 + n, chunkLen - n);
                         if (count < 0) {
-                            throw new EOFException("short read from stream, read up to "+n+" expected "+chunkLen+" for chunk #"+i);
+                            throw new EOFException("short read from stream, read up to " + n + " expected " + chunkLen + " for chunk #" + i);
                         }
                         n += count;
                     }
@@ -358,11 +366,7 @@ public class BucketWriter {
             try {
                 try {
                     if (!closed) {
-                        try {
-                            lh.close();
-                        } catch (BKException notReallyAProblem) {
-                            LOG.log(Level.INFO, "There was an error while closing ledger " + id + ", this should not be a big problem", notReallyAProblem);
-                        }
+                        forceAndCloseHandle();
 
                         LOG.log(Level.INFO, "Disposed {0}", this);
                         return true;
@@ -379,13 +383,51 @@ public class BucketWriter {
                     closeCompleted.signalAll();
                 }
                 return false;
-            } catch (InterruptedException err) {
-                LOG.log(Level.SEVERE, "error while closing ledger " + id, err);
-                Thread.currentThread().interrupt();
-                return true;
             } finally {
                 closeLock.unlock();
             }
+        }
+    }
+
+    private void forceAndCloseHandle() {
+        if (deferredSync) {
+            try {
+                // trying to "force" the handle
+                // this is like an fsync
+                // it waits for an fsync on all of the journals
+                // and advances LAC up to the last written entry
+                // it
+                lh.force().handle((res, error) -> {
+                    if (error != null) {
+                        LOG.log(Level.SEVERE, "Error while forcing final sync on ledger " + lh.getId(), error);
+                    }
+                    // even in case of error we are trying to close the
+                    closeHandle();
+                    return res;
+                }).get();
+            } catch (ExecutionException notReallyAProblem) {
+                LOG.log(Level.INFO, "There was an error while closing ledger " + id + ", this should not be a big problem", notReallyAProblem);
+            } catch (InterruptedException notReallyAProblem) {
+                Thread.currentThread().interrupt();
+                LOG.log(Level.INFO, "There was an error while closing ledger " + id + ", this should not be a big problem", notReallyAProblem);
+            }
+        } else {
+            closeHandle();
+        }
+    }
+
+    private void closeHandle() {
+        // in BK to "close" an handle means to "seal" it
+        // it is not a matter of returning resources to the system
+        // but to write on metadata that the ledger has been written
+        // safely/completely
+        try {
+            lh.close();
+        } catch (BKException notReallyAProblem) {
+            LOG.log(Level.INFO, "There was an error while closing ledger " + id + ", this should not be a big problem", notReallyAProblem);
+        } catch (InterruptedException notReallyAProblem) {
+            Thread.currentThread().interrupt();
+            LOG.log(Level.INFO, "There was an error while closing ledger " + id + ", this should not be a big problem", notReallyAProblem);
         }
     }
 

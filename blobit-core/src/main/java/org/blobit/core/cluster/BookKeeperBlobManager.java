@@ -69,7 +69,7 @@ import static org.blobit.core.cluster.BucketWriter.DUMMY_PWD;
 public class BookKeeperBlobManager implements AutoCloseable {
 
     private static final Logger LOG = Logger.getLogger(BookKeeperBlobManager.class.getName());
-    
+
     private final HerdDBMetadataStorageManager metadataStorageManager;
     private final BookKeeper bookKeeper;
     final GenericKeyedObjectPool<String, BucketWriter> writers;
@@ -77,6 +77,8 @@ public class BookKeeperBlobManager implements AutoCloseable {
     private final int replicationFactor;
     private final long maxBytesPerLedger;
     private final int maxEntrySize;
+    private final boolean enableChecksum;
+    private final boolean deferredSync;
     private final ExecutorService callbacksExecutor;
     private final ExecutorService threadpool = Executors.newSingleThreadExecutor();
     private ConcurrentMap<Long, BucketWriter> activeWriters = new ConcurrentHashMap<>();
@@ -238,7 +240,10 @@ public class BookKeeperBlobManager implements AutoCloseable {
         @Override
         public PooledObject<BucketWriter> makeObject(String bucketId) throws Exception {
             BucketWriter writer = new BucketWriter(bucketId,
-                    bookKeeper, replicationFactor, maxEntrySize, maxBytesPerLedger, metadataStorageManager, BookKeeperBlobManager.this);
+                    bookKeeper, replicationFactor, maxEntrySize, maxBytesPerLedger,
+                    enableChecksum,
+                    deferredSync, metadataStorageManager, BookKeeperBlobManager.this
+            );
             activeWriters.put(writer.getId(), writer);
             DefaultPooledObject<BucketWriter> be = new DefaultPooledObject<>(writer);
             return be;
@@ -312,6 +317,9 @@ public class BookKeeperBlobManager implements AutoCloseable {
             this.metadataStorageManager = metadataStorageManager;
             int concurrentWrites = configuration.getConcurrentWriters();
             int concurrentReaders = configuration.getMaxReaders();
+            this.enableChecksum = configuration.isEnableChecksum();
+            this.deferredSync = configuration.isDeferredSync();
+
             this.callbacksExecutor = Executors.newFixedThreadPool(concurrentWrites);
             ClientConfiguration clientConfiguration = new ClientConfiguration();
             clientConfiguration.setThrottleValue(0);
@@ -349,7 +357,6 @@ public class BookKeeperBlobManager implements AutoCloseable {
             configReaders.setTestOnReturn(true);
             configReaders.setTestOnBorrow(true);
             configReaders.setBlockWhenExhausted(true);
-
             this.readers = new GenericKeyedObjectPool<>(new ReadersFactory(), configReaders);
 
             this.bookKeeper = BookKeeper
