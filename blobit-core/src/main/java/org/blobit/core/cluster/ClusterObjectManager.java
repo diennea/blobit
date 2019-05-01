@@ -37,13 +37,24 @@ import org.blobit.core.api.PutPromise;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import org.apache.bookkeeper.common.concurrent.FutureUtils;
 import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.DeletePromise;
 import org.blobit.core.api.DownloadPromise;
 import org.blobit.core.api.GetPromise;
+import org.blobit.core.api.LocationInfo;
+import org.blobit.core.api.NamedObjectDeletePromise;
+import org.blobit.core.api.NamedObjectDownloadPromise;
+import org.blobit.core.api.NamedObjectGetPromise;
+import org.blobit.core.api.NamedObjectMetadata;
 import org.blobit.core.api.ObjectMetadata;
+import org.blobit.core.api.ObjectNotFoundException;
 
 /**
  * ObjectManager that uses Bookkeeper and HerdDB as clusterable backend
@@ -53,6 +64,8 @@ import org.blobit.core.api.ObjectMetadata;
 public class ClusterObjectManager implements ObjectManager {
 
     private static final Logger LOG = Logger.getLogger(ClusterObjectManager.class.getName());
+    private static final Consumer<Long> NULL_LEN_CALLBACK = (l) -> {
+    };
 
     private final BookKeeperBlobManager blobManager;
     private final HerdDBMetadataStorageManager metadataManager;
@@ -74,6 +87,7 @@ public class ClusterObjectManager implements ObjectManager {
             this.bucketId = bucketId;
         }
 
+        @Override
         public void gc() {
             try {
                 gcBucket(bucketId);
@@ -98,17 +112,45 @@ public class ClusterObjectManager implements ObjectManager {
         }
 
         @Override
-        public GetPromise getByName(String name) {
+        public NamedObjectGetPromise getByName(String name) {
             try {
-                String objectId = metadataManager.lookupObjectByName(bucketId, name);
-                if (objectId == null) {
-                    CompletableFuture<byte[]> res = new CompletableFuture<>();
-                    res.completeExceptionally(new ObjectManagerException("not found"));
-                    return new GetPromise(null, 0, res);
+                List<String> ids = metadataManager.lookupObjectByName(bucketId, name);
+                if (ids.isEmpty()) {
+                    CompletableFuture<List<byte[]>> res = new CompletableFuture<>();
+                    res.completeExceptionally(ObjectNotFoundException.INSTANCE);
+                    return new NamedObjectGetPromise(Collections.emptyList(), 0, res);
                 }
-                return blobManager.get(bucketId, objectId);
+                long size = 0;
+                AtomicInteger remaining = new AtomicInteger(ids.size());
+                CompletableFuture<List<byte[]>> result = new CompletableFuture<>();
+                // we are eagerly pre-sizing the array
+                // it will be written from different threads
+                final byte[][] data = new byte[(ids.size())][];
+                int i = 0;
+                for (String id : ids) {
+                    final int _i = i++;
+                    GetPromise promise = get(id);
+                    size += promise.length;
+                    promise.future.whenComplete((byte[] part, Throwable err) -> {
+                        LOG.log(Level.INFO, "get finished for part " + _i + " remaining:" + remaining + " err: " + err, err);
+                        if (err != null) {
+                            // fail fast
+                            result.completeExceptionally(err);
+                        } else {
+                            data[_i] = part;
+                            if (remaining.decrementAndGet() == 0) {
+                                LOG.log(Level.INFO, "completed !!");
+                                result.complete(Arrays.asList(data));
+                            } else {
+                                LOG.log(Level.INFO, "not yet completed, remaining is now " + remaining);
+                            }
+                        }
+                    });
+                }
+                return new NamedObjectGetPromise(ids, size, result);
             } catch (ObjectManagerException err) {
-                return new GetPromise(null, 0, BookKeeperBlobManager.wrapGenericException(err));
+                return new NamedObjectGetPromise(Collections.emptyList(),
+                        0, BookKeeperBlobManager.wrapGenericException(err));
             }
         }
 
@@ -118,12 +160,25 @@ public class ClusterObjectManager implements ObjectManager {
         }
 
         @Override
-        public ObjectMetadata statByName(String name) throws ObjectManagerException {
-            String objectId = metadataManager.lookupObjectByName(bucketId, name);
-            if (objectId == null) {
+        public NamedObjectMetadata statByName(String name) throws ObjectManagerException {
+            List<String> objectIds = metadataManager.lookupObjectByName(bucketId, name);
+            if (objectIds.isEmpty()) {
                 return null;
             }
-            return blobManager.stat(bucketId, objectId);
+            List<ObjectMetadata> objects = new ArrayList<>();
+            long size = 0;
+            for (String id : objectIds) {
+                ObjectMetadata objectMetadata = blobManager.stat(bucketId, id);
+                if (objectMetadata == null) {
+                    throw new ObjectNotFoundException("Object " + id + " was not found while"
+                            + " reading named object '" + name + "'");
+                }
+                objects.add(objectMetadata);
+                size += objectMetadata.size;
+            }
+            return new NamedObjectMetadata(name,
+                    size,
+                    objects);
         }
 
         @Override
@@ -132,33 +187,141 @@ public class ClusterObjectManager implements ObjectManager {
         }
 
         @Override
-        public DownloadPromise download(String objectId, Consumer<Long> lengthCallback, OutputStream output, int offset, long length) {
+        public DownloadPromise download(String objectId, Consumer<Long> lengthCallback, OutputStream output, long offset, long length) {
             return blobManager.download(bucketId, objectId, lengthCallback, output, offset, length);
         }
 
         @Override
-        public DownloadPromise downloadByName(String name, Consumer<Long> lengthCallback, OutputStream output, int offset, long length) {
+        public NamedObjectDownloadPromise downloadByName(String name,
+                Consumer<Long> lengthCallback,
+                OutputStream output, int offset, long length) {
+            List<String> ids = null;
             try {
-                String objectId = metadataManager.lookupObjectByName(bucketId, name);
-                if (objectId == null) {
+                ids = metadataManager.lookupObjectByName(bucketId, name);
+                if (ids == null || ids.isEmpty()) {
                     CompletableFuture<byte[]> res = new CompletableFuture<>();
-                    res.completeExceptionally(new ObjectManagerException("not found"));
-                    return new DownloadPromise(null, 0, res);
+                    res.completeExceptionally(ObjectNotFoundException.INSTANCE);
+                    return new NamedObjectDownloadPromise(name, null, 0, res);
                 }
-                return blobManager.download(bucketId, objectId, lengthCallback, output, offset, length);
+                long totalLen = 0;
+                List<BKEntryId> segments = new ArrayList<>();
+                for (String id : ids) {
+                    BKEntryId segment = BKEntryId.parseId(id);
+                    totalLen += segment.length;
+                    segments.add(segment);
+                }
+                long availableLength = totalLen;
+                if (offset > 0) {
+                    availableLength -= offset;
+                }
+                if (length < 0 || length > availableLength) { // full object
+                    length = availableLength;
+                }
+                lengthCallback.accept(length);
+                CompletableFuture<?> result = new CompletableFuture<>();
+                NamedObjectDownloadPromise res = new NamedObjectDownloadPromise(name, ids, length, result);
+                if (length <= 0) {
+                    // early exit, nothing to to
+                    FutureUtils.complete(result, null);
+                    return res;
+                }
+
+                int initialPart = 0;
+                long offsetInStartingSegment = offset;
+
+                if (offset > 0) {
+                    // need to jump to the offset
+                    // skipping first N parts
+                    BKEntryId segment = segments.get(initialPart);
+                    while (initialPart < segments.size()) {
+                        long segmentLen = segment.length;
+                        if (offsetInStartingSegment < segmentLen) {
+                            // we have found the good segment to start from
+                            break;
+                        } else {
+                            offsetInStartingSegment -= segmentLen;
+                            initialPart++;
+                        }
+                    }
+                    if (initialPart == segments.size()) {
+                        throw new IllegalStateException();
+                    }
+                }
+                startDownloadSegment(segments,
+                        initialPart,
+                        offsetInStartingSegment, length,
+                        output, result);
+                return res;
             } catch (ObjectManagerException err) {
-                return new DownloadPromise(null, 0, BookKeeperBlobManager.wrapGenericException(err));
+                return new NamedObjectDownloadPromise(name, ids,
+                        -1, BookKeeperBlobManager.wrapGenericException(err));
             }
+        }
+
+        private void startDownloadSegment(List<BKEntryId> segments, int index,
+                long offsetInSegment,
+                long remainingLen,
+                OutputStream output, CompletableFuture<?> result) {
+            BKEntryId currentSegment = segments.get(index);
+
+            long lengthForCurrentSegment = Math.min(remainingLen, currentSegment.length - offsetInSegment);
+
+            DownloadPromise download = download(currentSegment.toId(), NULL_LEN_CALLBACK,
+                    output, offsetInSegment, lengthForCurrentSegment);
+            download.future.whenComplete((a, error) -> {
+                if (error != null) {
+
+                    // fast fail, complete the future
+                    result.completeExceptionally(error);
+                } else {
+                    long newRemainingLen = remainingLen - lengthForCurrentSegment;
+
+                    if (newRemainingLen == 0) {
+                        FutureUtils.complete(result, null);
+                    } else {
+                        // start next segment
+                        startDownloadSegment(segments,
+                                index + 1, 0 /* offset */,
+                                newRemainingLen,
+                                output, result);
+                    }
+                }
+            });
+        }
+
+        @Override
+        public int append(String objectId, String name) throws ObjectManagerException {
+            return metadataManager.append(bucketId, objectId, name);
         }
 
         @Override
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
-        public DeletePromise deleteByName(String name) {
+        public NamedObjectDeletePromise deleteByName(String name) {
             try {
-                String objectId = metadataManager.lookupObjectByName(bucketId, name);
-                return delete(objectId, name);
+                List<String> ids = metadataManager.lookupObjectByName(bucketId, name);
+                CompletableFuture<?> res = new CompletableFuture<>();
+
+                if (!ids.isEmpty()) {
+                    AtomicInteger count = new AtomicInteger(ids.size());
+                    for (String id : ids) {
+                        DeletePromise delete = delete(id, name);
+                        delete.future.whenComplete((x, error) -> {
+                            if (error != null) {
+                                res.completeExceptionally(error);
+                            } else {
+                                if (count.decrementAndGet() == 0) {
+                                    FutureUtils.complete(res, null);
+                                }
+                            }
+
+                        });
+                    }
+                } else {
+                    res.completeExceptionally(ObjectNotFoundException.INSTANCE);
+                }
+                return new NamedObjectDeletePromise(name, ids, res);
             } catch (ObjectManagerException err) {
-                return new DeletePromise(null, BookKeeperBlobManager.wrapGenericException(err));
+                return new NamedObjectDeletePromise(null, Collections.emptyList(), BookKeeperBlobManager.wrapGenericException(err));
             }
         }
 
@@ -187,6 +350,12 @@ public class ClusterObjectManager implements ObjectManager {
                 }
             }
             return new DeletePromise(objectId, result);
+        }
+
+        @Override
+        public CompletableFuture<? extends LocationInfo> getLocationInfo(String objectId) throws ObjectManagerException {
+            BKEntryId bk = BKEntryId.parseId(objectId);
+            return blobManager.getLocationInfo(bk);
         }
 
     }

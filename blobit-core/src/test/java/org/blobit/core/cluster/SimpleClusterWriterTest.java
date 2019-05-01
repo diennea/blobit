@@ -123,48 +123,6 @@ public class SimpleClusterWriterTest {
     }
 
     @Test
-    public void testNamedAPI() throws Exception {
-        Properties dsProperties = new Properties();
-        dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
-        try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
-                HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
-            env.startBookie();
-            Configuration configuration
-                    = new Configuration()
-                            .setType(Configuration.TYPE_BOOKKEEPER)
-                            .setConcurrentWriters(4)
-                            .setZookeeperUrl(env.getAddress());
-            try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
-                long _start = System.currentTimeMillis();
-
-                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
-                BucketHandle bucket = manager.getBucket(BUCKET_ID);
-
-                List<PutPromise> batch = new ArrayList<>();
-                for (int i = 0; i < 1000; i++) {
-                    batch.add(bucket.put("foo" + i, TEST_DATA));
-                }
-                List<String> ids = new ArrayList<>();
-                for (PutPromise f : batch) {
-                    ids.add(f.get());
-                }
-                for (int i = 0; i < 1000; i++) {
-                    bucket.getByName("foo" + i).get();
-                    bucket.downloadByName("foo" + i, (l) -> {
-                    }, new ByteArrayOutputStream(), 0, -1).get();
-                    bucket.deleteByName("foo" + i).get();
-                }
-
-                long _stop = System.currentTimeMillis();
-                double speed = (int) (batch.size() * 60_000.0 / (_stop - _start));
-                double band = speed * TEST_DATA.length;
-                long total = (batch.size() * TEST_DATA.length * 1L) / (1024 * 1024);
-                System.out.println("TIME: " + (_stop - _start) + " ms for " + batch.size() + " blobs, total " + total + " MBs, " + speed + " blobs/h " + (band / 1e9) + " Gbytes/h");
-            }
-        }
-    }
-
-    @Test
     public void testStreamingWritesStreamShortRead() throws Exception {
         Properties dsProperties = new Properties();
         dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
@@ -357,7 +315,7 @@ public class SimpleClusterWriterTest {
                                 PlatformDependent.equals(testdata, offset, data, 0, expectedSize);
                             }
                             assertEquals(expectedSize, contentLength.intValue());
-                            
+
                         }
                     }
                 }

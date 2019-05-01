@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import org.blobit.core.api.LedgerMetadata;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectMetadata;
+import org.blobit.core.api.ObjectNotFoundException;
 
 class MemLedger {
 
@@ -90,14 +91,14 @@ class MemLedger {
     byte[] get(long firstEntryId) throws ObjectManagerException {
         MemEntry res = data.get(firstEntryId);
         if (res == null) {
-            throw new ObjectManagerException("no such entry " + firstEntryId);
+            throw new ObjectNotFoundException("no such entry " + firstEntryId);
         }
         return res.data;
     }
 
     public MemEntryId put(byte[] _data) {
         long id = nextId.incrementAndGet();
-        MemEntryId entryId = new MemEntryId(this.ledgerId, id, id);
+        MemEntryId entryId = new MemEntryId(this.ledgerId, id, _data.length);
         data.put(id, new MemEntry(entryId, _data));
         return entryId;
     }

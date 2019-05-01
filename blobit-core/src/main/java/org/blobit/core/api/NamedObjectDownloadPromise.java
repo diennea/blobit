@@ -19,22 +19,26 @@
  */
 package org.blobit.core.api;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.bookkeeper.common.concurrent.FutureUtils;
 
 /**
- * Handle to a download operation
+ * Handle to a download operatoin
  */
-public class DownloadPromise {
+public class NamedObjectDownloadPromise {
 
     public final long length;
-    public final String id;
+    public final String name;
+    public final List<String> id;
 
     public final CompletableFuture<?> future;
 
-    public DownloadPromise(String id, long length, CompletableFuture<?> future) {
+    public NamedObjectDownloadPromise(String name,
+            List<String> id, long length, CompletableFuture<?> future) {
+        this.name = name;
         this.id = id;
         this.length = length;
         this.future = future;

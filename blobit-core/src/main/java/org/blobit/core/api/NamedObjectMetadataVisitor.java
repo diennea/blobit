@@ -20,23 +20,12 @@
 package org.blobit.core.api;
 
 /**
- * Metadata about a single blob
+ * Receives data from Object listing operations
  *
- * @author enrico.olivelli
+ * @author eolivelli
  */
-public final class ObjectMetadata {
+@FunctionalInterface
+public interface NamedObjectMetadataVisitor {
 
-    public final String id;
-    public final long size;
-
-    public ObjectMetadata(String id, long size) {
-        this.id = id;
-        this.size = size;
-    }
-
-    @Override
-    public String toString() {
-        return "{" + "id=" + id + ", size=" + size + '}';
-    }
-
+    void accept(NamedObjectMetadata metadata);
 }

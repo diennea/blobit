@@ -192,7 +192,7 @@ public class BucketWriter {
             }
             try {
                 metadataStorageManager.registerObject(bucketId, id,
-                        firstEntryId, numEntries, maxEntrySize, len, blobId, name);
+                        firstEntryId, numEntries, maxEntrySize, len, blobId, name, 0);
                 return null;
             } catch (Throwable err) {
                 LOG.log(Level.SEVERE, "bad error while completing blob", err);
@@ -298,7 +298,7 @@ public class BucketWriter {
                     try {
                         metadataStorageManager
                                 .registerObject(bucketId, id, firstEntryId,
-                                        numEntries, maxEntrySize, len, blobId, name);
+                                        numEntries, maxEntrySize, len, blobId, name, 0);
                         return null;
                     } catch (Throwable err) {
                         LOG.log(Level.SEVERE, "bad error while completing blob", err);

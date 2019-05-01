@@ -54,6 +54,7 @@ import org.blobit.core.api.BucketMetadata;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.DownloadPromise;
 import org.blobit.core.api.GetPromise;
+import org.blobit.core.api.LocationInfo;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectMetadata;
 import org.blobit.core.api.PutPromise;
@@ -83,6 +84,21 @@ public class BookKeeperBlobManager implements AutoCloseable {
     private final ExecutorService threadpool = Executors.newSingleThreadExecutor();
     private ConcurrentMap<Long, BucketWriter> activeWriters = new ConcurrentHashMap<>();
     private final Stats stats = new Stats();
+
+    CompletableFuture<? extends LocationInfo> getLocationInfo(BKEntryId bk) {
+        CompletableFuture<BKLocationInfo> result = new CompletableFuture<>();
+        bookKeeper.getLedgerManager()
+                .readLedgerMetadata(bk.ledgerId)
+                .whenComplete((versionedLedgerMetadata, error) -> {
+                    if (error != null) {
+                        result.completeExceptionally(new ObjectManagerException(error));
+                    } else {
+                        result.complete(new BKLocationInfo(bk, versionedLedgerMetadata.getValue()));
+                    }
+
+                });
+        return result;
+    }
 
     public static final class Stats {
 
@@ -118,9 +134,18 @@ public class BookKeeperBlobManager implements AutoCloseable {
             throw new IndexOutOfBoundsException();
         }
         if (len == 0) {
-            // very special case, the empty blob
             CompletableFuture<Void> result = new CompletableFuture<>();
-            result.complete(null);
+            if (name == null) {
+                // very special case, the unnamed empty blob
+                result.complete(null);
+            } else {
+                try {
+                    metadataStorageManager.append(bucketId, BKEntryId.EMPTY_ENTRY_ID, name);
+                    result.complete(null);
+                } catch (ObjectManagerException err) {
+                    result.completeExceptionally(err);
+                }
+            }
             return new PutPromise(BKEntryId.EMPTY_ENTRY_ID, result);
         }
         try {
@@ -144,7 +169,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
 
     static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
 
-    DownloadPromise download(String bucketId, String id, Consumer<Long> lengthCallback, OutputStream output, int offset, long length) {
+    DownloadPromise download(String bucketId, String id, Consumer<Long> lengthCallback, OutputStream output, long offset, long length) {
         if (id == null) {
             return new DownloadPromise(null, 0, wrapGenericException(new IllegalArgumentException("null id")));
         }

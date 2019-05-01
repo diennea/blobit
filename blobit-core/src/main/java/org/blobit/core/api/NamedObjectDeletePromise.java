@@ -19,24 +19,27 @@
  */
 package org.blobit.core.api;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.bookkeeper.common.concurrent.FutureUtils;
 
 /**
- * Handle to a download operation
+ * Result of a Delete, it reports immediately the ID of the objects
+ *
+ * @author enrico.olivelli
  */
-public class DownloadPromise {
+public final class NamedObjectDeletePromise {
 
-    public final long length;
-    public final String id;
-
+    public final String name;
+    public final List<String> id;
     public final CompletableFuture<?> future;
 
-    public DownloadPromise(String id, long length, CompletableFuture<?> future) {
+    public NamedObjectDeletePromise(String name, 
+            List<String> id, CompletableFuture<?> future) {
+        this.name = name;
         this.id = id;
-        this.length = length;
         this.future = future;
     }
 
@@ -69,4 +72,5 @@ public class DownloadPromise {
             throw new ObjectManagerException(err);
         }
     }
+
 }
