@@ -38,12 +38,17 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Consumer;
 import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.DeletePromise;
 import org.blobit.core.api.DownloadPromise;
 import org.blobit.core.api.GetPromise;
+import org.blobit.core.api.LocationInfo;
+import org.blobit.core.api.LocationInfo.ServerInfo;
 
 /**
  * MetadataManager all in memory for unit tests
@@ -140,7 +145,7 @@ public class LocalManager implements ObjectManager {
         public GetPromise get(String objectId) {
             try {
                 MemEntryId id = MemEntryId.parseId(objectId);
-                byte[] res = getMemBucket(bucketId).getLedger(id.ledgerId).get(id.firstEntryId);
+                byte[] res = getMemBucket(bucketId).getLedger(id.ledgerId).get(id.entryId);
                 /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
                 return new GetPromise(objectId, res.length, CompletableFuture.completedFuture(res));
             } catch (ObjectManagerException err) {
@@ -239,7 +244,7 @@ public class LocalManager implements ObjectManager {
         public DeletePromise delete(String objectId) {
             try {
                 MemEntryId id = MemEntryId.parseId(objectId);
-                getMemBucket(bucketId).getLedger(id.ledgerId).delete(id.firstEntryId);
+                getMemBucket(bucketId).getLedger(id.ledgerId).delete(id.entryId);
                 /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
                 return new DeletePromise(objectId, CompletableFuture.completedFuture(null));
             } catch (ObjectManagerException err) {
@@ -249,15 +254,72 @@ public class LocalManager implements ObjectManager {
             }
         }
 
+        @Override
         public void gc() {
             try {
                 getMemBucket(bucketId).gc();
             } catch (ObjectManagerException ex) {
             }
         }
+
+        @Override
+        public CompletableFuture<? extends LocationInfo> getLocationInfo(String objectId) {
+            CompletableFuture<MemLocationInfo> result = new CompletableFuture<>();
+            try {
+                MemEntryId id = MemEntryId.parseId(objectId);
+                result.complete(new MemLocationInfo(id));
+            } catch (ObjectManagerException err) {
+                result.completeExceptionally(err);
+            }
+            return result;
+        }
+
     }
 
+    private final static class MemLocationInfo implements LocationInfo {
+
+        private final MemEntryId id;
+
+        public MemLocationInfo(MemEntryId id) {
+            this.id = id;
+        }
+
+        @Override
+        public String getId() {
+            return id.toId();
+        }
+
+        @Override
+        public List<ServerInfo> getServersAtPosition(long offset) {
+            if (offset < 0 || offset >= id.lenght) {
+                return Collections.emptyList();
+            }
+            return LOCAL_SERVER;
+        }
+
+        @Override
+        public long getSize() {
+            return id.lenght;
+        }
+
+        @Override
+        public List<Long> getSegmentsStartOffsets() {
+            if (id.lenght == 0) {
+                return Collections.emptyList();
+            }
+            return OFFSET_0;
+        }
+
+    }
+
+    private final static List<ServerInfo> LOCAL_SERVER
+            = Collections.unmodifiableList(Arrays.asList((ServerInfo) () -> "local-vm"));
+
+    private final static List<Long> OFFSET_0
+            = Collections.unmodifiableList(Arrays.asList(0L));
+
     @Override
+
     public BucketHandle getBucket(String bucketId) {
         return new BucketHandleImpl(bucketId);
     }
@@ -306,6 +368,5 @@ public class LocalManager implements ObjectManager {
     public void gc() {
         buckets.values().forEach(MemBucket::gc);
     }
-    
-    
+
 }

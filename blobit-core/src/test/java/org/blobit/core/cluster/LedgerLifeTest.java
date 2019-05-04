@@ -41,6 +41,7 @@ import org.junit.rules.TemporaryFolder;
 import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
 import org.blobit.core.api.BucketHandle;
+import org.blobit.core.api.LocationInfo;
 import org.blobit.core.api.ObjectManagerException;
 
 public class LedgerLifeTest {
@@ -84,6 +85,16 @@ public class LedgerLifeTest {
                 manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
                 String id = bucket.put(null, TEST_DATA).get();
                 Assert.assertArrayEquals(bucket.get(id).get(), TEST_DATA);
+                LocationInfo locationInfo = bucket.getLocationInfo(id).get();
+                assertEquals(TEST_DATA.length, locationInfo.getSize());
+                assertEquals(id, locationInfo.getId());
+                assertEquals(2, locationInfo.getSegmentsStartOffsets().size());
+                assertEquals(0L, locationInfo.getSegmentsStartOffsets().get(0).longValue());
+                assertEquals(1, locationInfo.getServersAtPosition(0).size());
+                System.out.println("serversAt 0 " + locationInfo.getServersAtPosition(0));
+                assertEquals(locationInfo.getServersAtPosition(0), locationInfo.getServersAtPosition(1));
+                assertEquals(0, locationInfo.getServersAtPosition(-10).size());
+                assertEquals(0, locationInfo.getServersAtPosition(TEST_DATA.length + 10).size());
 
                 {
                     Collection<LedgerMetadata> ledgers = metadataManager.listLedgersbyBucketId(BUCKET_ID);

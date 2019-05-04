@@ -21,6 +21,7 @@ package org.blobit.core.api;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
@@ -104,9 +105,9 @@ public interface BucketHandle {
      * stored for a particular object id.
      * 
      * @param objectId
-     * @return the info, an error if such info is not available
+     * @return an handle to the result of the operation
      */
-    public LocationInfo getLocationInfo(String objectId) throws ObjectManagerException;    
+    public CompletableFuture<? extends LocationInfo> getLocationInfo(String objectId) throws ObjectManagerException;    
 
     /**
      * Retrieves the contents of an object.This function is async, you have to

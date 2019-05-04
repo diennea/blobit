@@ -19,18 +19,105 @@
  */
 package org.blobit.core.cluster;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.SortedMap;
+import java.util.Objects;
+import java.util.stream.Collectors;
+import org.apache.bookkeeper.client.api.LedgerMetadata;
+import org.apache.bookkeeper.net.BookieSocketAddress;
 import org.blobit.core.api.LocationInfo;
 
 /**
- * Implementation of 
+ * Implementation of LocationInfo
+ *
  * @author eolivelli
  */
-public class BKLocationInfo extends LocationInfo {
-    private final String id;
-    private final SortedMap<Long, List<ServerInfo>> segments;        
-    
-    
-   
+public class BKLocationInfo implements LocationInfo {
+
+    private final BKEntryId bk;
+    private final LedgerMetadata metadata;
+
+    BKLocationInfo(BKEntryId bk, LedgerMetadata value) {
+        this.bk = bk;
+        this.metadata = value;
+    }
+
+    @Override
+    public String getId() {
+        return bk.toId();
+    }
+
+    @Override
+    public List<ServerInfo> getServersAtPosition(long offset) {
+        if (offset < 0 || offset >= bk.length) {
+            return Collections.emptyList();
+        }
+        long entryNum = (offset + 1) / bk.entrySize;
+        List<BookieSocketAddress> ensembleAt = metadata.getEnsembleAt(entryNum);
+        return ensembleAt
+                .stream()
+                .map(ba -> new BKServerInfo(ba.getHostName() + ":" + ba.getPort()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public long getSize() {
+        return bk.length;
+    }
+
+    @Override
+    public List<Long> getSegmentsStartOffsets() {
+        if (bk.length == 0) {
+            return Collections.emptyList();
+        }
+        List<Long> res = new ArrayList<>();
+        long pos = 0;
+        while (pos < bk.length) {
+            res.add(pos);
+            pos += bk.entrySize;
+        }
+        return res;
+    }
+
+    public static final class BKServerInfo implements ServerInfo {
+
+        private final String address;
+
+        private BKServerInfo(String server) {
+            this.address = server;
+        }
+
+        @Override
+        public String getAddress() {
+            return address;
+        }
+
+        @Override
+        public int hashCode() {
+            int hash = 3;
+            hash = 41 * hash + Objects.hashCode(this.address);
+            return hash;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null) {
+                return false;
+            }
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+            final BKServerInfo other = (BKServerInfo) obj;
+            if (!Objects.equals(this.address, other.address)) {
+                return false;
+            }
+            return true;
+        }
+
+    }
+
 }

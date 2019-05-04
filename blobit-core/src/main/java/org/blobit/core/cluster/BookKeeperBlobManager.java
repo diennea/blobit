@@ -54,6 +54,7 @@ import org.blobit.core.api.BucketMetadata;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.DownloadPromise;
 import org.blobit.core.api.GetPromise;
+import org.blobit.core.api.LocationInfo;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectMetadata;
 import org.blobit.core.api.PutPromise;
@@ -83,6 +84,21 @@ public class BookKeeperBlobManager implements AutoCloseable {
     private final ExecutorService threadpool = Executors.newSingleThreadExecutor();
     private ConcurrentMap<Long, BucketWriter> activeWriters = new ConcurrentHashMap<>();
     private final Stats stats = new Stats();
+
+    CompletableFuture<? extends LocationInfo> getLocationInfo(BKEntryId bk) {
+        CompletableFuture<BKLocationInfo> result = new CompletableFuture<>();
+        bookKeeper.getLedgerManager()
+                .readLedgerMetadata(bk.ledgerId)
+                .whenComplete((versionedLedgerMetadata, error) -> {
+                    if (error != null) {
+                        result.completeExceptionally(new ObjectManagerException(error));
+                    } else {
+                        result.complete(new BKLocationInfo(bk, versionedLedgerMetadata.getValue()));
+                    }
+
+                });
+        return result;
+    }
 
     public static final class Stats {
 
