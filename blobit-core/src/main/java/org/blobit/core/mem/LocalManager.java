@@ -49,6 +49,7 @@ import org.blobit.core.api.DownloadPromise;
 import org.blobit.core.api.GetPromise;
 import org.blobit.core.api.LocationInfo;
 import org.blobit.core.api.LocationInfo.ServerInfo;
+import org.blobit.core.api.NamedObjectMetadata;
 
 /**
  * MetadataManager all in memory for unit tests
@@ -166,12 +167,14 @@ public class LocalManager implements ObjectManager {
         }
 
         @Override
-        public ObjectMetadata statByName(String objectId) {
-            GetPromise get = getByName(objectId);
+        public NamedObjectMetadata statByName(String name) {
+            // TODO: handle multiple object per-name
+            GetPromise get = getByName(name);
             if (get.id == null) {
                 return null;
             } else {
-                return new ObjectMetadata(get.id, get.length);
+                return new NamedObjectMetadata(name,
+                        get.length, Arrays.asList(new ObjectMetadata(get.id, get.length)));
             }
         }
 

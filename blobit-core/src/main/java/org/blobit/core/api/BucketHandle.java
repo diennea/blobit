@@ -90,7 +90,7 @@ public interface BucketHandle {
      * @param name
      * @return the metadata, null if no object is found
      */
-    public ObjectMetadata statByName(String name) throws ObjectManagerException;
+    public NamedObjectMetadata statByName(String name) throws ObjectManagerException;
 
     /**
      * Retrieves the metadata of an object.

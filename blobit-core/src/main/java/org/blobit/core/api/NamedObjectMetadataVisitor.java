@@ -27,5 +27,5 @@ package org.blobit.core.api;
 @FunctionalInterface
 public interface NamedObjectMetadataVisitor {
 
-    void accept(ObjectMetadata metadata);
+    void accept(NamedObjectMetadata metadata);
 }

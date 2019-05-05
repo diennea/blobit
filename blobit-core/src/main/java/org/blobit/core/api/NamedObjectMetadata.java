@@ -19,8 +19,11 @@
  */
 package org.blobit.core.api;
 
+import java.util.List;
+
 /**
- * Metadata about an object with a custom name.
+ * Metadata about an object with a custom name. A named object can span multiple
+ * simple objects in case of concatenation/append operations.
  *
  * @author eolivelli
  * @see ObjectMetadata
@@ -29,10 +32,12 @@ public final class NamedObjectMetadata {
 
     private final String name;
     private final long size;
+    private final List<ObjectMetadata> objects;
 
-    public NamedObjectMetadata(String name, long size) {
+    public NamedObjectMetadata(String name, long size, List<ObjectMetadata> objects) {
         this.name = name;
         this.size = size;
+        this.objects = objects;
     }
 
     public String getName() {
@@ -41,6 +46,14 @@ public final class NamedObjectMetadata {
 
     public long getSize() {
         return size;
+    }
+
+    public ObjectMetadata getObject(int index) {
+        return objects.get(index);
+    }
+
+    public int getNumObjects() {
+        return objects.size();
     }
 
 }

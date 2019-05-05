@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.stream.Collectors;
 import org.blobit.core.api.LocationInfo;
 import org.blobit.core.api.LocationInfo.ServerInfo;
+import org.blobit.core.api.NamedObjectMetadata;
 import org.blobit.core.api.ObjectMetadata;
 
 /**
@@ -49,25 +50,28 @@ public class CommandStat extends BucketCommand {
         long _start = System.currentTimeMillis();
         System.out.println("STAT BUCKET '" + bucket + "' NAME '" + name);
         doWithClient(client -> {
-            ObjectMetadata metadata = client.getBucket(bucket)
+            NamedObjectMetadata namedmetadata = client.getBucket(bucket)
                     .statByName(name);
-            if (metadata == null) {
+            if (namedmetadata == null) {
                 System.out.println("OBJECT NOT FOUND NAME:" + name);
                 return;
             }
-            System.out.println("OBJECT ID: " + metadata.id);
-            System.out.println("OBJECT SIZE: " + metadata.size + " bytes");
-            if (locationInfo) {
-                LocationInfo lInfo = client.getBucket(bucket).getLocationInfo(metadata.id).get();
-                List<Long> segments = lInfo.getSegmentsStartOffsets();
-                System.out.println("LOCATION INFO:");
-                System.out.println("NUM SEGMENTS: " + segments.size());
-                for (Long offset : segments) {
-                    System.out.println("OFFSET " + offset + ": LOCATED AT: "
-                            + lInfo.getServersAtPosition(offset)
-                                    .stream()
-                                    .map(ServerInfo::getAddress)
-                                    .collect(Collectors.joining(",")));
+            for (int i = 0; i < namedmetadata.getNumObjects(); i++) {
+                ObjectMetadata metadata = namedmetadata.getObject(i);
+                System.out.println("OBJECT ID: " + metadata.id);
+                System.out.println("OBJECT SIZE: " + metadata.size + " bytes");
+                if (locationInfo) {
+                    LocationInfo lInfo = client.getBucket(bucket).getLocationInfo(metadata.id).get();
+                    List<Long> segments = lInfo.getSegmentsStartOffsets();
+                    System.out.println("LOCATION INFO:");
+                    System.out.println("NUM SEGMENTS: " + segments.size());
+                    for (Long offset : segments) {
+                        System.out.println("OFFSET " + offset + ": LOCATED AT: "
+                                + lInfo.getServersAtPosition(offset)
+                                        .stream()
+                                        .map(ServerInfo::getAddress)
+                                        .collect(Collectors.joining(",")));
+                    }
                 }
             }
         });
