@@ -37,6 +37,7 @@ import org.blobit.core.api.PutPromise;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.function.Consumer;
@@ -124,14 +125,24 @@ public class ClusterObjectManager implements ObjectManager {
         @Override
         public NamedObjectMetadata statByName(String name) throws ObjectManagerException {
             // TODO: handle multiple object per-name
-            String objectId = metadataManager.lookupObjectByName(bucketId, name);
-            if (objectId == null) {
+            List<String> objectIds = metadataManager.lookupObjectByName(bucketId, name);
+            if (objectIds.isEmpty()) {
                 return null;
             }
-            ObjectMetadata objectMetadata = blobManager.stat(bucketId, objectId);
+            List<ObjectMetadata> objects = new ArrayList<>();
+            long size = 0;
+            for (String id : objectIds) {
+                ObjectMetadata objectMetadata = blobManager.stat(bucketId, id);
+                if (objectMetadata == null) {
+                    throw new ObjectManagerException("Object " + id + " was not found while"
+                            + " reading named object '" + name + "'");
+                }
+                objects.add(objectMetadata);
+                size += objectMetadata.size;
+            }
             return new NamedObjectMetadata(name,
-                        objectMetadata.size,
-                    Arrays.asList(new ObjectMetadata(objectMetadata.id, objectMetadata.size)));
+                    size,
+                    objects);
         }
 
         @Override
