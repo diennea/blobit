@@ -91,23 +91,23 @@ public interface BucketHandle {
      * @return the metadata, null if no object is found
      */
     public ObjectMetadata statByName(String name) throws ObjectManagerException;
-    
-     /**
+
+    /**
      * Retrieves the metadata of an object.
-     * 
+     *
      * @param objectId
      * @return the metadata, null if no object is found
      */
     public ObjectMetadata stat(String objectId) throws ObjectManagerException;
-    
-     /**
-     * Retrieves detailed information about where data is
-     * stored for a particular object id.
-     * 
+
+    /**
+     * Retrieves detailed information about where data is stored for a
+     * particular object id.
+     *
      * @param objectId
      * @return an handle to the result of the operation
      */
-    public CompletableFuture<? extends LocationInfo> getLocationInfo(String objectId) throws ObjectManagerException;    
+    public CompletableFuture<? extends LocationInfo> getLocationInfo(String objectId) throws ObjectManagerException;
 
     /**
      * Retrieves the contents of an object.This function is async, you have to
@@ -173,5 +173,17 @@ public interface BucketHandle {
      *
      */
     public void gc();
+
+    /**
+     * Retrieves detailed information about where data is stored for a
+     * particular object id.
+     *
+     * @param filter the filter
+     * @param visitor receives data
+     *
+     */
+    public default void queryNamedObjects(NamedObjectMetadataFilter filter, NamedObjectMetadataVisitor visitor) throws ObjectManagerException {
+        throw new UnsupportedOperationException();
+    }
 
 }

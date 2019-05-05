@@ -20,23 +20,9 @@
 package org.blobit.core.api;
 
 /**
- * Metadata about a single blob
- *
- * @author enrico.olivelli
+ * A Filter over ObjectMetadata
+ * @author eolivelli
  */
-public final class ObjectMetadata {
-
-    public final String id;
-    public final long size;
-
-    public ObjectMetadata(String id, long size) {
-        this.id = id;
-        this.size = size;
-    }
-
-    @Override
-    public String toString() {
-        return "{" + "id=" + id + ", size=" + size + '}';
-    }
-
+public interface NamedObjectMetadataFilter {
+    
 }

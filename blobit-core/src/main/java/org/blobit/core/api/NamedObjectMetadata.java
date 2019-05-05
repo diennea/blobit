@@ -20,23 +20,27 @@
 package org.blobit.core.api;
 
 /**
- * Metadata about a single blob
+ * Metadata about an object with a custom name.
  *
- * @author enrico.olivelli
+ * @author eolivelli
+ * @see ObjectMetadata
  */
-public final class ObjectMetadata {
+public final class NamedObjectMetadata {
 
-    public final String id;
-    public final long size;
+    private final String name;
+    private final long size;
 
-    public ObjectMetadata(String id, long size) {
-        this.id = id;
+    public NamedObjectMetadata(String name, long size) {
+        this.name = name;
         this.size = size;
     }
 
-    @Override
-    public String toString() {
-        return "{" + "id=" + id + ", size=" + size + '}';
+    public String getName() {
+        return name;
+    }
+
+    public long getSize() {
+        return size;
     }
 
 }
