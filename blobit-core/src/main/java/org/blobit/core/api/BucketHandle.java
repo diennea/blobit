@@ -21,6 +21,7 @@ package org.blobit.core.api;
 
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 
 /**
@@ -84,22 +85,29 @@ public interface BucketHandle {
     public GetPromise getByName(String name);
 
     /**
-     * Retrieves the metadata of an object
+     * Retrieves the metadata of an object.
      *
      * @param name
-     * @return an handle to the operation
+     * @return the metadata, null if no object is found
      */
     public ObjectMetadata statByName(String name) throws ObjectManagerException;
     
      /**
-     * Retrieves the metadata of an object. This function is async, you have to
-     * check the result of the Future in order to get the effective value. If a
-     * null value is returned as byte[] it means that the object does not exits
-     *
+     * Retrieves the metadata of an object.
+     * 
      * @param objectId
-     * @return an handle to the operation
+     * @return the metadata, null if no object is found
      */
     public ObjectMetadata stat(String objectId) throws ObjectManagerException;
+    
+     /**
+     * Retrieves detailed information about where data is
+     * stored for a particular object id.
+     * 
+     * @param objectId
+     * @return an handle to the result of the operation
+     */
+    public CompletableFuture<? extends LocationInfo> getLocationInfo(String objectId) throws ObjectManagerException;    
 
     /**
      * Retrieves the contents of an object.This function is async, you have to

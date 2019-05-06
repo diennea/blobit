@@ -97,7 +97,7 @@ class MemLedger {
 
     public MemEntryId put(byte[] _data) {
         long id = nextId.incrementAndGet();
-        MemEntryId entryId = new MemEntryId(this.ledgerId, id, id);
+        MemEntryId entryId = new MemEntryId(this.ledgerId, id, _data.length);
         data.put(id, new MemEntry(entryId, _data));
         return entryId;
     }

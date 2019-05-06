@@ -43,6 +43,7 @@ import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.DeletePromise;
 import org.blobit.core.api.DownloadPromise;
 import org.blobit.core.api.GetPromise;
+import org.blobit.core.api.LocationInfo;
 import org.blobit.core.api.ObjectMetadata;
 
 /**
@@ -74,6 +75,7 @@ public class ClusterObjectManager implements ObjectManager {
             this.bucketId = bucketId;
         }
 
+        @Override
         public void gc() {
             try {
                 gcBucket(bucketId);
@@ -187,6 +189,12 @@ public class ClusterObjectManager implements ObjectManager {
                 }
             }
             return new DeletePromise(objectId, result);
+        }
+
+        @Override
+        public CompletableFuture<? extends LocationInfo> getLocationInfo(String objectId) throws ObjectManagerException {
+            BKEntryId bk = BKEntryId.parseId(objectId);
+            return blobManager.getLocationInfo(bk);
         }
 
     }

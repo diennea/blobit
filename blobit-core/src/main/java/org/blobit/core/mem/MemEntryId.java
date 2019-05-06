@@ -19,6 +19,8 @@
  */
 package org.blobit.core.mem;
 
+import org.blobit.core.api.ObjectManagerException;
+
 /**
  * Coordinates on Memory
  *
@@ -27,33 +29,37 @@ package org.blobit.core.mem;
 class MemEntryId {
 
     public final long ledgerId;
-    public final long firstEntryId;
-    public final long lastEntryId;
+    public final long entryId;
+    public final long lenght;
 
-    public MemEntryId(long ledgerId, long firstEntryId, long lastEntryId) {
+    public MemEntryId(long ledgerId, long id, long size) {
         this.ledgerId = ledgerId;
-        this.firstEntryId = firstEntryId;
-        this.lastEntryId = lastEntryId;
+        this.entryId = id;
+        this.lenght = size;
     }
 
     public String toId() {
-        return ledgerId + "-" + firstEntryId + "-" + lastEntryId;
+        return ledgerId + "-" + entryId + "-" + lenght;
     }
 
-    public static MemEntryId parseId(String id) {
-        String[] split = id.split("-");
-        return new MemEntryId(
-            Long.parseLong(split[0]),
-            Long.parseLong(split[1]),
-            Long.parseLong(split[2]));
+    public static MemEntryId parseId(String id) throws ObjectManagerException {
+        try {
+            String[] split = id.split("-");
+            return new MemEntryId(
+                    Long.parseLong(split[0]),
+                    Long.parseLong(split[1]),
+                    Long.parseLong(split[2]));
+        } catch (NumberFormatException | ArrayIndexOutOfBoundsException err) {
+            throw new ObjectManagerException(err);
+        }
     }
 
     @Override
     public int hashCode() {
         int hash = 3;
         hash = 53 * hash + (int) (this.ledgerId ^ (this.ledgerId >>> 32));
-        hash = 53 * hash + (int) (this.firstEntryId ^ (this.firstEntryId >>> 32));
-        hash = 53 * hash + (int) (this.lastEntryId ^ (this.lastEntryId >>> 32));
+        hash = 53 * hash + (int) (this.entryId ^ (this.entryId >>> 32));
+        hash = 53 * hash + (int) (this.lenght ^ (this.lenght >>> 32));
         return hash;
     }
 
@@ -72,15 +78,13 @@ class MemEntryId {
         if (this.ledgerId != other.ledgerId) {
             return false;
         }
-        if (this.firstEntryId != other.firstEntryId) {
+        if (this.entryId != other.entryId) {
             return false;
         }
-        if (this.lastEntryId != other.lastEntryId) {
+        if (this.lenght != other.lenght) {
             return false;
         }
         return true;
     }
-
-
 
 }

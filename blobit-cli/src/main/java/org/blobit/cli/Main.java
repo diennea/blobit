@@ -52,6 +52,7 @@ public class Main {
                 .addCommand("listbuckets", new CommandListBuckets(cm))
                 .addCommand("put", new CommandPut(cm))
                 .addCommand("get", new CommandGet(cm))
+                .addCommand("stat", new CommandStat(cm))
                 .addCommand("help", new CommandHelp(cm))
                 .build();
         cm.jCommander = jc;
