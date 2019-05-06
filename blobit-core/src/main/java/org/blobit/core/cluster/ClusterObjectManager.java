@@ -38,14 +38,16 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.DeletePromise;
 import org.blobit.core.api.DownloadPromise;
 import org.blobit.core.api.GetPromise;
 import org.blobit.core.api.LocationInfo;
+import org.blobit.core.api.NamedObjectGetPromise;
 import org.blobit.core.api.NamedObjectMetadata;
 import org.blobit.core.api.ObjectMetadata;
 
@@ -103,17 +105,38 @@ public class ClusterObjectManager implements ObjectManager {
         }
 
         @Override
-        public GetPromise getByName(String name) {
+        public NamedObjectGetPromise getByName(String name) {
             try {
-                String objectId = metadataManager.lookupObjectByName(bucketId, name);
-                if (objectId == null) {
-                    CompletableFuture<byte[]> res = new CompletableFuture<>();
+                List<String> ids = metadataManager.lookupObjectByName(bucketId, name);
+                if (ids.isEmpty()) {
+                    CompletableFuture<List<byte[]>> res = new CompletableFuture<>();
                     res.completeExceptionally(new ObjectManagerException("not found"));
-                    return new GetPromise(null, 0, res);
+                    return new NamedObjectGetPromise(Collections.emptyList(), 0, res);
                 }
-                return blobManager.get(bucketId, objectId);
+                long size = 0;
+                AtomicInteger remaining = new AtomicInteger(ids.size());
+                CompletableFuture<List<byte[]>> result = new CompletableFuture<>();
+                final List<byte[]> data = new ArrayList<>();
+                int i = 0;
+                for (String id : ids) {
+                    final int _i = i++;
+                    GetPromise promise = blobManager.get(bucketId, id);
+                    size += promise.length;
+                    promise.future.whenComplete((byte[] part, Throwable err) -> {
+                        if (err != null) {
+                            result.completeExceptionally(err);
+                        } else {
+                            data.set(_i, part);
+                            if (remaining.decrementAndGet() == 0) {
+                                result.complete(data);
+                            }
+                        }
+                    });
+                }
+                return new NamedObjectGetPromise(ids, size, result);
             } catch (ObjectManagerException err) {
-                return new GetPromise(null, 0, BookKeeperBlobManager.wrapGenericException(err));
+                return new NamedObjectGetPromise(Collections.emptyList(),
+                        0, BookKeeperBlobManager.wrapGenericException(err));
             }
         }
 

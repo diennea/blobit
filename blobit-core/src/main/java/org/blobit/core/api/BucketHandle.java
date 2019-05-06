@@ -82,7 +82,7 @@ public interface BucketHandle {
      * @param name
      * @return an handle to the operation
      */
-    public GetPromise getByName(String name);
+    public NamedObjectGetPromise getByName(String name);
 
     /**
      * Retrieves the metadata of an object.
