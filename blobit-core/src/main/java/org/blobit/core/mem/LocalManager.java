@@ -38,18 +38,25 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import org.apache.bookkeeper.common.concurrent.FutureUtils;
 import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.DeletePromise;
 import org.blobit.core.api.DownloadPromise;
 import org.blobit.core.api.GetPromise;
 import org.blobit.core.api.LocationInfo;
 import org.blobit.core.api.LocationInfo.ServerInfo;
+import org.blobit.core.api.NamedObjectDeletePromise;
+import org.blobit.core.api.NamedObjectDownloadPromise;
+import org.blobit.core.api.NamedObjectGetPromise;
 import org.blobit.core.api.NamedObjectMetadata;
+import org.blobit.core.api.ObjectNotFoundException;
 
 /**
  * MetadataManager all in memory for unit tests
@@ -93,7 +100,7 @@ public class LocalManager implements ObjectManager {
     private class BucketHandleImpl implements BucketHandle {
 
         private final String bucketId;
-        private ConcurrentHashMap<String, String> objectNames = new ConcurrentHashMap<>();
+        private ConcurrentHashMap<String, List<String>> objectNames = new ConcurrentHashMap<>();
 
         public BucketHandleImpl(String bucketId) {
             this.bucketId = bucketId;
@@ -131,7 +138,7 @@ public class LocalManager implements ObjectManager {
                 MemEntryId res = getMemBucket(bucketId).getCurrentLedger().put(data);
                 /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
                 if (name != null) {
-                    objectNames.put(name, res.toId());
+                    objectNames.put(name, Arrays.asList(res.toId()));
                 }
                 return new PutPromise(res.toId(), CompletableFuture.<Void>completedFuture(null));
             } catch (ObjectManagerException err) {
@@ -157,24 +164,53 @@ public class LocalManager implements ObjectManager {
         }
 
         @Override
-        public GetPromise getByName(String name) {
-            if (name == null || !objectNames.contains(name)) {
-                CompletableFuture<byte[]> res = new CompletableFuture<>();
-                res.completeExceptionally(new ObjectManagerException("not found"));
-                return new GetPromise(null, 0, res);
+        public NamedObjectGetPromise getByName(String name) {
+            List<String> ids = objectNames.get(name);
+            if (name == null) {
+                CompletableFuture<List<byte[]>> res = new CompletableFuture<>();
+                res.completeExceptionally(new ObjectNotFoundException());
+                return new NamedObjectGetPromise(null, 0, res);
             }
-            return get(objectNames.get(name));
+
+            long size = 0;
+            AtomicInteger remaining = new AtomicInteger(ids.size());
+            CompletableFuture<List<byte[]>> result = new CompletableFuture<>();
+            final List<byte[]> data = new ArrayList<>();
+            int i = 0;
+            for (String id : ids) {
+                final int _i = i++;
+                GetPromise promise = get(id);
+                size += promise.length;
+                promise.future.whenComplete((byte[] part, Throwable err) -> {
+                    if (err != null) {
+                        result.completeExceptionally(err);
+                    } else {
+                        data.set(_i, part);
+                        if (remaining.decrementAndGet() == 0) {
+                            result.complete(data);
+                        }
+                    }
+                });
+            }
+            return new NamedObjectGetPromise(ids, size, result);
         }
 
         @Override
         public NamedObjectMetadata statByName(String name) {
             // TODO: handle multiple object per-name
-            GetPromise get = getByName(name);
-            if (get.id == null) {
+            List<String> ids = objectNames.get(name);
+            if (ids == null) {
                 return null;
             } else {
+                List<ObjectMetadata> parts = new ArrayList<>();
+                long size = 0;
+                for (String id : ids) {
+                    GetPromise get = this.get(id);
+                    size += get.length;
+                    parts.add(new ObjectMetadata(id, size));
+                }
                 return new NamedObjectMetadata(name,
-                        get.length, Arrays.asList(new ObjectMetadata(get.id, get.length)));
+                        size, parts);
             }
         }
 
@@ -189,23 +225,60 @@ public class LocalManager implements ObjectManager {
         }
 
         @Override
-        public DownloadPromise downloadByName(String name, Consumer<Long> lengthCallback, OutputStream output, int offset, long length) {
-            if (name == null || !objectNames.contains(name)) {
+        public NamedObjectDownloadPromise downloadByName(String name,
+                Consumer<Long> lengthCallback,
+                OutputStream output,
+                int offset,
+                long length) {
+
+            List<String> ids = objectNames.get(name);
+            if (ids == null || ids.isEmpty()) {
                 CompletableFuture<byte[]> res = new CompletableFuture<>();
-                res.completeExceptionally(new ObjectManagerException("not found"));
-                return new DownloadPromise(null, 0, res);
+                res.completeExceptionally(new ObjectNotFoundException());
+                return new NamedObjectDownloadPromise(name, null, 0, res);
             }
-            return download(objectNames.get(name), lengthCallback, output, offset, length);
+            CompletableFuture<?> result = new CompletableFuture<>();
+            if (ids.size() == 1) {
+                DownloadPromise download = download(ids.get(0), lengthCallback, output, offset, length);
+                download.future.whenComplete((a, error) -> {
+                    if (error != null) {
+                        result.completeExceptionally(error);
+                    } else {
+                        result.complete(a);
+                    }
+                });
+            } else {
+                result.completeExceptionally(new ObjectManagerException("not yet supported"));
+            }
+            return new NamedObjectDownloadPromise(name, ids, length, result);
+
         }
 
         @Override
-        public DeletePromise deleteByName(String name) {
-            if (name == null || !objectNames.contains(name)) {
-                CompletableFuture<byte[]> res = new CompletableFuture<>();
-                res.completeExceptionally(new ObjectManagerException("not found"));
-                return new DeletePromise(null, res);
+        @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
+        public NamedObjectDeletePromise deleteByName(String name) {
+            CompletableFuture<?> res = new CompletableFuture<>();
+            List<String> ids = objectNames.remove(name);;
+            if (ids != null && !ids.isEmpty()) {
+                AtomicInteger count = new AtomicInteger(ids.size());
+                for (String id : ids) {
+                    DeletePromise delete = delete(id);
+                    delete.future.whenComplete((x, error) -> {
+                        if (error != null) {
+                            res.completeExceptionally(error);
+                        } else {
+                            if (count.decrementAndGet() == 0) {
+                                FutureUtils.complete(res, null);
+                            }
+                        }
+                    });
+                }
+            } else {
+                // empty object ? nothing to delete                    
+                FutureUtils.complete(res, null);
             }
-            return delete(objectNames.get(name));
+            return new NamedObjectDeletePromise(name, ids, res);
+
         }
 
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
@@ -213,7 +286,15 @@ public class LocalManager implements ObjectManager {
         public DownloadPromise download(String objectId, Consumer<Long> lengthCallback, OutputStream output, int offset, long length) {
             try {
                 GetPromise result = get(objectId);
-                lengthCallback.accept(result.length);
+                final long realLen;
+                if (length < 0) {
+                    realLen = result.length - offset;
+                } else if (length > result.length) {
+                    realLen = length;
+                } else {
+                    realLen = result.length;
+                }
+                lengthCallback.accept(realLen);
                 byte[] data = result.get();
                 ByteArrayInputStream ii = new ByteArrayInputStream(data);
                 ii.skip(offset);

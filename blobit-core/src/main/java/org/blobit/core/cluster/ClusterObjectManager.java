@@ -42,14 +42,18 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import org.apache.bookkeeper.common.concurrent.FutureUtils;
 import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.DeletePromise;
 import org.blobit.core.api.DownloadPromise;
 import org.blobit.core.api.GetPromise;
 import org.blobit.core.api.LocationInfo;
+import org.blobit.core.api.NamedObjectDeletePromise;
+import org.blobit.core.api.NamedObjectDownloadPromise;
 import org.blobit.core.api.NamedObjectGetPromise;
 import org.blobit.core.api.NamedObjectMetadata;
 import org.blobit.core.api.ObjectMetadata;
+import org.blobit.core.api.ObjectNotFoundException;
 
 /**
  * ObjectManager that uses Bookkeeper and HerdDB as clusterable backend
@@ -110,7 +114,7 @@ public class ClusterObjectManager implements ObjectManager {
                 List<String> ids = metadataManager.lookupObjectByName(bucketId, name);
                 if (ids.isEmpty()) {
                     CompletableFuture<List<byte[]>> res = new CompletableFuture<>();
-                    res.completeExceptionally(new ObjectManagerException("not found"));
+                    res.completeExceptionally(new ObjectNotFoundException());
                     return new NamedObjectGetPromise(Collections.emptyList(), 0, res);
                 }
                 long size = 0;
@@ -157,7 +161,7 @@ public class ClusterObjectManager implements ObjectManager {
             for (String id : objectIds) {
                 ObjectMetadata objectMetadata = blobManager.stat(bucketId, id);
                 if (objectMetadata == null) {
-                    throw new ObjectManagerException("Object " + id + " was not found while"
+                    throw new ObjectNotFoundException("Object " + id + " was not found while"
                             + " reading named object '" + name + "'");
                 }
                 objects.add(objectMetadata);
@@ -179,28 +183,63 @@ public class ClusterObjectManager implements ObjectManager {
         }
 
         @Override
-        public DownloadPromise downloadByName(String name, Consumer<Long> lengthCallback, OutputStream output, int offset, long length) {
+        public NamedObjectDownloadPromise downloadByName(String name, Consumer<Long> lengthCallback, OutputStream output, int offset, long length) {
             try {
-                String objectId = metadataManager.lookupObjectByName(bucketId, name);
-                if (objectId == null) {
+                List<String> ids = metadataManager.lookupObjectByName(bucketId, name);
+                if (ids == null || ids.isEmpty()) {
                     CompletableFuture<byte[]> res = new CompletableFuture<>();
-                    res.completeExceptionally(new ObjectManagerException("not found"));
-                    return new DownloadPromise(null, 0, res);
+                    res.completeExceptionally(new ObjectNotFoundException());
+                    return new NamedObjectDownloadPromise(name, null, 0, res);
                 }
-                return blobManager.download(bucketId, objectId, lengthCallback, output, offset, length);
+
+                CompletableFuture<?> result = new CompletableFuture<>();
+                if (ids.size() == 1) {
+                    DownloadPromise download = download(ids.get(0), lengthCallback, output, offset, length);
+                    download.future.whenComplete((a, error) -> {
+                        if (error != null) {
+                            result.completeExceptionally(error);
+                        } else {
+                            result.complete(a);
+                        }
+                    });
+                } else {
+                    result.completeExceptionally(new ObjectManagerException("not yet supported"));
+                }
+                return new NamedObjectDownloadPromise(name, null, length, result);
+
             } catch (ObjectManagerException err) {
-                return new DownloadPromise(null, 0, BookKeeperBlobManager.wrapGenericException(err));
+                return new DownloadPromise(name, ids, 0, BookKeeperBlobManager.wrapGenericException(err));
             }
         }
 
         @Override
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
-        public DeletePromise deleteByName(String name) {
+        public NamedObjectDeletePromise deleteByName(String name) {
             try {
-                String objectId = metadataManager.lookupObjectByName(bucketId, name);
-                return delete(objectId, name);
+                List<String> ids = metadataManager.lookupObjectByName(bucketId, name);
+                CompletableFuture<?> res = new CompletableFuture<>();
+
+                if (!ids.isEmpty()) {
+                    AtomicInteger count = new AtomicInteger(ids.size());
+                    for (String id : ids) {
+                        DeletePromise delete = delete(id, name);
+                        delete.future.whenComplete((x, error) -> {
+                            if (error != null) {
+                                res.completeExceptionally(error);
+                            } else {
+                                if (count.decrementAndGet() == 0) {
+                                    FutureUtils.complete(res, null);
+                                }
+                            }
+
+                        });
+                    }
+                } else {
+                    res.completeExceptionally(new ObjectNotFoundException());
+                }
+                return new NamedObjectDeletePromise(name, ids, res);
             } catch (ObjectManagerException err) {
-                return new DeletePromise(null, BookKeeperBlobManager.wrapGenericException(err));
+                return new NamedObjectDeletePromise(null, Collections.emptyList(), BookKeeperBlobManager.wrapGenericException(err));
             }
         }
 

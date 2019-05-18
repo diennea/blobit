@@ -143,7 +143,7 @@ public interface BucketHandle {
      * of the object will be streamed
      * @return an handle to the operation
      */
-    public DownloadPromise downloadByName(String objectId, Consumer<Long> lengthCallback, OutputStream output, int offset, long length);
+    public NamedObjectDownloadPromise downloadByName(String objectId, Consumer<Long> lengthCallback, OutputStream output, int offset, long length);
 
     /**
      * Marks an object for deletion. Space will not be released immediately and
@@ -160,12 +160,12 @@ public interface BucketHandle {
      * Marks an object for deletion. Space will not be released immediately and
      * object would still be available to readers .
      *
-     * @param objectId
+     * @param name
      * @return an handle to the operation
      *
      * @see #gc()
      */
-    public DeletePromise deleteByName(String objectId);
+    public NamedObjectDeletePromise deleteByName(String name);
 
     /**
      * Release space allocated by a bucket but no more in use. This method can
