@@ -41,6 +41,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.bookkeeper.common.concurrent.FutureUtils;
 import org.blobit.core.api.BucketHandle;
@@ -63,6 +65,8 @@ import org.blobit.core.api.ObjectNotFoundException;
 public class ClusterObjectManager implements ObjectManager {
 
     private static final Logger LOG = Logger.getLogger(ClusterObjectManager.class.getName());
+    private static final Consumer<Long> NULL_LEN_CALLBACK = (l) -> {
+    };
 
     private final BookKeeperBlobManager blobManager;
     private final HerdDBMetadataStorageManager metadataManager;
@@ -151,7 +155,6 @@ public class ClusterObjectManager implements ObjectManager {
 
         @Override
         public NamedObjectMetadata statByName(String name) throws ObjectManagerException {
-            // TODO: handle multiple object per-name
             List<String> objectIds = metadataManager.lookupObjectByName(bucketId, name);
             if (objectIds.isEmpty()) {
                 return null;
@@ -178,38 +181,113 @@ public class ClusterObjectManager implements ObjectManager {
         }
 
         @Override
-        public DownloadPromise download(String objectId, Consumer<Long> lengthCallback, OutputStream output, int offset, long length) {
+        public DownloadPromise download(String objectId, Consumer<Long> lengthCallback, OutputStream output, long offset, long length) {
             return blobManager.download(bucketId, objectId, lengthCallback, output, offset, length);
         }
 
         @Override
-        public NamedObjectDownloadPromise downloadByName(String name, Consumer<Long> lengthCallback, OutputStream output, int offset, long length) {
+        public NamedObjectDownloadPromise downloadByName(String name,
+                Consumer<Long> lengthCallback,
+                OutputStream output, int offset, long length) {
+            List<String> ids = null;
             try {
-                List<String> ids = metadataManager.lookupObjectByName(bucketId, name);
+                ids = metadataManager.lookupObjectByName(bucketId, name);
                 if (ids == null || ids.isEmpty()) {
                     CompletableFuture<byte[]> res = new CompletableFuture<>();
                     res.completeExceptionally(new ObjectNotFoundException());
                     return new NamedObjectDownloadPromise(name, null, 0, res);
                 }
-
-                CompletableFuture<?> result = new CompletableFuture<>();
-                if (ids.size() == 1) {
-                    DownloadPromise download = download(ids.get(0), lengthCallback, output, offset, length);
-                    download.future.whenComplete((a, error) -> {
-                        if (error != null) {
-                            result.completeExceptionally(error);
-                        } else {
-                            result.complete(a);
-                        }
-                    });
-                } else {
-                    result.completeExceptionally(new ObjectManagerException("not yet supported"));
+                long totalLen = 0;
+                List<BKEntryId> segments = new ArrayList<>();
+                for (String id : ids) {
+                    BKEntryId segment = BKEntryId.parseId(id);
+                    totalLen += segment.length;
+                    segments.add(segment);
                 }
-                return new NamedObjectDownloadPromise(name, null, length, result);
+                long availableLength = totalLen;
+                if (offset > 0) {
+                    availableLength -= offset;
+                }
+                if (length < -1) { // full object
+                    length = availableLength;
+                }
+                lengthCallback.accept(availableLength);
+                CompletableFuture<?> result = new CompletableFuture<>();
+                NamedObjectDownloadPromise res = new NamedObjectDownloadPromise(name, ids, length, result);
+                if (availableLength <= 0) {
+                    // early exit, nothing to to
+                    FutureUtils.complete(result, null);
+                    return res;
+                }
 
+                int initialPart = 0;
+                long offsetInStartingSegment = offset;
+
+                if (offset > 0) {
+                    // need to jump to the offset
+                    // skipping first N parts
+                    BKEntryId segment = segments.get(initialPart);
+                    while (initialPart < segments.size()) {
+                        long segmentLen = segment.length;
+                        LOG.info("evaluate " + initialPart + ", len " + segmentLen + " offsetInStartingSegment:" + offsetInStartingSegment);
+                        if (offsetInStartingSegment <= segmentLen) {
+                            // we have found the good segment to start from
+                            LOG.info("start from segment # " + initialPart + ", offset " + offsetInStartingSegment);
+                            break;
+                        } else {
+                            offsetInStartingSegment -= segmentLen;
+                            initialPart++;
+                            LOG.info("new skip to " + initialPart + " offsetInStartingSegment " + offsetInStartingSegment);
+                        }
+                    }
+                    if (initialPart == segments.size()) {
+                        throw new IllegalStateException();
+                    }
+                }
+                startDownloadSegment(segments,
+                        initialPart,
+                        offsetInStartingSegment, availableLength,
+                        output, result);
+                return res;
             } catch (ObjectManagerException err) {
-                return new DownloadPromise(name, ids, 0, BookKeeperBlobManager.wrapGenericException(err));
+                return new NamedObjectDownloadPromise(name, ids,
+                        -1, BookKeeperBlobManager.wrapGenericException(err));
             }
+        }
+
+        private void startDownloadSegment(List<BKEntryId> segments, int index,
+                long offsetInSegment,
+                long remainingLen,
+                OutputStream output, CompletableFuture<?> result) {
+            LOG.info("startDownloadSegment index " + index + ", offset " + offsetInSegment
+                    + " rem " + remainingLen);
+            BKEntryId currentSegment = segments.get(index);
+
+            long lengthForCurrentSegment = Math.min(remainingLen, currentSegment.length);
+
+            DownloadPromise download = download(currentSegment.toId(), NULL_LEN_CALLBACK,
+                    output, offsetInSegment, lengthForCurrentSegment);
+            download.future.whenComplete((a, error) -> {
+                if (error != null) {
+                    LOG.info("index " + index + " finished (error=" + error + ")");
+
+                    // fast fail, complete the future
+                    result.completeExceptionally(error);
+                } else {
+                    long newRemainingLen = remainingLen - lengthForCurrentSegment;
+                    LOG.info("index " + index + " finished newemlen " + newRemainingLen);
+
+                    if (newRemainingLen == 0) {
+                        FutureUtils.complete(result, null);
+                    } else {
+                        // start next segment
+                        startDownloadSegment(segments,
+                                index + 1, 0 /* offset */,
+                                newRemainingLen,
+                                output, result);
+                    }
+                }
+            });
         }
 
         @Override

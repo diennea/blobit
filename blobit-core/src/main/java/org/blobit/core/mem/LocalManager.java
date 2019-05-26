@@ -147,6 +147,8 @@ public class LocalManager implements ObjectManager {
                 return new PutPromise(null, res);
             }
         }
+        
+        
 
         @Override
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
@@ -244,7 +246,7 @@ public class LocalManager implements ObjectManager {
                     if (error != null) {
                         result.completeExceptionally(error);
                     } else {
-                        result.complete(a);
+                        FutureUtils.complete(result, null);
                     }
                 });
             } else {
@@ -283,7 +285,8 @@ public class LocalManager implements ObjectManager {
 
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
         @Override
-        public DownloadPromise download(String objectId, Consumer<Long> lengthCallback, OutputStream output, int offset, long length) {
+        public DownloadPromise download(String objectId, Consumer<Long> lengthCallback, OutputStream output,
+                long offset, long length) {
             try {
                 GetPromise result = get(objectId);
                 final long realLen;

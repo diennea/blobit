@@ -67,6 +67,16 @@ public interface BucketHandle {
     public PutPromise put(String name, byte[] data, int offset, int len);
 
     /**
+     * Appends an Object to a named object.
+     *
+     * @param objectId the id of an existing object
+     * @param name the name of an existing NamedObject
+     *
+     * @throws ObjectManagerException
+     */
+    public void append(String objectId, String name) throws ObjectManagerException;
+
+    /**
      * Retrieves the contents of an object. This function is async, you have to
      * check the result of the Future in order to get the effective value. If a
      * null value is returned as byte[] it means that the object does not exits
@@ -125,7 +135,7 @@ public interface BucketHandle {
      * of the object will be streamed
      * @return an handle to the operation
      */
-    public DownloadPromise download(String objectId, Consumer<Long> lengthCallback, OutputStream output, int offset, long length);
+    public DownloadPromise download(String objectId, Consumer<Long> lengthCallback, OutputStream output, long offset, long length);
 
     /**
      * Retrieves the contents of an object.This function is async, you have to

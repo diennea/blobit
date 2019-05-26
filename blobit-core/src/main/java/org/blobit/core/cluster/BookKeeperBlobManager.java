@@ -160,7 +160,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
 
     static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
 
-    DownloadPromise download(String bucketId, String id, Consumer<Long> lengthCallback, OutputStream output, int offset, long length) {
+    DownloadPromise download(String bucketId, String id, Consumer<Long> lengthCallback, OutputStream output, long offset, long length) {
         if (id == null) {
             return new DownloadPromise(null, 0, wrapGenericException(new IllegalArgumentException("null id")));
         }

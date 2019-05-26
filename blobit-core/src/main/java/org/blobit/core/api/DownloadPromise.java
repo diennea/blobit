@@ -25,7 +25,7 @@ import java.util.concurrent.TimeoutException;
 import org.apache.bookkeeper.common.concurrent.FutureUtils;
 
 /**
- * Handle to a download operatoin
+ * Handle to a download operation
  */
 public class DownloadPromise {
 
