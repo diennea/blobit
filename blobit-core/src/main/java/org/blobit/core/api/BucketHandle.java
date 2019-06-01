@@ -144,7 +144,7 @@ public interface BucketHandle {
      * written to the OutputStream.In case of failure the status of the stream
      * will be undefined.This method does not close the stream.
      *
-     * @param objectId
+     * @param name
      * @param lengthCallback this callback will be called with the actual amount
      * of data which will be written to the stream
      * @param output destination of data
@@ -153,7 +153,7 @@ public interface BucketHandle {
      * of the object will be streamed
      * @return an handle to the operation
      */
-    public NamedObjectDownloadPromise downloadByName(String objectId, Consumer<Long> lengthCallback, OutputStream output, int offset, long length);
+    public NamedObjectDownloadPromise downloadByName(String name, Consumer<Long> lengthCallback, OutputStream output, int offset, long length);
 
     /**
      * Marks an object for deletion. Space will not be released immediately and

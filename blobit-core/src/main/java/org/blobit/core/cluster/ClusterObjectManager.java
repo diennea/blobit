@@ -291,6 +291,11 @@ public class ClusterObjectManager implements ObjectManager {
         }
 
         @Override
+        public void append(String objectId, String name) throws ObjectManagerException {
+            metadataManager.append(bucketId, objectId, name);
+        }
+
+        @Override
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
         public NamedObjectDeletePromise deleteByName(String name) {
             try {

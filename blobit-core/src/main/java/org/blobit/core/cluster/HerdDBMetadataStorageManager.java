@@ -130,16 +130,16 @@ public class HerdDBMetadataStorageManager {
  /* ************** */
     private static final String CREATE_BLOBS_TABLE
             = "CREATE TABLE " + BLOB_TABLE
-            + " (ledger_id LONG, entry_id LONG, num_entries INTEGER, entry_size INTEGER, size LONG, name STRING, PRIMARY KEY (ledger_id, entry_id))";
+            + " (ledger_id LONG, entry_id LONG, num_entries INTEGER, entry_size INTEGER, size LONG, PRIMARY KEY (ledger_id, entry_id))";
 
     private static final String REGISTER_BLOB
-            = "INSERT INTO " + BLOB_TABLE + " (ledger_id, entry_id, num_entries, entry_size, size, name) VALUES (?,?,?,?,?,?)";
+            = "INSERT INTO " + BLOB_TABLE + " (ledger_id, entry_id, num_entries, entry_size, size) VALUES (?,?,?,?,?)";
 
     private static final String DELETE_BLOB
             = "DELETE FROM " + BLOB_TABLE + " WHERE ledger_id=? AND entry_id=?";
 
     private static final String LIST_BLOBS_BY_LEDGER
-            = "SELECT ledger_id, entry_id, num_entries, entry_size, size, name FROM " + BLOB_TABLE + " WHERE ledger_id=?";
+            = "SELECT ledger_id, entry_id, num_entries, entry_size, size FROM " + BLOB_TABLE + " WHERE ledger_id=?";
 
     private static final String DELETE_BLOBS_BY_BUCKET_UUID
             = "DELETE FROM " + BLOB_TABLE
@@ -151,17 +151,22 @@ public class HerdDBMetadataStorageManager {
     private static final String CREATE_BLOBNAMES_TABLE
             = "CREATE TABLE " + BLOBNAMES_TABLE
             + " (name STRING NOT NULL,"
-            + "  position LONG NOT NULL,"
+            + "  pos LONG NOT NULL,"
             + "  objectid STRING NOT NULL,"
-            + "  PRIMARY KEY (name, position) )";
+            + "  PRIMARY KEY (name, pos) )";
 
     private static final String REGISTER_BLOBNAME
-            = "INSERT INTO " + BLOBNAMES_TABLE + " (name, position, objectid) VALUES (?,?,?)";
+            = "INSERT INTO " + BLOBNAMES_TABLE + " (name, pos, objectid) VALUES (?,?,?)";
+
+    private static final String APPEND_BLOB
+            = "INSERT INTO " + BLOBNAMES_TABLE + " (name, objectid, pos)"
+            + "VALUES (?,?,"
+            + "SELECT COALESCE(MAX(pos) + 1, 0) FROM " + BLOBNAMES_TABLE + " WHERE name=?)";
 
     private static final String LOOKUP_BLOB_BY_NAME
             = "SELECT objectid FROM " + BLOBNAMES_TABLE
             + " where name=?"
-            + "ORDER BY position";
+            + "ORDER BY pos";
 
     private static final String DELETE_BLOBNAME
             = "DELETE FROM " + BLOBNAMES_TABLE + " where name=?";
@@ -317,7 +322,6 @@ public class HerdDBMetadataStorageManager {
             ps.setLong(3, num_entries);
             ps.setLong(4, entry_size);
             ps.setLong(5, size);
-            ps.setString(6, name);
 
             ps.executeUpdate();
 
@@ -641,6 +645,18 @@ public class HerdDBMetadataStorageManager {
                 }
                 return result;
             }
+        } catch (SQLException err) {
+            throw new ObjectManagerException(err);
+        }
+    }
+
+    void append(String bucketId, String objectId, String name) throws ObjectManagerException {
+        try (Connection connection = getConnectionForBucket(bucketId);
+                PreparedStatement ps = connection.prepareStatement(APPEND_BLOB);) {
+            ps.setString(1, name);
+            ps.setString(2, objectId);
+            ps.setString(3, name);
+            ps.executeUpdate();
         } catch (SQLException err) {
             throw new ObjectManagerException(err);
         }

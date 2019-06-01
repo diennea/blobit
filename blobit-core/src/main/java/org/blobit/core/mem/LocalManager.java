@@ -100,7 +100,7 @@ public class LocalManager implements ObjectManager {
     private class BucketHandleImpl implements BucketHandle {
 
         private final String bucketId;
-        private ConcurrentHashMap<String, List<String>> objectNames = new ConcurrentHashMap<>();
+        private final ConcurrentHashMap<String, List<String>> objectNames = new ConcurrentHashMap<>();
 
         public BucketHandleImpl(String bucketId) {
             this.bucketId = bucketId;
@@ -147,8 +147,6 @@ public class LocalManager implements ObjectManager {
                 return new PutPromise(null, res);
             }
         }
-        
-        
 
         @Override
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
@@ -177,7 +175,10 @@ public class LocalManager implements ObjectManager {
             long size = 0;
             AtomicInteger remaining = new AtomicInteger(ids.size());
             CompletableFuture<List<byte[]>> result = new CompletableFuture<>();
-            final List<byte[]> data = new ArrayList<>();
+            // we are pre-allocating the array
+            // so the list won't grow and we can write
+            // from multiple threads
+            final List<byte[]> data = new ArrayList<>(ids.size());
             int i = 0;
             for (String id : ids) {
                 final int _i = i++;
@@ -324,6 +325,20 @@ public class LocalManager implements ObjectManager {
                 res.completeExceptionally(err);
                 return new DownloadPromise(objectId, 0, res);
             }
+        }
+
+        @Override
+        public void append(String objectId, String name) throws ObjectManagerException {
+            objectNames.compute(name, (_name, currentList) -> {
+                if (currentList != null) {
+                    List<String> newList = new ArrayList<>(currentList.size() + 1);
+                    newList.addAll(currentList);
+                    newList.add(objectId);
+                    return newList;
+                } else {
+                    return Arrays.asList(objectId);
+                }
+            });
         }
 
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
