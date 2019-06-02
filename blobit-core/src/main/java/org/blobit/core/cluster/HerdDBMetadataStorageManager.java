@@ -159,13 +159,14 @@ public class HerdDBMetadataStorageManager {
             = "INSERT INTO " + BLOBNAMES_TABLE + " (name, pos, objectid) VALUES (?,?,?)";
 
     private static final String APPEND_BLOB
-            = "INSERT INTO " + BLOBNAMES_TABLE + " (name, objectid, pos)"
-            + "VALUES (?,?,"
-            + "SELECT COALESCE(MAX(pos) + 1, 0) FROM " + BLOBNAMES_TABLE + " WHERE name=?)";
+            = "INSERT INTO " + BLOBNAMES_TABLE + " (name, objectid, pos) "            
+            + "SELECT ?, ?, COALESCE(MAX(pos) + 1, 0) FROM " + BLOBNAMES_TABLE + " WHERE name=?"
+            + "GROUP BY NAME";
 
     private static final String LOOKUP_BLOB_BY_NAME
-            = "SELECT objectid FROM " + BLOBNAMES_TABLE
-            + " where name=?"
+            = "SELECT objectid"
+            + " FROM " + BLOBNAMES_TABLE
+            + " where name=? "
             + "ORDER BY pos";
 
     private static final String DELETE_BLOBNAME
@@ -317,6 +318,9 @@ public class HerdDBMetadataStorageManager {
         try (Connection connection = getConnectionForBucket(bucketId);
                 PreparedStatement ps = connection.prepareStatement(REGISTER_BLOB);
                 PreparedStatement psName = connection.prepareStatement(REGISTER_BLOBNAME);) {
+            if (name != null) {
+                connection.setAutoCommit(false);
+            }
             ps.setLong(1, ledgerId);
             ps.setLong(2, entryId);
             ps.setLong(3, num_entries);
@@ -330,6 +334,7 @@ public class HerdDBMetadataStorageManager {
                 psName.setInt(2, positionForName);
                 psName.setString(3, objectId);
                 psName.executeUpdate();
+                connection.commit();
             }
 
         } catch (SQLException err) {
@@ -342,6 +347,9 @@ public class HerdDBMetadataStorageManager {
         try (Connection connection = getConnectionForBucket(bucketId);
                 PreparedStatement ps = connection.prepareStatement(DELETE_BLOB);
                 PreparedStatement psName = connection.prepareStatement(DELETE_BLOBNAME);) {
+            if (name != null) {
+                connection.setAutoCommit(false);
+            }
             ps.setLong(1, ledgerId);
             ps.setLong(2, entryId);
             ps.executeUpdate();
@@ -349,6 +357,7 @@ public class HerdDBMetadataStorageManager {
             if (name != null) {
                 psName.setString(1, name);
                 psName.executeUpdate();
+                connection.commit();
             }
         } catch (SQLException err) {
             throw new ObjectManagerException(err);
@@ -636,7 +645,6 @@ public class HerdDBMetadataStorageManager {
         try (Connection connection = getConnectionForBucket(bucketId);
                 PreparedStatement ps = connection.prepareStatement(LOOKUP_BLOB_BY_NAME)) {
             ps.setString(1, name);
-            ps.executeUpdate();
             try (ResultSet rs = ps.executeQuery()) {
                 // already sorted by position
                 List<String> result = new ArrayList<>();

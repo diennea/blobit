@@ -38,11 +38,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.bookkeeper.common.concurrent.FutureUtils;
 import org.blobit.core.api.BucketHandle;
@@ -124,19 +123,26 @@ public class ClusterObjectManager implements ObjectManager {
                 long size = 0;
                 AtomicInteger remaining = new AtomicInteger(ids.size());
                 CompletableFuture<List<byte[]>> result = new CompletableFuture<>();
-                final List<byte[]> data = new ArrayList<>();
+                // we are eagerly pre-sizing the array
+                // it will be written from different threads
+                final byte[][] data = new byte[(ids.size())][];
                 int i = 0;
                 for (String id : ids) {
                     final int _i = i++;
-                    GetPromise promise = blobManager.get(bucketId, id);
+                    GetPromise promise = get(id);
                     size += promise.length;
                     promise.future.whenComplete((byte[] part, Throwable err) -> {
+                        LOG.log(Level.INFO, "get finished for part " + _i + " remaining:" + remaining + " err: " + err, err);
                         if (err != null) {
+                            // fail fast
                             result.completeExceptionally(err);
                         } else {
-                            data.set(_i, part);
+                            data[_i] = part;
                             if (remaining.decrementAndGet() == 0) {
-                                result.complete(data);
+                                LOG.log(Level.INFO, "completed !!");
+                                result.complete(Arrays.asList(data));
+                            } else {
+                                LOG.log(Level.INFO, "not yet completed, remaining is now " + remaining);
                             }
                         }
                     });
@@ -192,6 +198,7 @@ public class ClusterObjectManager implements ObjectManager {
             List<String> ids = null;
             try {
                 ids = metadataManager.lookupObjectByName(bucketId, name);
+                LOG.log(Level.INFO, "downloadByName " + name + ", offset: "+offset+" ,len "+length+", ids: " + ids);
                 if (ids == null || ids.isEmpty()) {
                     CompletableFuture<byte[]> res = new CompletableFuture<>();
                     res.completeExceptionally(new ObjectNotFoundException());
@@ -204,17 +211,21 @@ public class ClusterObjectManager implements ObjectManager {
                     totalLen += segment.length;
                     segments.add(segment);
                 }
+                LOG.info("total len "+totalLen);
+                LOG.info("segments "+segments);
                 long availableLength = totalLen;
                 if (offset > 0) {
                     availableLength -= offset;
                 }
-                if (length < -1) { // full object
+                LOG.info("offset = "+offset);
+                if (length < 0 || length > availableLength) { // full object
                     length = availableLength;
                 }
-                lengthCallback.accept(availableLength);
+                LOG.info("available len "+availableLength+", len "+length);
+                lengthCallback.accept(length);
                 CompletableFuture<?> result = new CompletableFuture<>();
                 NamedObjectDownloadPromise res = new NamedObjectDownloadPromise(name, ids, length, result);
-                if (availableLength <= 0) {
+                if (length <= 0) {
                     // early exit, nothing to to
                     FutureUtils.complete(result, null);
                     return res;
@@ -230,9 +241,9 @@ public class ClusterObjectManager implements ObjectManager {
                     while (initialPart < segments.size()) {
                         long segmentLen = segment.length;
                         LOG.info("evaluate " + initialPart + ", len " + segmentLen + " offsetInStartingSegment:" + offsetInStartingSegment);
-                        if (offsetInStartingSegment <= segmentLen) {
+                        if (offsetInStartingSegment < segmentLen) {
                             // we have found the good segment to start from
-                            LOG.info("start from segment # " + initialPart + ", offset " + offsetInStartingSegment);
+                            LOG.info("start from segment # " + initialPart + ", offset " + offsetInStartingSegment+" FOUND");
                             break;
                         } else {
                             offsetInStartingSegment -= segmentLen;
@@ -244,9 +255,11 @@ public class ClusterObjectManager implements ObjectManager {
                         throw new IllegalStateException();
                     }
                 }
+                LOG.log(Level.INFO,"initialPart "+initialPart+", offsetIn "+offsetInStartingSegment
+                        +" totallength:"+length);
                 startDownloadSegment(segments,
                         initialPart,
-                        offsetInStartingSegment, availableLength,
+                        offsetInStartingSegment, length,
                         output, result);
                 return res;
             } catch (ObjectManagerException err) {
@@ -263,8 +276,8 @@ public class ClusterObjectManager implements ObjectManager {
                     + " rem " + remainingLen);
             BKEntryId currentSegment = segments.get(index);
 
-            long lengthForCurrentSegment = Math.min(remainingLen, currentSegment.length);
-
+            long lengthForCurrentSegment = Math.min(remainingLen, currentSegment.length - offsetInSegment);
+            
             DownloadPromise download = download(currentSegment.toId(), NULL_LEN_CALLBACK,
                     output, offsetInSegment, lengthForCurrentSegment);
             download.future.whenComplete((a, error) -> {
@@ -275,7 +288,7 @@ public class ClusterObjectManager implements ObjectManager {
                     result.completeExceptionally(error);
                 } else {
                     long newRemainingLen = remainingLen - lengthForCurrentSegment;
-                    LOG.info("index " + index + " finished newemlen " + newRemainingLen);
+                    LOG.info("index " + index + " finished served "+lengthForCurrentSegment+", newemlen " + newRemainingLen);
 
                     if (newRemainingLen == 0) {
                         FutureUtils.complete(result, null);

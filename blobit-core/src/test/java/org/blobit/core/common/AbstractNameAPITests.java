@@ -52,8 +52,8 @@ public class AbstractNameAPITests {
     public final TemporaryFolder tmp = new TemporaryFolder();
 
     private static final String BUCKET_ID = "mybucket";
-    private static final byte[] TEST_DATA = new byte[10 * 1024];
-    private static final byte[] TEST_DATA2 = new byte[10 * 1024];
+    private static final byte[] TEST_DATA = new byte[7];
+    private static final byte[] TEST_DATA2 = new byte[10];
 
     static {
         Random random = new Random();
@@ -74,7 +74,6 @@ public class AbstractNameAPITests {
                             .setConcurrentWriters(4)
                             .setZookeeperUrl(env.getAddress());
             try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
-                long _start = System.currentTimeMillis();
 
                 manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
@@ -82,14 +81,14 @@ public class AbstractNameAPITests {
                 String firstObjectId = bucket.put(name, TEST_DATA).get();
 
                 // create an unnamed blob
-                String secondObjectId = bucket.put(null, TEST_DATA).get();
+                String secondObjectId = bucket.put(null, TEST_DATA2).get();
                 bucket.append(secondObjectId, name);
 
                 NamedObjectMetadata objectMd = bucket.statByName(name);
                 assertEquals(2, objectMd.getNumObjects());
                 assertEquals(name, objectMd.getName());
                 assertEquals(firstObjectId, objectMd.getObject(0).id);
-                assertEquals(secondObjectId, objectMd.getObject(0).id);
+                assertEquals(secondObjectId, objectMd.getObject(1).id);
                 assertEquals(TEST_DATA.length + TEST_DATA2.length, objectMd.getSize());
 
                 List<byte[]> result = bucket.getByName(name).get();
@@ -100,11 +99,12 @@ public class AbstractNameAPITests {
                     // download with length = -1
                     ByteArrayOutputStream oo = new ByteArrayOutputStream();
                     AtomicLong size = new AtomicLong();
-                    byte[] resultArray = oo.toByteArray();
                     bucket.downloadByName(name, size::set, oo, 0, -1).get();
+                    byte[] resultArray = oo.toByteArray();
+                    assertEquals(TEST_DATA.length + TEST_DATA2.length, size.get());
+                    assertEquals(TEST_DATA.length + TEST_DATA2.length, resultArray.length);
                     assertTrue(Arrays.equals(TEST_DATA, 0, TEST_DATA.length,
                             resultArray, 0, TEST_DATA.length));
-                    assertEquals(TEST_DATA.length + TEST_DATA2.length, size.get());
                     assertTrue(Arrays.equals(TEST_DATA2, 0, TEST_DATA2.length,
                             resultArray, TEST_DATA.length, TEST_DATA.length + TEST_DATA2.length));
                 }
@@ -112,35 +112,107 @@ public class AbstractNameAPITests {
                     // download with given length
                     ByteArrayOutputStream oo = new ByteArrayOutputStream();
                     AtomicLong size = new AtomicLong();
-                    byte[] resultArray = oo.toByteArray();
                     bucket.downloadByName(name, size::set, oo, 0, objectMd.getSize()).get();
+                    byte[] resultArray = oo.toByteArray();
                     assertEquals(TEST_DATA.length + TEST_DATA2.length, size.get());
+                    assertEquals(TEST_DATA.length + TEST_DATA2.length, resultArray.length);
                     assertTrue(Arrays.equals(TEST_DATA, 0, TEST_DATA.length,
                             resultArray, 0, TEST_DATA.length));
                     assertTrue(Arrays.equals(TEST_DATA2, 0, TEST_DATA2.length,
                             resultArray, TEST_DATA.length, TEST_DATA.length + TEST_DATA2.length));
                 }
 
-                {
-                    // download with offset starting at second part, len = -1
-                    ByteArrayOutputStream oo = new ByteArrayOutputStream();
-                    AtomicLong size = new AtomicLong();
-                    byte[] resultArray = oo.toByteArray();
-                    bucket.downloadByName(name, size::set, oo, TEST_DATA.length, -1).get();
-                    assertEquals(TEST_DATA2.length, size.get());
-                    assertTrue(Arrays.equals(TEST_DATA2, 0, TEST_DATA2.length,
-                            resultArray, 0, TEST_DATA2.length));
-                }
+                System.out.println("QUIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII");
 
                 {
                     // download with offset starting at second part, len = -1
                     ByteArrayOutputStream oo = new ByteArrayOutputStream();
                     AtomicLong size = new AtomicLong();
+                    bucket.downloadByName(name, size::set, oo, TEST_DATA.length, -1).get();
                     byte[] resultArray = oo.toByteArray();
-                    bucket.downloadByName(name, size::set, oo, TEST_DATA.length, TEST_DATA2.length).get();
                     assertEquals(TEST_DATA2.length, size.get());
+                    assertEquals(TEST_DATA2.length, resultArray.length);
                     assertTrue(Arrays.equals(TEST_DATA2, 0, TEST_DATA2.length,
                             resultArray, 0, TEST_DATA2.length));
+                }
+
+                {
+                    // download with offset starting at second part, len = fixed
+                    ByteArrayOutputStream oo = new ByteArrayOutputStream();
+                    AtomicLong size = new AtomicLong();
+                    bucket.downloadByName(name, size::set, oo, TEST_DATA.length, TEST_DATA2.length).get();
+                    byte[] resultArray = oo.toByteArray();
+                    assertEquals(TEST_DATA2.length, size.get());
+                    assertEquals(TEST_DATA2.length, resultArray.length);
+                    assertTrue(Arrays.equals(TEST_DATA2, 0, TEST_DATA2.length,
+                            resultArray, 0, TEST_DATA2.length));
+                }
+
+                {
+                    // download with offset = total len, len = -1
+                    ByteArrayOutputStream oo = new ByteArrayOutputStream();
+                    AtomicLong size = new AtomicLong();
+                    bucket.downloadByName(name, size::set, oo, TEST_DATA.length + TEST_DATA2.length, -1).get();
+                    byte[] resultArray = oo.toByteArray();
+                    assertEquals(0, size.get());
+                    assertEquals(0, resultArray.length);
+                }
+                {
+                    // download with offset = total len, len = 0
+                    ByteArrayOutputStream oo = new ByteArrayOutputStream();
+                    AtomicLong size = new AtomicLong();
+                    bucket.downloadByName(name, size::set, oo, TEST_DATA.length + TEST_DATA2.length, 0).get();
+                    byte[] resultArray = oo.toByteArray();
+                    assertEquals(0, size.get());
+                    assertEquals(0, resultArray.length);
+                }
+                {
+                    // download from two segments, fixed len
+                    ByteArrayOutputStream oo = new ByteArrayOutputStream();
+                    AtomicLong size = new AtomicLong();
+                    bucket.downloadByName(name, size::set, oo, TEST_DATA.length - 2,
+                            5).get();
+                    byte[] resultArray = oo.toByteArray();
+                    assertEquals(5, size.get());
+                    assertEquals(5, resultArray.length);
+                    assertTrue(Arrays.equals(TEST_DATA, TEST_DATA.length - 2, TEST_DATA.length,
+                            resultArray, 0, 2));
+                    assertTrue(Arrays.equals(TEST_DATA2, 0, 3,
+                            resultArray, 2, 5));
+                }
+
+                System.out.println("ANDATO 1");
+                
+                {
+                    // ask for too much data, serve the full blob
+                    ByteArrayOutputStream oo = new ByteArrayOutputStream();
+                    AtomicLong size = new AtomicLong();
+                    bucket.downloadByName(name, size::set, oo, 0,
+                            TEST_DATA.length + TEST_DATA2.length + 10).get();
+                    byte[] resultArray = oo.toByteArray();
+                    assertEquals(TEST_DATA.length + TEST_DATA2.length, size.get());
+                    assertEquals(TEST_DATA.length + TEST_DATA2.length, resultArray.length);
+                    assertTrue(Arrays.equals(TEST_DATA, 0, TEST_DATA.length,
+                            resultArray, 0, TEST_DATA.length));
+                    assertTrue(Arrays.equals(TEST_DATA2, 0, TEST_DATA2.length,
+                            resultArray, TEST_DATA.length, TEST_DATA.length + TEST_DATA2.length));
+                }
+                
+                System.out.println("ANDATO 2");
+                
+                {
+                    // ask for too much data with an offset, serve the full blob
+                    ByteArrayOutputStream oo = new ByteArrayOutputStream();
+                    AtomicLong size = new AtomicLong();
+                    bucket.downloadByName(name, size::set, oo, 3,
+                            TEST_DATA.length + TEST_DATA2.length + 10).get();
+                    byte[] resultArray = oo.toByteArray();
+                    assertEquals(TEST_DATA.length + TEST_DATA2.length - 3, size.get());
+                    assertEquals(TEST_DATA.length + TEST_DATA2.length - 3, resultArray.length);
+                    assertTrue(Arrays.equals(TEST_DATA, 3, TEST_DATA.length,
+                            resultArray, 0, TEST_DATA.length - 3));
+                    assertTrue(Arrays.equals(TEST_DATA2, 0, TEST_DATA2.length,
+                            resultArray, TEST_DATA.length - 3, TEST_DATA.length + TEST_DATA2.length - 3));
                 }
             }
         }

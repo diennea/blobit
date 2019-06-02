@@ -174,6 +174,7 @@ public class BucketReader {
 
                                 // write to client                        
                                 try {
+                                    LOG.log(Level.INFO,"writing "+toRead+" bytes to the client");
                                     output.write(data, 0, toRead);
                                     totalWrittenToStream.addAndGet(toRead);
                                 } catch (IOException err) {
@@ -204,6 +205,7 @@ public class BucketReader {
 
                                         // write to client                        
                                         try {
+                                            LOG.log(Level.INFO,"writingx "+toRead+" bytes to the client");
                                             output.write(data, 0, toRead);
                                             totalWrittenToStream.addAndGet(toRead);
                                         } catch (IOException err) {

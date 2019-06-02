@@ -38,6 +38,7 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.invoke.VarHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -178,7 +179,7 @@ public class LocalManager implements ObjectManager {
             // we are pre-allocating the array
             // so the list won't grow and we can write
             // from multiple threads
-            final List<byte[]> data = new ArrayList<>(ids.size());
+            final byte[][] data = new byte[(ids.size())][];
             int i = 0;
             for (String id : ids) {
                 final int _i = i++;
@@ -188,9 +189,9 @@ public class LocalManager implements ObjectManager {
                     if (err != null) {
                         result.completeExceptionally(err);
                     } else {
-                        data.set(_i, part);
+                        data[_i] = part;
                         if (remaining.decrementAndGet() == 0) {
-                            result.complete(data);
+                            result.complete(Arrays.asList(data));
                         }
                     }
                 });
