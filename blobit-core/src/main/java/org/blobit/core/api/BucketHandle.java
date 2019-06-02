@@ -112,15 +112,15 @@ public interface BucketHandle {
      * @return the metadata
      */
     public ObjectMetadata stat(String objectId) throws ObjectManagerException;
-
-    /**
-     * Retrieves detailed information about where data is stored for a
-     * particular object id.
-     *
+    
+     /**
+     * Retrieves detailed information about where data is
+     * stored for a particular object id.
+     * 
      * @param objectId
      * @return an handle to the result of the operation
      */
-    public CompletableFuture<? extends LocationInfo> getLocationInfo(String objectId) throws ObjectManagerException;
+    public CompletableFuture<? extends LocationInfo> getLocationInfo(String objectId) throws ObjectManagerException;    
 
     /**
      * Retrieves the contents of an object.This function is async, you have to
