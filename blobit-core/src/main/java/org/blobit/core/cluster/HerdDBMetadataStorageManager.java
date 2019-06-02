@@ -158,10 +158,8 @@ public class HerdDBMetadataStorageManager {
     private static final String REGISTER_BLOBNAME
             = "INSERT INTO " + BLOBNAMES_TABLE + " (name, pos, objectid) VALUES (?,?,?)";
 
-    private static final String APPEND_BLOB
-            = "INSERT INTO " + BLOBNAMES_TABLE + " (name, objectid, pos) "            
-            + "SELECT ?, ?, COALESCE(MAX(pos) + 1, 0) FROM " + BLOBNAMES_TABLE + " WHERE name=?"
-            + "GROUP BY NAME";
+    private static final String SELECT_NEW_POS
+            = "SELECT pos FROM " + BLOBNAMES_TABLE + " where name = ? ORDER BY pos LIMIT 1";
 
     private static final String LOOKUP_BLOB_BY_NAME
             = "SELECT objectid"
@@ -658,16 +656,34 @@ public class HerdDBMetadataStorageManager {
         }
     }
 
-    void append(String bucketId, String objectId, String name) throws ObjectManagerException {
+    int append(String bucketId, String objectId, String name) throws ObjectManagerException {
         try (Connection connection = getConnectionForBucket(bucketId);
-                PreparedStatement ps = connection.prepareStatement(APPEND_BLOB);) {
+                PreparedStatement ps = connection.prepareStatement(SELECT_NEW_POS);
+                PreparedStatement psName = connection.prepareStatement(REGISTER_BLOBNAME);) {
+            // doing in transaction won't be useful because we can't lock on a
+            // non existing position !
+
             ps.setString(1, name);
-            ps.setString(2, objectId);
-            ps.setString(3, name);
-            ps.executeUpdate();
+            int newPos = 0;
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    newPos = rs.getInt(1) + 1;
+                }
+            }
+            LOG.log(Level.INFO,"select new pos "+newPos+" for "+objectId+" in "+name);
+            psName.setString(1, name);
+            psName.setInt(2, newPos);
+            psName.setString(3, objectId);
+            psName.executeUpdate();
+            return newPos;
+
         } catch (SQLException err) {
             throw new ObjectManagerException(err);
         }
+    }
+
+    void appendEmptyObject(String bucketId, String name) throws ObjectManagerException {
+        append(bucketId, BKEntryId.EMPTY_ENTRY_ID, name);
     }
 
 }

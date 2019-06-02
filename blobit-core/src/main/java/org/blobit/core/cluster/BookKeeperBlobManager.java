@@ -134,9 +134,18 @@ public class BookKeeperBlobManager implements AutoCloseable {
             throw new IndexOutOfBoundsException();
         }
         if (len == 0) {
-            // very special case, the empty blob
             CompletableFuture<Void> result = new CompletableFuture<>();
-            result.complete(null);
+            if (name == null) {
+                // very special case, the unnamed empty blob
+                result.complete(null);
+            } else {
+                try {
+                    metadataStorageManager.append(bucketId, BKEntryId.EMPTY_ENTRY_ID, name);
+                    result.complete(null);
+                } catch (ObjectManagerException err) {
+                    result.completeExceptionally(err);
+                }
+            }
             return new PutPromise(BKEntryId.EMPTY_ENTRY_ID, result);
         }
         try {

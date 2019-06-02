@@ -72,9 +72,10 @@ public interface BucketHandle {
      * @param objectId the id of an existing object
      * @param name the name of an existing NamedObject
      *
+     * @return the ordinal position of the blob inside the sequence.
      * @throws ObjectManagerException
      */
-    public void append(String objectId, String name) throws ObjectManagerException;
+    public int append(String objectId, String name) throws ObjectManagerException;
 
     /**
      * Retrieves the contents of an object. This function is async, you have to
@@ -103,10 +104,12 @@ public interface BucketHandle {
     public NamedObjectMetadata statByName(String name) throws ObjectManagerException;
 
     /**
-     * Retrieves the metadata of an object.
+     * Retrieves the metadata of an object. Beware that metadata are stored on
+     * the object id itself, so this method may return metadata even for object
+     * that have been deleted.
      *
      * @param objectId
-     * @return the metadata, null if no object is found
+     * @return the metadata
      */
     public ObjectMetadata stat(String objectId) throws ObjectManagerException;
 
@@ -183,17 +186,5 @@ public interface BucketHandle {
      *
      */
     public void gc();
-
-    /**
-     * Retrieves detailed information about where data is stored for a
-     * particular object id.
-     *
-     * @param filter the filter
-     * @param visitor receives data
-     *
-     */
-    public default void queryNamedObjects(NamedObjectMetadataFilter filter, NamedObjectMetadataVisitor visitor) throws ObjectManagerException {
-        throw new UnsupportedOperationException();
-    }
 
 }

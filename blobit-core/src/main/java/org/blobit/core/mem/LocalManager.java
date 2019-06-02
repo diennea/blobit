@@ -38,7 +38,6 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.lang.invoke.VarHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -67,6 +66,8 @@ import org.blobit.core.api.ObjectNotFoundException;
 public class LocalManager implements ObjectManager {
 
     private final Map<String, MemBucket> buckets = new ConcurrentHashMap<>();
+    private static final Consumer<Long> NULL_LEN_CALLBACK = (l) -> {
+    };
 
     @Override
     public CompletableFuture<BucketMetadata> createBucket(String name, String bucketTableSpaceName, BucketConfiguration configuration) {
@@ -167,9 +168,9 @@ public class LocalManager implements ObjectManager {
         @Override
         public NamedObjectGetPromise getByName(String name) {
             List<String> ids = objectNames.get(name);
-            if (name == null) {
+            if (ids == null || ids.isEmpty()) {
                 CompletableFuture<List<byte[]>> res = new CompletableFuture<>();
-                res.completeExceptionally(new ObjectNotFoundException());
+                res.completeExceptionally(ObjectNotFoundException.INSTANCE);
                 return new NamedObjectGetPromise(null, 0, res);
             }
 
@@ -231,31 +232,99 @@ public class LocalManager implements ObjectManager {
         @Override
         public NamedObjectDownloadPromise downloadByName(String name,
                 Consumer<Long> lengthCallback,
-                OutputStream output,
-                int offset,
-                long length) {
+                OutputStream output, int offset, long length) {
+            List<String> ids = null;
+            try {
+                ids = objectNames.get(name);
+                if (ids == null || ids.isEmpty()) {
+                    CompletableFuture<byte[]> res = new CompletableFuture<>();
+                    res.completeExceptionally(ObjectNotFoundException.INSTANCE);
+                    return new NamedObjectDownloadPromise(name, null, 0, res);
+                }
+                long totalLen = 0;
+                List<MemEntryId> segments = new ArrayList<>();
+                for (String id : ids) {
+                    MemEntryId segment = MemEntryId.parseId(id);
+                    totalLen += segment.length;
+                    segments.add(segment);
+                }
+                long availableLength = totalLen;
+                if (offset > 0) {
+                    availableLength -= offset;
+                }
+                if (length < 0 || length > availableLength) { // full object
+                    length = availableLength;
+                }
+                lengthCallback.accept(length);
+                CompletableFuture<?> result = new CompletableFuture<>();
+                NamedObjectDownloadPromise res = new NamedObjectDownloadPromise(name, ids, length, result);
+                if (length <= 0) {
+                    // early exit, nothing to to
+                    FutureUtils.complete(result, null);
+                    return res;
+                }
 
-            List<String> ids = objectNames.get(name);
-            if (ids == null || ids.isEmpty()) {
-                CompletableFuture<byte[]> res = new CompletableFuture<>();
-                res.completeExceptionally(new ObjectNotFoundException());
-                return new NamedObjectDownloadPromise(name, null, 0, res);
-            }
-            CompletableFuture<?> result = new CompletableFuture<>();
-            if (ids.size() == 1) {
-                DownloadPromise download = download(ids.get(0), lengthCallback, output, offset, length);
-                download.future.whenComplete((a, error) -> {
-                    if (error != null) {
-                        result.completeExceptionally(error);
-                    } else {
-                        FutureUtils.complete(result, null);
+                int initialPart = 0;
+                long offsetInStartingSegment = offset;
+
+                if (offset > 0) {
+                    // need to jump to the offset
+                    // skipping first N parts
+                    MemEntryId segment = segments.get(initialPart);
+                    while (initialPart < segments.size()) {
+                        long segmentLen = segment.length;
+                        if (offsetInStartingSegment < segmentLen) {
+                            // we have found the good segment to start from
+                            break;
+                        } else {
+                            offsetInStartingSegment -= segmentLen;
+                            initialPart++;
+                        }
                     }
-                });
-            } else {
-                result.completeExceptionally(new ObjectManagerException("not yet supported"));
+                    if (initialPart == segments.size()) {
+                        throw new IllegalStateException();
+                    }
+                }
+                startDownloadSegment(segments,
+                        initialPart,
+                        offsetInStartingSegment, length,
+                        output, result);
+                return res;
+            } catch (ObjectManagerException err) {
+                return new NamedObjectDownloadPromise(name, ids,
+                        -1, wrapGenericException(err));
             }
-            return new NamedObjectDownloadPromise(name, ids, length, result);
+        }
 
+        private void startDownloadSegment(List<MemEntryId> segments, int index,
+                long offsetInSegment,
+                long remainingLen,
+                OutputStream output, CompletableFuture<?> result) {
+            MemEntryId currentSegment = segments.get(index);
+
+            long lengthForCurrentSegment = Math.min(remainingLen, currentSegment.length - offsetInSegment);
+
+            DownloadPromise download = download(currentSegment.toId(), NULL_LEN_CALLBACK,
+                    output, offsetInSegment, lengthForCurrentSegment);
+            download.future.whenComplete((a, error) -> {
+                if (error != null) {
+
+                    // fast fail, complete the future
+                    result.completeExceptionally(error);
+                } else {
+                    long newRemainingLen = remainingLen - lengthForCurrentSegment;
+
+                    if (newRemainingLen == 0) {
+                        FutureUtils.complete(result, null);
+                    } else {
+                        // start next segment
+                        startDownloadSegment(segments,
+                                index + 1, 0 /* offset */,
+                                newRemainingLen,
+                                output, result);
+                    }
+                }
+            });
         }
 
         @Override
@@ -329,8 +398,8 @@ public class LocalManager implements ObjectManager {
         }
 
         @Override
-        public void append(String objectId, String name) throws ObjectManagerException {
-            objectNames.compute(name, (_name, currentList) -> {
+        public int append(String objectId, String name) throws ObjectManagerException {
+            return objectNames.compute(name, (_name, currentList) -> {
                 if (currentList != null) {
                     List<String> newList = new ArrayList<>(currentList.size() + 1);
                     newList.addAll(currentList);
@@ -339,7 +408,7 @@ public class LocalManager implements ObjectManager {
                 } else {
                     return Arrays.asList(objectId);
                 }
-            });
+            }).size() - 1;
         }
 
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
@@ -394,7 +463,7 @@ public class LocalManager implements ObjectManager {
 
         @Override
         public List<ServerInfo> getServersAtPosition(long offset) {
-            if (offset < 0 || offset >= id.lenght) {
+            if (offset < 0 || offset >= id.length) {
                 return Collections.emptyList();
             }
             return LOCAL_SERVER;
@@ -402,12 +471,12 @@ public class LocalManager implements ObjectManager {
 
         @Override
         public long getSize() {
-            return id.lenght;
+            return id.length;
         }
 
         @Override
         public List<Long> getSegmentsStartOffsets() {
-            if (id.lenght == 0) {
+            if (id.length == 0) {
                 return Collections.emptyList();
             }
             return OFFSET_0;
@@ -470,6 +539,12 @@ public class LocalManager implements ObjectManager {
     @Override
     public void gc() {
         buckets.values().forEach(MemBucket::gc);
+    }
+
+    private static <T> CompletableFuture<T> wrapGenericException(Exception err) {
+        CompletableFuture<T> error = new CompletableFuture<>();
+        error.completeExceptionally(new ObjectManagerException(err));
+        return error;
     }
 
 }

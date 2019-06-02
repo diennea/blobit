@@ -117,7 +117,7 @@ public class ClusterObjectManager implements ObjectManager {
                 List<String> ids = metadataManager.lookupObjectByName(bucketId, name);
                 if (ids.isEmpty()) {
                     CompletableFuture<List<byte[]>> res = new CompletableFuture<>();
-                    res.completeExceptionally(new ObjectNotFoundException());
+                    res.completeExceptionally(ObjectNotFoundException.INSTANCE);
                     return new NamedObjectGetPromise(Collections.emptyList(), 0, res);
                 }
                 long size = 0;
@@ -198,10 +198,9 @@ public class ClusterObjectManager implements ObjectManager {
             List<String> ids = null;
             try {
                 ids = metadataManager.lookupObjectByName(bucketId, name);
-                LOG.log(Level.INFO, "downloadByName " + name + ", offset: "+offset+" ,len "+length+", ids: " + ids);
                 if (ids == null || ids.isEmpty()) {
                     CompletableFuture<byte[]> res = new CompletableFuture<>();
-                    res.completeExceptionally(new ObjectNotFoundException());
+                    res.completeExceptionally(ObjectNotFoundException.INSTANCE);
                     return new NamedObjectDownloadPromise(name, null, 0, res);
                 }
                 long totalLen = 0;
@@ -211,17 +210,13 @@ public class ClusterObjectManager implements ObjectManager {
                     totalLen += segment.length;
                     segments.add(segment);
                 }
-                LOG.info("total len "+totalLen);
-                LOG.info("segments "+segments);
                 long availableLength = totalLen;
                 if (offset > 0) {
                     availableLength -= offset;
                 }
-                LOG.info("offset = "+offset);
                 if (length < 0 || length > availableLength) { // full object
                     length = availableLength;
                 }
-                LOG.info("available len "+availableLength+", len "+length);
                 lengthCallback.accept(length);
                 CompletableFuture<?> result = new CompletableFuture<>();
                 NamedObjectDownloadPromise res = new NamedObjectDownloadPromise(name, ids, length, result);
@@ -240,23 +235,18 @@ public class ClusterObjectManager implements ObjectManager {
                     BKEntryId segment = segments.get(initialPart);
                     while (initialPart < segments.size()) {
                         long segmentLen = segment.length;
-                        LOG.info("evaluate " + initialPart + ", len " + segmentLen + " offsetInStartingSegment:" + offsetInStartingSegment);
                         if (offsetInStartingSegment < segmentLen) {
                             // we have found the good segment to start from
-                            LOG.info("start from segment # " + initialPart + ", offset " + offsetInStartingSegment+" FOUND");
                             break;
                         } else {
                             offsetInStartingSegment -= segmentLen;
                             initialPart++;
-                            LOG.info("new skip to " + initialPart + " offsetInStartingSegment " + offsetInStartingSegment);
                         }
                     }
                     if (initialPart == segments.size()) {
                         throw new IllegalStateException();
                     }
                 }
-                LOG.log(Level.INFO,"initialPart "+initialPart+", offsetIn "+offsetInStartingSegment
-                        +" totallength:"+length);
                 startDownloadSegment(segments,
                         initialPart,
                         offsetInStartingSegment, length,
@@ -272,23 +262,19 @@ public class ClusterObjectManager implements ObjectManager {
                 long offsetInSegment,
                 long remainingLen,
                 OutputStream output, CompletableFuture<?> result) {
-            LOG.info("startDownloadSegment index " + index + ", offset " + offsetInSegment
-                    + " rem " + remainingLen);
             BKEntryId currentSegment = segments.get(index);
 
             long lengthForCurrentSegment = Math.min(remainingLen, currentSegment.length - offsetInSegment);
-            
+
             DownloadPromise download = download(currentSegment.toId(), NULL_LEN_CALLBACK,
                     output, offsetInSegment, lengthForCurrentSegment);
             download.future.whenComplete((a, error) -> {
                 if (error != null) {
-                    LOG.info("index " + index + " finished (error=" + error + ")");
 
                     // fast fail, complete the future
                     result.completeExceptionally(error);
                 } else {
                     long newRemainingLen = remainingLen - lengthForCurrentSegment;
-                    LOG.info("index " + index + " finished served "+lengthForCurrentSegment+", newemlen " + newRemainingLen);
 
                     if (newRemainingLen == 0) {
                         FutureUtils.complete(result, null);
@@ -304,8 +290,8 @@ public class ClusterObjectManager implements ObjectManager {
         }
 
         @Override
-        public void append(String objectId, String name) throws ObjectManagerException {
-            metadataManager.append(bucketId, objectId, name);
+        public int append(String objectId, String name) throws ObjectManagerException {
+            return metadataManager.append(bucketId, objectId, name);
         }
 
         @Override
@@ -331,7 +317,7 @@ public class ClusterObjectManager implements ObjectManager {
                         });
                     }
                 } else {
-                    res.completeExceptionally(new ObjectNotFoundException());
+                    res.completeExceptionally(ObjectNotFoundException.INSTANCE);
                 }
                 return new NamedObjectDeletePromise(name, ids, res);
             } catch (ObjectManagerException err) {

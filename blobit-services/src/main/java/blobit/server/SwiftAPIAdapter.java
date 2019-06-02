@@ -35,14 +35,11 @@ import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerException;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.util.Collections;
 import javax.servlet.AsyncContext;
-import javax.servlet.ServletResponse;
 import javax.servlet.annotation.WebServlet;
 import org.apache.bookkeeper.common.concurrent.FutureUtils;
 import org.blobit.core.api.BucketHandle;
-import org.blobit.core.api.GetPromise;
-import org.blobit.core.api.ObjectMetadata;
+import org.blobit.core.api.NamedObjectMetadata;
 import org.blobit.core.api.PutPromise;
 
 /**
@@ -90,13 +87,13 @@ public class SwiftAPIAdapter extends HttpServlet {
                 BucketHandle bucket = objectManager.getBucket(container);
 
                 try {
-                    ObjectMetadata byName = bucket.statByName(name);
-                    LOG.log(Level.INFO, "[SWIFT] head object {0} as {1} -> {2}", new Object[]{objectId, name, byName});
+                    NamedObjectMetadata byName = bucket.statByName(name);
+                    LOG.log(Level.FINE, "[SWIFT] head object {0} as {1} -> {2}", new Object[]{objectId, name, byName});
                     if (byName == null) {
                         resp.sendError(HttpServletResponse.SC_NOT_FOUND, "Not found " + requestUri);
                         return;
                     }
-                    resp.setContentLengthLong(byName.size);
+                    resp.setContentLengthLong(byName.getSize());
                     resp.setStatus(HttpServletResponse.SC_OK);
                 } catch (ObjectManagerException err) {
                     LOG.log(Level.SEVERE, "error", err);
