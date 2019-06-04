@@ -43,7 +43,7 @@ public class CommandGet extends BucketCommand {
 
     @Parameter(names = "--out", description = "File to write to", required = true)
     public File file;
-
+        
     public CommandGet(CommandContext main) {
         super(main);
     }
@@ -54,6 +54,9 @@ public class CommandGet extends BucketCommand {
         System.out.println("GET BUCKET '" + bucket + "' NAME '" + name + "' to " + file.getAbsolutePath());
         if (file.exists()) {
             throw new Exception("File " + file.getAbsolutePath() + " already exists");
+        }
+        if (name != null && id != null) {
+            throw new Exception("If you use --id you cannot use --name");
         }
         doWithClient(client -> {
             try (OutputStream ii = new BufferedOutputStream(new FileOutputStream(file))) {
