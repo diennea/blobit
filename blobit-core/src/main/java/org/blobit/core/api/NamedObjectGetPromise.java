@@ -19,30 +19,31 @@
  */
 package org.blobit.core.api;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.bookkeeper.common.concurrent.FutureUtils;
 
 /**
- * Handle to a download operation
+ * Promise to return a value
  */
-public class DownloadPromise {
+public class NamedObjectGetPromise {
 
     public final long length;
-    public final String id;
+    public final List<String> id;
 
-    public final CompletableFuture<?> future;
+    public final CompletableFuture<List<byte[]>> future;
 
-    public DownloadPromise(String id, long length, CompletableFuture<?> future) {
+    public NamedObjectGetPromise(List<String> id, long length, CompletableFuture<List<byte[]>> future) {
         this.id = id;
         this.length = length;
         this.future = future;
     }
 
-    public void get(long timeout, TimeUnit t) throws InterruptedException, ObjectManagerException, TimeoutException {
+    public List<byte[]> get(long timeout, TimeUnit t) throws InterruptedException, ObjectManagerException, TimeoutException {
         try {
-            FutureUtils.result(future, timeout, t);
+            return FutureUtils.result(future, timeout, t);
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             throw ie;
@@ -55,9 +56,9 @@ public class DownloadPromise {
         }
     }
 
-    public void get() throws InterruptedException, ObjectManagerException {
+    public List<byte[]> get() throws InterruptedException, ObjectManagerException {
         try {
-            FutureUtils.result(future);
+            return FutureUtils.result(future);
         } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             throw ie;

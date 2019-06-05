@@ -26,7 +26,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import org.blobit.core.api.DownloadPromise;
-import org.blobit.core.api.ObjectMetadata;
+import org.blobit.core.api.NamedObjectDownloadPromise;
 
 /**
  *
@@ -35,12 +35,15 @@ import org.blobit.core.api.ObjectMetadata;
 @Parameters(commandDescription = "Get a BLOB")
 public class CommandGet extends BucketCommand {
 
-    @Parameter(names = "--name", description = "Name of the blob", required = true)
+    @Parameter(names = "--name", description = "Name of the blob")
     public String name;
+
+    @Parameter(names = "--id", description = "ID of the blob")
+    public String id;
 
     @Parameter(names = "--out", description = "File to write to", required = true)
     public File file;
-
+        
     public CommandGet(CommandContext main) {
         super(main);
     }
@@ -52,17 +55,33 @@ public class CommandGet extends BucketCommand {
         if (file.exists()) {
             throw new Exception("File " + file.getAbsolutePath() + " already exists");
         }
+        if (name != null && id != null) {
+            throw new Exception("If you use --id you cannot use --name");
+        }
         doWithClient(client -> {
             try (OutputStream ii = new BufferedOutputStream(new FileOutputStream(file))) {
-                DownloadPromise stat = client.getBucket(bucket)
-                        .downloadByName(name, (l) -> {
-                        }, ii, 0, -1);
-                System.out.println("FOUND OBJECT ID:" + stat.id + ", size " + stat.length + " bytes");
-                stat.get();
-                long _stop = System.currentTimeMillis();
-                double speed = (file.length() * 1000 * 60 * 60.0) / (1024 * 1024.0 * (_stop - _start));
-                System.out.println("OBJECT DOWNLOADED SUCCESSFULLY, " + speed + " MB/h");
+                if (name != null) {
+                    NamedObjectDownloadPromise stat = client.getBucket(bucket)
+                            .downloadByName(name, (l) -> {
+                            }, ii, 0, -1);
+                    System.out.println("FOUND OBJECT IDS:" + stat.id + ", size " + stat.length + " bytes");
+                    stat.get();
+                    long _stop = System.currentTimeMillis();
+                    double speed = (file.length() * 1000 * 60 * 60.0) / (1024 * 1024.0 * (_stop - _start));
+                    System.out.println("OBJECTs DOWNLOADED SUCCESSFULLY, " + speed + " MB/h");
+                } else if (id != null) {
+                    DownloadPromise stat = client.getBucket(bucket)
+                            .download(id, (l) -> {
+                            }, ii, 0, -1);
+                    System.out.println("FOUND OBJECT ID:" + stat.id + ", size " + stat.length + " bytes");
+                    stat.get();
+                    long _stop = System.currentTimeMillis();
+                    double speed = (file.length() * 1000 * 60 * 60.0) / (1024 * 1024.0 * (_stop - _start));
+                    System.out.println("OBJECT DOWNLOADED SUCCESSFULLY, " + speed + " MB/h");
 
+                } else {
+                    throw new Exception("Please pass --name or --id");
+                }
             }
         });
     }

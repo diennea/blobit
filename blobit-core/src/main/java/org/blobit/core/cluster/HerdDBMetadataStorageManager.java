@@ -130,16 +130,16 @@ public class HerdDBMetadataStorageManager {
  /* ************** */
     private static final String CREATE_BLOBS_TABLE
             = "CREATE TABLE " + BLOB_TABLE
-            + " (ledger_id LONG, entry_id LONG, num_entries INTEGER, entry_size INTEGER, size LONG, name STRING, PRIMARY KEY (ledger_id, entry_id))";
+            + " (ledger_id LONG, entry_id LONG, num_entries INTEGER, entry_size INTEGER, size LONG, PRIMARY KEY (ledger_id, entry_id))";
 
     private static final String REGISTER_BLOB
-            = "INSERT INTO " + BLOB_TABLE + " (ledger_id, entry_id, num_entries, entry_size, size, name) VALUES (?,?,?,?,?,?)";
+            = "INSERT INTO " + BLOB_TABLE + " (ledger_id, entry_id, num_entries, entry_size, size) VALUES (?,?,?,?,?)";
 
     private static final String DELETE_BLOB
             = "DELETE FROM " + BLOB_TABLE + " WHERE ledger_id=? AND entry_id=?";
 
     private static final String LIST_BLOBS_BY_LEDGER
-            = "SELECT ledger_id, entry_id, num_entries, entry_size, size, name FROM " + BLOB_TABLE + " WHERE ledger_id=?";
+            = "SELECT ledger_id, entry_id, num_entries, entry_size, size FROM " + BLOB_TABLE + " WHERE ledger_id=?";
 
     private static final String DELETE_BLOBS_BY_BUCKET_UUID
             = "DELETE FROM " + BLOB_TABLE
@@ -150,18 +150,26 @@ public class HerdDBMetadataStorageManager {
  /* ************** */
     private static final String CREATE_BLOBNAMES_TABLE
             = "CREATE TABLE " + BLOBNAMES_TABLE
-            + " (name STRING PRIMARY KEY, objectid STRING)";
+            + " (name STRING NOT NULL,"
+            + "  pos LONG NOT NULL,"
+            + "  objectid STRING NOT NULL,"
+            + "  PRIMARY KEY (name, pos) )";
 
     private static final String REGISTER_BLOBNAME
-            = "INSERT INTO " + BLOBNAMES_TABLE + " (name, objectid) VALUES (?,?)";
+            = "INSERT INTO " + BLOBNAMES_TABLE + " (name, pos, objectid) VALUES (?,?,?)";
+
+    private static final String SELECT_NEW_POS
+            = "SELECT pos FROM " + BLOBNAMES_TABLE + " where name = ? ORDER BY pos LIMIT 1";
 
     private static final String LOOKUP_BLOB_BY_NAME
-            = "SELECT objectid FROM " + BLOBNAMES_TABLE + " where name=?";
+            = "SELECT objectid"
+            + " FROM " + BLOBNAMES_TABLE
+            + " where name=? "
+            + "ORDER BY pos";
 
     private static final String DELETE_BLOBNAME
             = "DELETE FROM " + BLOBNAMES_TABLE + " where name=?";
 
-    
     private final DataSource datasource;
     private final String bucketsTablespace;
     private final int bucketsTableSpacesReplicaCount;
@@ -302,24 +310,29 @@ public class HerdDBMetadataStorageManager {
     }
 
     public void registerObject(String bucketId,
-            long ledgerId, long entryId, int num_entries, int entry_size, long size, String objectId, String name) throws ObjectManagerException {
+            long ledgerId, long entryId, int num_entries, int entry_size, long size, String objectId,
+            String name, int positionForName) throws ObjectManagerException {
 
         try (Connection connection = getConnectionForBucket(bucketId);
                 PreparedStatement ps = connection.prepareStatement(REGISTER_BLOB);
                 PreparedStatement psName = connection.prepareStatement(REGISTER_BLOBNAME);) {
+            if (name != null) {
+                connection.setAutoCommit(false);
+            }
             ps.setLong(1, ledgerId);
             ps.setLong(2, entryId);
             ps.setLong(3, num_entries);
             ps.setLong(4, entry_size);
             ps.setLong(5, size);
-            ps.setString(6, name);
 
             ps.executeUpdate();
 
             if (name != null) {
                 psName.setString(1, name);
-                psName.setString(2, objectId);
+                psName.setInt(2, positionForName);
+                psName.setString(3, objectId);
                 psName.executeUpdate();
+                connection.commit();
             }
 
         } catch (SQLException err) {
@@ -331,15 +344,18 @@ public class HerdDBMetadataStorageManager {
 
         try (Connection connection = getConnectionForBucket(bucketId);
                 PreparedStatement ps = connection.prepareStatement(DELETE_BLOB);
-                PreparedStatement psName = connection.prepareStatement(DELETE_BLOBNAME);
-                ) {
+                PreparedStatement psName = connection.prepareStatement(DELETE_BLOBNAME);) {
+            if (name != null) {
+                connection.setAutoCommit(false);
+            }
             ps.setLong(1, ledgerId);
             ps.setLong(2, entryId);
             ps.executeUpdate();
-            
+
             if (name != null) {
                 psName.setString(1, name);
                 psName.executeUpdate();
+                connection.commit();
             }
         } catch (SQLException err) {
             throw new ObjectManagerException(err);
@@ -622,21 +638,52 @@ public class HerdDBMetadataStorageManager {
         }
     }
 
-    String lookupObjectByName(String bucketId, String name) throws ObjectManagerException {
+    List<String> lookupObjectByName(String bucketId, String name) throws ObjectManagerException {
 
         try (Connection connection = getConnectionForBucket(bucketId);
                 PreparedStatement ps = connection.prepareStatement(LOOKUP_BLOB_BY_NAME)) {
             ps.setString(1, name);
-            ps.executeUpdate();
             try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    return rs.getString(1);
+                // already sorted by position
+                List<String> result = new ArrayList<>();
+                while (rs.next()) {
+                    result.add(rs.getString(1));
                 }
+                return result;
             }
-            return null;
         } catch (SQLException err) {
             throw new ObjectManagerException(err);
         }
+    }
+
+    int append(String bucketId, String objectId, String name) throws ObjectManagerException {
+        try (Connection connection = getConnectionForBucket(bucketId);
+                PreparedStatement ps = connection.prepareStatement(SELECT_NEW_POS);
+                PreparedStatement psName = connection.prepareStatement(REGISTER_BLOBNAME);) {
+            // doing in transaction won't be useful because we can't lock on a
+            // non existing position !
+
+            ps.setString(1, name);
+            int newPos = 0;
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    newPos = rs.getInt(1) + 1;
+                }
+            }
+            LOG.log(Level.INFO,"select new pos "+newPos+" for "+objectId+" in "+name);
+            psName.setString(1, name);
+            psName.setInt(2, newPos);
+            psName.setString(3, objectId);
+            psName.executeUpdate();
+            return newPos;
+
+        } catch (SQLException err) {
+            throw new ObjectManagerException(err);
+        }
+    }
+
+    void appendEmptyObject(String bucketId, String name) throws ObjectManagerException {
+        append(bucketId, BKEntryId.EMPTY_ENTRY_ID, name);
     }
 
 }

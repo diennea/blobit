@@ -134,9 +134,18 @@ public class BookKeeperBlobManager implements AutoCloseable {
             throw new IndexOutOfBoundsException();
         }
         if (len == 0) {
-            // very special case, the empty blob
             CompletableFuture<Void> result = new CompletableFuture<>();
-            result.complete(null);
+            if (name == null) {
+                // very special case, the unnamed empty blob
+                result.complete(null);
+            } else {
+                try {
+                    metadataStorageManager.append(bucketId, BKEntryId.EMPTY_ENTRY_ID, name);
+                    result.complete(null);
+                } catch (ObjectManagerException err) {
+                    result.completeExceptionally(err);
+                }
+            }
             return new PutPromise(BKEntryId.EMPTY_ENTRY_ID, result);
         }
         try {
@@ -160,7 +169,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
 
     static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
 
-    DownloadPromise download(String bucketId, String id, Consumer<Long> lengthCallback, OutputStream output, int offset, long length) {
+    DownloadPromise download(String bucketId, String id, Consumer<Long> lengthCallback, OutputStream output, long offset, long length) {
         if (id == null) {
             return new DownloadPromise(null, 0, wrapGenericException(new IllegalArgumentException("null id")));
         }

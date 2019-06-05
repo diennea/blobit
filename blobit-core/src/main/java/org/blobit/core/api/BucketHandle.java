@@ -67,6 +67,17 @@ public interface BucketHandle {
     public PutPromise put(String name, byte[] data, int offset, int len);
 
     /**
+     * Appends an Object to a named object.
+     *
+     * @param objectId the id of an existing object
+     * @param name the name of an existing NamedObject
+     *
+     * @return the ordinal position of the blob inside the sequence.
+     * @throws ObjectManagerException
+     */
+    public int append(String objectId, String name) throws ObjectManagerException;
+
+    /**
      * Retrieves the contents of an object. This function is async, you have to
      * check the result of the Future in order to get the effective value. If a
      * null value is returned as byte[] it means that the object does not exits
@@ -82,7 +93,7 @@ public interface BucketHandle {
      * @param name
      * @return an handle to the operation
      */
-    public GetPromise getByName(String name);
+    public NamedObjectGetPromise getByName(String name);
 
     /**
      * Retrieves the metadata of an object.
@@ -90,13 +101,15 @@ public interface BucketHandle {
      * @param name
      * @return the metadata, null if no object is found
      */
-    public ObjectMetadata statByName(String name) throws ObjectManagerException;
-    
-     /**
-     * Retrieves the metadata of an object.
-     * 
+    public NamedObjectMetadata statByName(String name) throws ObjectManagerException;
+
+    /**
+     * Retrieves the metadata of an object. Beware that metadata are stored on
+     * the object id itself, so this method may return metadata even for object
+     * that have been deleted.
+     *
      * @param objectId
-     * @return the metadata, null if no object is found
+     * @return the metadata
      */
     public ObjectMetadata stat(String objectId) throws ObjectManagerException;
     
@@ -125,7 +138,7 @@ public interface BucketHandle {
      * of the object will be streamed
      * @return an handle to the operation
      */
-    public DownloadPromise download(String objectId, Consumer<Long> lengthCallback, OutputStream output, int offset, long length);
+    public DownloadPromise download(String objectId, Consumer<Long> lengthCallback, OutputStream output, long offset, long length);
 
     /**
      * Retrieves the contents of an object.This function is async, you have to
@@ -134,7 +147,7 @@ public interface BucketHandle {
      * written to the OutputStream.In case of failure the status of the stream
      * will be undefined.This method does not close the stream.
      *
-     * @param objectId
+     * @param name
      * @param lengthCallback this callback will be called with the actual amount
      * of data which will be written to the stream
      * @param output destination of data
@@ -143,7 +156,7 @@ public interface BucketHandle {
      * of the object will be streamed
      * @return an handle to the operation
      */
-    public DownloadPromise downloadByName(String objectId, Consumer<Long> lengthCallback, OutputStream output, int offset, long length);
+    public NamedObjectDownloadPromise downloadByName(String name, Consumer<Long> lengthCallback, OutputStream output, int offset, long length);
 
     /**
      * Marks an object for deletion. Space will not be released immediately and
@@ -160,12 +173,12 @@ public interface BucketHandle {
      * Marks an object for deletion. Space will not be released immediately and
      * object would still be available to readers .
      *
-     * @param objectId
+     * @param name
      * @return an handle to the operation
      *
      * @see #gc()
      */
-    public DeletePromise deleteByName(String objectId);
+    public NamedObjectDeletePromise deleteByName(String name);
 
     /**
      * Release space allocated by a bucket but no more in use. This method can

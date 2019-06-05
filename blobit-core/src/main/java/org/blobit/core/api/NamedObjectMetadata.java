@@ -19,24 +19,41 @@
  */
 package org.blobit.core.api;
 
+import java.util.List;
+
 /**
- * Metadata about a single blob
+ * Metadata about an object with a custom name. A named object can span multiple
+ * simple objects in case of concatenation/append operations.
  *
- * @author enrico.olivelli
+ * @author eolivelli
+ * @see ObjectMetadata
  */
-public final class ObjectMetadata {
+public final class NamedObjectMetadata {
 
-    public final String id;
-    public final long size;
+    private final String name;
+    private final long size;
+    private final List<ObjectMetadata> objects;
 
-    public ObjectMetadata(String id, long size) {
-        this.id = id;
+    public NamedObjectMetadata(String name, long size, List<ObjectMetadata> objects) {
+        this.name = name;
         this.size = size;
+        this.objects = objects;
     }
 
-    @Override
-    public String toString() {
-        return "{" + "id=" + id + ", size=" + size + '}';
+    public String getName() {
+        return name;
+    }
+
+    public long getSize() {
+        return size;
+    }
+
+    public ObjectMetadata getObject(int index) {
+        return objects.get(index);
+    }
+
+    public int getNumObjects() {
+        return objects.size();
     }
 
 }

@@ -30,16 +30,16 @@ class MemEntryId {
 
     public final long ledgerId;
     public final long entryId;
-    public final long lenght;
+    public final long length;
 
     public MemEntryId(long ledgerId, long id, long size) {
         this.ledgerId = ledgerId;
         this.entryId = id;
-        this.lenght = size;
+        this.length = size;
     }
 
     public String toId() {
-        return ledgerId + "-" + entryId + "-" + lenght;
+        return ledgerId + "-" + entryId + "-" + length;
     }
 
     public static MemEntryId parseId(String id) throws ObjectManagerException {
@@ -59,7 +59,7 @@ class MemEntryId {
         int hash = 3;
         hash = 53 * hash + (int) (this.ledgerId ^ (this.ledgerId >>> 32));
         hash = 53 * hash + (int) (this.entryId ^ (this.entryId >>> 32));
-        hash = 53 * hash + (int) (this.lenght ^ (this.lenght >>> 32));
+        hash = 53 * hash + (int) (this.length ^ (this.length >>> 32));
         return hash;
     }
 
@@ -81,7 +81,7 @@ class MemEntryId {
         if (this.entryId != other.entryId) {
             return false;
         }
-        if (this.lenght != other.lenght) {
+        if (this.length != other.length) {
             return false;
         }
         return true;

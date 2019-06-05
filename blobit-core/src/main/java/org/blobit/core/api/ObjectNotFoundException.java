@@ -20,23 +20,27 @@
 package org.blobit.core.api;
 
 /**
- * Metadata about a single blob
+ * An Object was not found.
  *
- * @author enrico.olivelli
+ * @author eolivelli
  */
-public final class ObjectMetadata {
+public class ObjectNotFoundException extends ObjectManagerException {
 
-    public final String id;
-    public final long size;
-
-    public ObjectMetadata(String id, long size) {
-        this.id = id;
-        this.size = size;
+    public static final ObjectNotFoundException INSTANCE = new ObjectNotFoundException();
+    
+    public ObjectNotFoundException() {
     }
 
-    @Override
-    public String toString() {
-        return "{" + "id=" + id + ", size=" + size + '}';
+    public ObjectNotFoundException(String message) {
+        super(message);
+    }
+
+    public ObjectNotFoundException(String message, Throwable cause) {
+        super(message, cause);
+    }
+
+    public ObjectNotFoundException(Throwable cause) {
+        super(cause);
     }
 
 }
