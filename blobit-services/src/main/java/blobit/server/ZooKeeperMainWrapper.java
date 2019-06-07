@@ -66,8 +66,8 @@ public class ZooKeeperMainWrapper implements AutoCloseable {
                 if (!arg.startsWith("-")) {
                     File configFile = new File(args[i]).getAbsoluteFile();
                     LOG.severe("Reading configuration from " + configFile);
-                    try (InputStreamReader reader
-                        = new InputStreamReader(new FileInputStream(configFile), StandardCharsets.UTF_8)) {
+                    try (InputStreamReader reader =
+                            new InputStreamReader(new FileInputStream(configFile), StandardCharsets.UTF_8)) {
                         configuration.load(reader);
                     }
                     configFileFromParameter = true;
@@ -89,7 +89,8 @@ public class ZooKeeperMainWrapper implements AutoCloseable {
                 File configFile = new File("conf/zoo.cfg").getAbsoluteFile();
                 System.out.println("Reading configuration from " + configFile);
                 if (configFile.isFile()) {
-                    try (InputStreamReader reader = new InputStreamReader(new FileInputStream(configFile), StandardCharsets.UTF_8)) {
+                    try (InputStreamReader reader = new InputStreamReader(new FileInputStream(configFile),
+                            StandardCharsets.UTF_8)) {
                         configuration.load(reader);
                     }
                 }

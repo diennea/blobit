@@ -19,27 +19,24 @@
  */
 package blobit.server;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
+import javax.servlet.AsyncContext;
 import javax.servlet.ServletException;
+import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-
+import org.apache.bookkeeper.common.concurrent.FutureUtils;
 import org.apache.commons.io.IOUtils;
 import org.blobit.core.api.BucketConfiguration;
-import org.blobit.core.api.ObjectManager;
-import org.blobit.core.api.ObjectManagerException;
-
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import javax.servlet.AsyncContext;
-import javax.servlet.annotation.WebServlet;
-import org.apache.bookkeeper.common.concurrent.FutureUtils;
 import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.NamedObjectMetadata;
+import org.blobit.core.api.ObjectManager;
+import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.PutPromise;
 
 /**
@@ -116,7 +113,8 @@ public class SwiftAPIAdapter extends HttpServlet {
                 BucketHandle bucket = objectManager.getBucket(container);
                 AsyncContext startAsync = req.startAsync();
                 bucket.downloadByName(name, (contentLength) -> {
-                    LOG.log(Level.INFO, "[SWIFT] get object {0} as {1} -> len {2} bytes", new Object[]{objectId, name, contentLength});
+                    LOG.log(Level.INFO, "[SWIFT] get object {0} as {1} -> len {2} bytes",
+                            new Object[]{objectId, name, contentLength});
                     resp.setContentLengthLong(contentLength);
                     resp.setStatus(HttpServletResponse.SC_OK);
                     try {
@@ -124,16 +122,18 @@ public class SwiftAPIAdapter extends HttpServlet {
                         resp.flushBuffer();
                     } catch (IOException err) {
                     }
-                }, startAsync.getResponse().getOutputStream(), 0 /* offset */, -1 /* maxlen */).future
-                        .handle((v, error) -> {
+                }, startAsync.getResponse().getOutputStream(), 0 /* offset */, -1 /* maxlen */).future.
+                        handle((v, error) -> {
 
                             try {
                                 HttpServletResponse response = (HttpServletResponse) startAsync.getResponse();
                                 if (error != null) {
-                                    LOG.log(Level.INFO, "[SWIFT] get object {0} as {1} finished, error {2}", new Object[]{objectId, name, error});
+                                    LOG.log(Level.INFO, "[SWIFT] get object {0} as {1} finished, error {2}",
+                                            new Object[]{objectId, name, error});
                                     response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, error + "");
                                 } else {
-                                    LOG.log(Level.FINER, "[SWIFT] get object {0} as {1} finished", new Object[]{objectId, name});
+                                    LOG.log(Level.FINER, "[SWIFT] get object {0} as {1} finished",
+                                            new Object[]{objectId, name});
                                     response.setStatus(HttpServletResponse.SC_OK);
                                 }
                             } catch (Exception err) {
@@ -150,7 +150,8 @@ public class SwiftAPIAdapter extends HttpServlet {
                 try {
                     int slash = remainingPath.indexOf('/');
                     if (slash <= 0) {
-                        FutureUtils.result(objectManager.createBucket(remainingPath, remainingPath, BucketConfiguration.DEFAULT));
+                        FutureUtils.result(objectManager.createBucket(remainingPath, remainingPath,
+                                BucketConfiguration.DEFAULT));
                         System.out.println("[SWIFT] create bucket " + remainingPath);
                         resp.setStatus(HttpServletResponse.SC_CREATED, "OK created bucket " + remainingPath);
                     } else {
@@ -160,7 +161,8 @@ public class SwiftAPIAdapter extends HttpServlet {
                         String resultId;
                         BucketHandle bucket = objectManager.getBucket(container);
                         long expectedContentLen = req.getContentLength();
-                        LOG.log(Level.INFO, "[SWIFT] put name={0} container={1} {3} bytes} ", new Object[]{objectId, container, expectedContentLen});
+                        LOG.log(Level.INFO, "[SWIFT] put name={0} container={1} {3} bytes} ",
+                                new Object[]{objectId, container, expectedContentLen});
                         if (expectedContentLen == -1L) {
                             // we must read the content, BlobIt needs to know the real size
                             try (InputStream in = req.getInputStream()) {
@@ -170,17 +172,22 @@ public class SwiftAPIAdapter extends HttpServlet {
                         } else {
                             AsyncContext startAsync = req.startAsync();
                             // streaming directly from client to bookkeeper
-                            PutPromise prom = bucket.put(name, expectedContentLen, startAsync.getRequest().getInputStream());
+                            PutPromise prom = bucket.put(name, expectedContentLen, startAsync.getRequest().
+                                    getInputStream());
                             prom.future.handle((v, error) -> {
 
                                 try {
                                     HttpServletResponse response = (HttpServletResponse) startAsync.getResponse();
                                     if (error != null) {
-                                        LOG.log(Level.INFO, "[SWIFT] put object {0} as {1} finished, error {2}", new Object[]{objectId, name, error});
+                                        LOG.log(Level.INFO, "[SWIFT] put object {0} as {1} finished, error {2}",
+                                                new Object[]{objectId, name, error});
                                         response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, error + "");
                                     } else {
-                                        LOG.log(Level.FINER, "[SWIFT] put object {0} as {1} finished", new Object[]{objectId, name});
-                                        response.setStatus(HttpServletResponse.SC_CREATED, "OK " + objectId + " as " + v);
+                                        LOG.log(Level.FINER, "[SWIFT] put object {0} as {1} finished",
+                                                new Object[]{objectId, name});
+                                        response.
+                                                setStatus(HttpServletResponse.SC_CREATED,
+                                                        "OK " + objectId + " as " + v);
                                     }
                                 } catch (Exception err) {
                                     LOG.log(Level.SEVERE, "Error while putting object in streaming mode", err);
@@ -205,7 +212,8 @@ public class SwiftAPIAdapter extends HttpServlet {
                 return;
             }
             default:
-                resp.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "method " + req.getMethod() + " not implemented");
+                resp.sendError(HttpServletResponse.SC_METHOD_NOT_ALLOWED, "method " + req.getMethod()
+                        + " not implemented");
                 return;
         }
     }

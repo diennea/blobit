@@ -19,32 +19,26 @@
  */
 package org.blobit.core.cluster;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import javax.sql.DataSource;
-
-import org.blobit.core.api.BucketConfiguration;
-import org.blobit.core.api.BucketMetadata;
-import org.blobit.core.api.Configuration;
-import org.blobit.core.api.ObjectManager;
-import org.blobit.core.api.ObjectManagerException;
-import org.blobit.core.api.PutPromise;
-
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import javax.sql.DataSource;
 import org.apache.bookkeeper.common.concurrent.FutureUtils;
+import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.BucketHandle;
+import org.blobit.core.api.BucketMetadata;
+import org.blobit.core.api.Configuration;
 import org.blobit.core.api.DeletePromise;
 import org.blobit.core.api.DownloadPromise;
 import org.blobit.core.api.GetPromise;
@@ -53,8 +47,11 @@ import org.blobit.core.api.NamedObjectDeletePromise;
 import org.blobit.core.api.NamedObjectDownloadPromise;
 import org.blobit.core.api.NamedObjectGetPromise;
 import org.blobit.core.api.NamedObjectMetadata;
+import org.blobit.core.api.ObjectManager;
+import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectMetadata;
 import org.blobit.core.api.ObjectNotFoundException;
+import org.blobit.core.api.PutPromise;
 
 /**
  * ObjectManager that uses Bookkeeper and HerdDB as clusterable backend
@@ -63,17 +60,20 @@ import org.blobit.core.api.ObjectNotFoundException;
  */
 public class ClusterObjectManager implements ObjectManager {
 
-    private static final Logger LOG = Logger.getLogger(ClusterObjectManager.class.getName());
+    private static final Logger LOG = Logger.getLogger(
+            ClusterObjectManager.class.getName());
     private static final Consumer<Long> NULL_LEN_CALLBACK = (l) -> {
     };
 
     private final BookKeeperBlobManager blobManager;
     private final HerdDBMetadataStorageManager metadataManager;
 
-    public ClusterObjectManager(Configuration configuration, DataSource datasource) throws ObjectManagerException {
+    public ClusterObjectManager(Configuration configuration,
+            DataSource datasource) throws ObjectManagerException {
         super();
 
-        metadataManager = new HerdDBMetadataStorageManager(datasource, configuration);
+        metadataManager = new HerdDBMetadataStorageManager(datasource,
+                configuration);
         metadataManager.init();
 
         blobManager = new BookKeeperBlobManager(configuration, metadataManager);
@@ -114,38 +114,46 @@ public class ClusterObjectManager implements ObjectManager {
         @Override
         public NamedObjectGetPromise getByName(String name) {
             try {
-                List<String> ids = metadataManager.lookupObjectByName(bucketId, name);
+                List<String> ids = metadataManager.lookupObjectByName(bucketId,
+                        name);
                 if (ids.isEmpty()) {
-                    CompletableFuture<List<byte[]>> res = new CompletableFuture<>();
+                    CompletableFuture<List<byte[]>> res =
+                            new CompletableFuture<>();
                     res.completeExceptionally(ObjectNotFoundException.INSTANCE);
-                    return new NamedObjectGetPromise(Collections.emptyList(), 0, res);
+                    return new NamedObjectGetPromise(Collections.emptyList(), 0,
+                            res);
                 }
                 long size = 0;
                 AtomicInteger remaining = new AtomicInteger(ids.size());
-                CompletableFuture<List<byte[]>> result = new CompletableFuture<>();
+                CompletableFuture<List<byte[]>> result =
+                        new CompletableFuture<>();
                 // we are eagerly pre-sizing the array
                 // it will be written from different threads
                 final byte[][] data = new byte[(ids.size())][];
                 int i = 0;
                 for (String id : ids) {
-                    final int _i = i++;
+                    final int j = i++;
                     GetPromise promise = get(id);
                     size += promise.length;
-                    promise.future.whenComplete((byte[] part, Throwable err) -> {
-                        LOG.log(Level.INFO, "get finished for part " + _i + " remaining:" + remaining + " err: " + err, err);
-                        if (err != null) {
-                            // fail fast
-                            result.completeExceptionally(err);
-                        } else {
-                            data[_i] = part;
-                            if (remaining.decrementAndGet() == 0) {
-                                LOG.log(Level.INFO, "completed !!");
-                                result.complete(Arrays.asList(data));
-                            } else {
-                                LOG.log(Level.INFO, "not yet completed, remaining is now " + remaining);
-                            }
-                        }
-                    });
+                    promise.future.whenComplete(
+                            (byte[] part, Throwable err) -> {
+                                LOG.log(Level.INFO,
+                                        "get finished for part " + j + " remaining:" + remaining + " err: " + err,
+                                        err);
+                                if (err != null) {
+                                    // fail fast
+                                    result.completeExceptionally(err);
+                                } else {
+                                    data[j] = part;
+                                    if (remaining.decrementAndGet() == 0) {
+                                        LOG.log(Level.INFO, "completed !!");
+                                        result.complete(Arrays.asList(data));
+                                    } else {
+                                        LOG.log(Level.INFO,
+                                                "not yet completed, remaining is now " + remaining);
+                                    }
+                                }
+                            });
                 }
                 return new NamedObjectGetPromise(ids, size, result);
             } catch (ObjectManagerException err) {
@@ -161,7 +169,8 @@ public class ClusterObjectManager implements ObjectManager {
 
         @Override
         public NamedObjectMetadata statByName(String name) throws ObjectManagerException {
-            List<String> objectIds = metadataManager.lookupObjectByName(bucketId, name);
+            List<String> objectIds = metadataManager.
+                    lookupObjectByName(bucketId, name);
             if (objectIds.isEmpty()) {
                 return null;
             }
@@ -170,7 +179,8 @@ public class ClusterObjectManager implements ObjectManager {
             for (String id : objectIds) {
                 ObjectMetadata objectMetadata = blobManager.stat(bucketId, id);
                 if (objectMetadata == null) {
-                    throw new ObjectNotFoundException("Object " + id + " was not found while"
+                    throw new ObjectNotFoundException(
+                            "Object " + id + " was not found while"
                             + " reading named object '" + name + "'");
                 }
                 objects.add(objectMetadata);
@@ -187,14 +197,19 @@ public class ClusterObjectManager implements ObjectManager {
         }
 
         @Override
-        public DownloadPromise download(String objectId, Consumer<Long> lengthCallback, OutputStream output, long offset, long length) {
-            return blobManager.download(bucketId, objectId, lengthCallback, output, offset, length);
+        public DownloadPromise download(String objectId,
+                Consumer<Long> lengthCallback,
+                OutputStream output, long offset,
+                long length) {
+            return blobManager.download(bucketId, objectId, lengthCallback,
+                    output, offset, length);
         }
 
         @Override
         public NamedObjectDownloadPromise downloadByName(String name,
                 Consumer<Long> lengthCallback,
-                OutputStream output, int offset, long length) {
+                OutputStream output,
+                int offset, long length) {
             List<String> ids = null;
             try {
                 ids = metadataManager.lookupObjectByName(bucketId, name);
@@ -219,7 +234,8 @@ public class ClusterObjectManager implements ObjectManager {
                 }
                 lengthCallback.accept(length);
                 CompletableFuture<?> result = new CompletableFuture<>();
-                NamedObjectDownloadPromise res = new NamedObjectDownloadPromise(name, ids, length, result);
+                NamedObjectDownloadPromise res = new NamedObjectDownloadPromise(
+                        name, ids, length, result);
                 if (length <= 0) {
                     // early exit, nothing to to
                     FutureUtils.complete(result, null);
@@ -261,12 +277,15 @@ public class ClusterObjectManager implements ObjectManager {
         private void startDownloadSegment(List<BKEntryId> segments, int index,
                 long offsetInSegment,
                 long remainingLen,
-                OutputStream output, CompletableFuture<?> result) {
+                OutputStream output,
+                CompletableFuture<?> result) {
             BKEntryId currentSegment = segments.get(index);
 
-            long lengthForCurrentSegment = Math.min(remainingLen, currentSegment.length - offsetInSegment);
+            long lengthForCurrentSegment = Math.min(remainingLen,
+                    currentSegment.length - offsetInSegment);
 
-            DownloadPromise download = download(currentSegment.toId(), NULL_LEN_CALLBACK,
+            DownloadPromise download = download(currentSegment.toId(),
+                    NULL_LEN_CALLBACK,
                     output, offsetInSegment, lengthForCurrentSegment);
             download.future.whenComplete((a, error) -> {
                 if (error != null) {
@@ -274,7 +293,8 @@ public class ClusterObjectManager implements ObjectManager {
                     // fast fail, complete the future
                     result.completeExceptionally(error);
                 } else {
-                    long newRemainingLen = remainingLen - lengthForCurrentSegment;
+                    long newRemainingLen =
+                            remainingLen - lengthForCurrentSegment;
 
                     if (newRemainingLen == 0) {
                         FutureUtils.complete(result, null);
@@ -298,7 +318,8 @@ public class ClusterObjectManager implements ObjectManager {
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
         public NamedObjectDeletePromise deleteByName(String name) {
             try {
-                List<String> ids = metadataManager.lookupObjectByName(bucketId, name);
+                List<String> ids = metadataManager.lookupObjectByName(bucketId,
+                        name);
                 CompletableFuture<?> res = new CompletableFuture<>();
 
                 if (!ids.isEmpty()) {
@@ -321,7 +342,9 @@ public class ClusterObjectManager implements ObjectManager {
                 }
                 return new NamedObjectDeletePromise(name, ids, res);
             } catch (ObjectManagerException err) {
-                return new NamedObjectDeletePromise(null, Collections.emptyList(), BookKeeperBlobManager.wrapGenericException(err));
+                return new NamedObjectDeletePromise(null, Collections.
+                        emptyList(), BookKeeperBlobManager.wrapGenericException(
+                                err));
             }
         }
 
@@ -333,7 +356,9 @@ public class ClusterObjectManager implements ObjectManager {
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
         private DeletePromise delete(String objectId, String name) {
             if (objectId == null) {
-                return new DeletePromise(null, BookKeeperBlobManager.wrapGenericException(new IllegalArgumentException("null id")));
+                return new DeletePromise(null, BookKeeperBlobManager.
+                        wrapGenericException(new IllegalArgumentException(
+                                "null id")));
             }
             CompletableFuture<Void> result = new CompletableFuture<>();
             if (BKEntryId.EMPTY_ENTRY_ID.equals(objectId)) {
@@ -343,7 +368,8 @@ public class ClusterObjectManager implements ObjectManager {
             } else {
                 try {
                     BKEntryId bk = BKEntryId.parseId(objectId);
-                    metadataManager.deleteObject(bucketId, bk.ledgerId, bk.firstEntryId, name);
+                    metadataManager.deleteObject(bucketId, bk.ledgerId,
+                            bk.firstEntryId, name);
                     result.complete(null);
                 } catch (ObjectManagerException ex) {
                     result.completeExceptionally(ex);
@@ -353,7 +379,8 @@ public class ClusterObjectManager implements ObjectManager {
         }
 
         @Override
-        public CompletableFuture<? extends LocationInfo> getLocationInfo(String objectId) throws ObjectManagerException {
+        public CompletableFuture<? extends LocationInfo> getLocationInfo(
+                String objectId) throws ObjectManagerException {
             BKEntryId bk = BKEntryId.parseId(objectId);
             return blobManager.getLocationInfo(bk);
         }
@@ -366,8 +393,11 @@ public class ClusterObjectManager implements ObjectManager {
     }
 
     @Override
-    public CompletableFuture<BucketMetadata> createBucket(String bucketId, String tablespaceName, BucketConfiguration configuration) {
-        return metadataManager.createBucket(bucketId, tablespaceName, configuration);
+    public CompletableFuture<BucketMetadata> createBucket(String bucketId,
+            String tablespaceName,
+            BucketConfiguration configuration) {
+        return metadataManager.createBucket(bucketId, tablespaceName,
+                configuration);
     }
 
     @Override
@@ -383,7 +413,8 @@ public class ClusterObjectManager implements ObjectManager {
                     String bucketId = bucket.getBucketId();
                     gcBucket(bucketId);
                 } catch (ObjectManagerException ex) {
-                    LOG.log(Level.SEVERE, "Error during gc of bucket " + bucket.getBucketId(), ex);
+                    LOG.log(Level.SEVERE, "Error during gc of bucket " + bucket.
+                            getBucketId(), ex);
                 }
             });
         } catch (ObjectManagerException ex) {
@@ -392,8 +423,10 @@ public class ClusterObjectManager implements ObjectManager {
     }
 
     private void gcBucket(String bucketId) throws ObjectManagerException {
-        Collection<Long> ledgers = metadataManager.listDeletableLedgers(bucketId);
-        LOG.log(Level.SEVERE, "There are {0} deletable ledgers for bucket {1}", new Object[]{ledgers.size(), bucketId});
+        Collection<Long> ledgers = metadataManager.
+                listDeletableLedgers(bucketId);
+        LOG.log(Level.SEVERE, "There are {0} deletable ledgers for bucket {1}",
+                new Object[]{ledgers.size(), bucketId});
         for (long idledger : ledgers) {
             boolean ok = blobManager.dropLedger(idledger);
             if (ok) {
@@ -434,7 +467,8 @@ public class ClusterObjectManager implements ObjectManager {
 
     @Override
     public void cleanup() throws ObjectManagerException {
-        List<BucketMetadata> buckets = metadataManager.selectBucketsMarkedForDeletion();
+        List<BucketMetadata> buckets = metadataManager.
+                selectBucketsMarkedForDeletion();
         if (buckets.isEmpty()) {
             return;
         }
@@ -444,7 +478,8 @@ public class ClusterObjectManager implements ObjectManager {
 
         // delete references to the bucket from bucket-wide metadata
         for (BucketMetadata bucket : buckets) {
-            LOG.log(Level.INFO, "found {0} uuid {1} to be erased", new Object[]{bucket.getBucketId(), bucket.getUuid()});
+            LOG.log(Level.INFO, "found {0} uuid {1} to be erased",
+                    new Object[]{bucket.getBucketId(), bucket.getUuid()});
             metadataManager.cleanupDeletedBucketByUuid(bucket);
         }
 

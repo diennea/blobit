@@ -26,8 +26,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.blobit.core.api.BucketHandle;
@@ -41,6 +39,15 @@ import org.blobit.core.api.PutPromise;
  */
 @Parameters(commandDescription = "Put a BLOB")
 public class CommandAppend extends BucketCommand {
+    private static PutPromise writeFile(File file, BucketHandle bucketHandle)
+            throws IOException, InterruptedException, ObjectManagerException {
+        try (InputStream ii = new BufferedInputStream(new FileInputStream(file))) {
+            PutPromise put = bucketHandle
+                    .put(null, file.length(), ii);
+            System.out.println("PUT PROMISE: object id: '" + put.id + "'");
+            return put;
+        }
+    }
 
     @Parameter(names = "--name", description = "Name of the blob, default to the same name of the file to write")
     public String name;
@@ -78,7 +85,9 @@ public class CommandAppend extends BucketCommand {
         AtomicLong totalBytes = new AtomicLong();
         AtomicInteger totalFiles = new AtomicInteger();
         if (file.isFile()) {
-            System.out.println("APPEND BUCKET '" + bucket + "' NAME '" + name + "' " + file.length() + " bytes (maxEntrySize " + maxEntrySize + " bytes, replicationFactor: " + replication + ", checksum:" + checksum + " deferredSync:" + deferredSync + ")");
+            System.out.println("APPEND BUCKET '" + bucket + "' NAME '" + name + "' " + file.length()
+                    + " bytes (maxEntrySize " + maxEntrySize + " bytes, replicationFactor: " + replication
+                    + ", checksum:" + checksum + " deferredSync:" + deferredSync + ")");
         } else {
             throw new IOException("File " + file + " does not exists or is not a file");
         }
@@ -94,18 +103,10 @@ public class CommandAppend extends BucketCommand {
             bucketHandle.append(promise.id, name);
             long _stop = System.currentTimeMillis();
             double speed = (totalBytes.get() * 1000) / (1024 * 1024.0 * (_stop - _start));
-            System.out.println("1 OBJECT " + (totalBytes.get() / (1024 * 1024)) + " MBs WRITTEN SUCCESSFULLY, " + speed + " MB/s");
+            System.out.println("1 OBJECT " + (totalBytes.get() / (1024 * 1024)) + " MBs WRITTEN SUCCESSFULLY, " + speed
+                    + " MB/s");
         });
     }
 
-    private static PutPromise writeFile(File file, BucketHandle bucketHandle)
-            throws IOException, InterruptedException, ObjectManagerException {
-        try (InputStream ii = new BufferedInputStream(new FileInputStream(file))) {
-            PutPromise put = bucketHandle
-                    .put(null, file.length(), ii);
-            System.out.println("PUT PROMISE: object id: '" + put.id + "'");
-            return put;
-        }
-    }
 
 }

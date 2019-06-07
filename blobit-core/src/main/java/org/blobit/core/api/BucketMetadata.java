@@ -31,10 +31,10 @@ public class BucketMetadata {
     public static final int STATUS_ACTIVE = 0;
 
     public BucketMetadata(String bucketId,
-        String uuid,
-        int status,
-        BucketConfiguration configuration,
-        String tableSpaceName) {
+            String uuid,
+            int status,
+            BucketConfiguration configuration,
+            String tableSpaceName) {
         this.bucketId = bucketId;
         this.configuration = configuration;
         this.tableSpaceName = tableSpaceName;

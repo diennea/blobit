@@ -26,8 +26,9 @@ package org.blobit.core.api;
  */
 public class ObjectNotFoundException extends ObjectManagerException {
 
-    public static final ObjectNotFoundException INSTANCE = new ObjectNotFoundException();
-    
+    public static final ObjectNotFoundException INSTANCE =
+            new ObjectNotFoundException();
+
     public ObjectNotFoundException() {
     }
 

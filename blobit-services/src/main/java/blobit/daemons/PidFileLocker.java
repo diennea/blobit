@@ -37,10 +37,11 @@ import java.util.concurrent.TimeUnit;
  */
 public class PidFileLocker implements AutoCloseable {
 
+    private static final String PIDFILE = System.getProperty("pidfile", "");
+
     private final Path file;
     private final byte[] pid;
     private volatile boolean closed;
-    private final static String PIDFILE = System.getProperty("pidfile", "");
 
     private final ScheduledExecutorService timer = Executors.newSingleThreadScheduledExecutor(runnable -> {
         Thread thread = new Thread(runnable, "pid-file-locker");
@@ -87,12 +88,16 @@ public class PidFileLocker implements AutoCloseable {
             try {
                 actualContent = Files.readAllBytes(file);
             } catch (IOException err) {
-                System.out.println("Lock file " + file.toAbsolutePath() + " cannot be read (" + err + "). stopping service");
-                throw new Exception("Lock file " + file.toAbsolutePath() + " cannot be read (" + err + "). stopping service", err);
+                System.out.println("Lock file " + file.toAbsolutePath() + " cannot be read (" + err
+                        + "). stopping service");
+                throw new Exception("Lock file " + file.toAbsolutePath() + " cannot be read (" + err
+                        + "). stopping service", err);
             }
             if (!Arrays.equals(pid, actualContent)) {
-                System.out.println("Lock file " + file.toAbsolutePath() + " changed, now contains " + new String(actualContent, StandardCharsets.UTF_8) + ". stopping service");
-                throw new Exception("Lock file " + file.toAbsolutePath() + " changed, now contains " + new String(actualContent, StandardCharsets.UTF_8) + ". stopping service");
+                System.out.println("Lock file " + file.toAbsolutePath() + " changed, now contains " + new String(
+                        actualContent, StandardCharsets.UTF_8) + ". stopping service");
+                throw new Exception("Lock file " + file.toAbsolutePath() + " changed, now contains " + new String(
+                        actualContent, StandardCharsets.UTF_8) + ". stopping service");
             }
         }
     }

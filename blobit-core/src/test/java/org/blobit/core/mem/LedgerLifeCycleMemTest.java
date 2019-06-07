@@ -22,22 +22,19 @@ package org.blobit.core.mem;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-
+import herddb.server.ServerConfiguration;
 import java.util.Collection;
 import java.util.Properties;
 import java.util.Random;
-
 import org.blobit.core.api.BucketConfiguration;
+import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.LedgerMetadata;
+import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectManagerFactory;
 import org.blobit.core.api.ObjectMetadata;
 import org.junit.Assert;
 import org.junit.Test;
-
-import herddb.server.ServerConfiguration;
-import org.blobit.core.api.BucketHandle;
-import org.blobit.core.api.ObjectManagerException;
 
 public class LedgerLifeCycleMemTest {
 
@@ -52,13 +49,15 @@ public class LedgerLifeCycleMemTest {
     @Test
     public void testWrite() throws Exception {
         Properties dsProperties = new Properties();
-        dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
+        dsProperties.put(ServerConfiguration.PROPERTY_MODE,
+                ServerConfiguration.PROPERTY_MODE_LOCAL);
 
-        Configuration configuration
-                = new Configuration()
+        Configuration configuration =
+                new Configuration()
                         .setType(Configuration.TYPE_MEM)
                         .setConcurrentWriters(10);
-        try (LocalManager manager = (LocalManager) ObjectManagerFactory.createObjectManager(configuration, null);) {
+        try (LocalManager manager = (LocalManager) ObjectManagerFactory.
+                createObjectManager(configuration, null);) {
             long _start = System.currentTimeMillis();
             BucketHandle bucket = manager.getBucket(BUCKET_ID);
             try {
@@ -68,15 +67,18 @@ public class LedgerLifeCycleMemTest {
                 ok.printStackTrace();
             }
 
-            manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
+            manager.createBucket(BUCKET_ID, BUCKET_ID,
+                    BucketConfiguration.DEFAULT).get();
             String id = bucket.put(null, TEST_DATA).get();
             Assert.assertArrayEquals(bucket.get(id).get(), TEST_DATA);
 
             {
-                Collection<LedgerMetadata> ledgers = manager.listLedgersbyBucketId(BUCKET_ID);
+                Collection<LedgerMetadata> ledgers = manager.
+                        listLedgersbyBucketId(BUCKET_ID);
                 for (LedgerMetadata l : ledgers) {
                     System.out.println("LedgerMetadata:" + l);
-                    Collection<ObjectMetadata> blobs = manager.listObjectsByLedger(BUCKET_ID, l.getId());
+                    Collection<ObjectMetadata> blobs = manager.
+                            listObjectsByLedger(BUCKET_ID, l.getId());
 //                        for (ObjectMetadata blob : blobs) {
 //                            System.out.println("blob: " + blob);
 //                        }
@@ -92,10 +94,12 @@ public class LedgerLifeCycleMemTest {
             bucket.delete(id).get();
 
             {
-                Collection<LedgerMetadata> ledgers = manager.listLedgersbyBucketId(BUCKET_ID);
+                Collection<LedgerMetadata> ledgers = manager.
+                        listLedgersbyBucketId(BUCKET_ID);
                 for (LedgerMetadata l : ledgers) {
 //                        System.out.println("LedgerMetadata:" + l);
-                    Collection<ObjectMetadata> blobs = manager.listObjectsByLedger(BUCKET_ID, l.getId());
+                    Collection<ObjectMetadata> blobs = manager.
+                            listObjectsByLedger(BUCKET_ID, l.getId());
 //                        for (ObjectMetadata blob : blobs) {
 //                            System.out.println("blob: " + blob);
 //                        }

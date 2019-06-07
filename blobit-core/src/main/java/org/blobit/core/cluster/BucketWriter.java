@@ -19,23 +19,6 @@
  */
 package org.blobit.core.cluster;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.locks.Condition;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import org.apache.bookkeeper.client.api.WriteAdvHandle;
-import org.apache.bookkeeper.client.api.BKException;
-import org.apache.bookkeeper.client.api.BookKeeper;
-
-import org.blobit.core.api.ObjectManagerException;
-import org.blobit.core.api.PutPromise;
-
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.netty.buffer.Unpooled;
 import java.io.EOFException;
@@ -45,11 +28,25 @@ import java.nio.charset.StandardCharsets;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import org.apache.bookkeeper.client.api.BKException;
+import org.apache.bookkeeper.client.api.BookKeeper;
 import org.apache.bookkeeper.client.api.DigestType;
+import org.apache.bookkeeper.client.api.WriteAdvHandle;
 import org.apache.bookkeeper.client.api.WriteFlag;
 import org.blobit.core.api.BucketMetadata;
+import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectManagerRuntimeException;
+import org.blobit.core.api.PutPromise;
 
 /**
  * Writes all data for a given bucket
@@ -58,7 +55,8 @@ import org.blobit.core.api.ObjectManagerRuntimeException;
  */
 public class BucketWriter {
 
-    private static final Logger LOG = Logger.getLogger(BucketWriter.class.getName());
+    private static final Logger LOG = Logger.getLogger(BucketWriter.class.
+            getName());
     static final String BK_METADATA_BUCKET_ID = "bucketId";
     static final String BK_METADATA_BUCKET_UUID = "bucketUUID";
 
@@ -75,7 +73,8 @@ public class BucketWriter {
     private final BookKeeperBlobManager blobManager;
     static final byte[] DUMMY_PWD = new byte[0];
 
-    private static final EnumSet<WriteFlag> DEFERRED_SYNC = EnumSet.of(WriteFlag.DEFERRED_SYNC);
+    private static final EnumSet<WriteFlag> DEFERRED_SYNC = EnumSet.of(
+            WriteFlag.DEFERRED_SYNC);
     private final Long id;
     private AtomicLong nextEntryId = new AtomicLong();
 
@@ -97,24 +96,28 @@ public class BucketWriter {
             this.callbacksExecutor = blobManager.getCallbacksExecutor();
             this.maxBytesPerLedger = maxBytesPerLedger;
             this.metadataStorageManager = metadataStorageManager;
-            BucketMetadata bucketMetadata = metadataStorageManager.getBucketMetadata(bucketId);;
+            BucketMetadata bucketMetadata = metadataStorageManager.
+                    getBucketMetadata(bucketId);
             if (bucketMetadata == null) {
                 throw new ObjectManagerException("no such bucket " + bucketId);
             }
             String bucketUUID = bucketMetadata.getUuid();
             this.bucketId = bucketId;
             Map<String, byte[]> ledgerMetadata = new HashMap<>();
-            ledgerMetadata.put(BK_METADATA_BUCKET_ID, bucketId.getBytes(StandardCharsets.UTF_8));
-            ledgerMetadata.put(BK_METADATA_BUCKET_UUID, bucketUUID.getBytes(StandardCharsets.UTF_8));
+            ledgerMetadata.put(BK_METADATA_BUCKET_ID, bucketId.getBytes(
+                    StandardCharsets.UTF_8));
+            ledgerMetadata.put(BK_METADATA_BUCKET_UUID, bucketUUID.getBytes(
+                    StandardCharsets.UTF_8));
             this.deferredSync = deferredSync;
             this.lh = bookKeeper.
                     newCreateLedgerOp()
                     .withAckQuorumSize(replicationFactor)
                     .withWriteQuorumSize(replicationFactor)
                     .withEnsembleSize(replicationFactor)
-                    .withDigestType(enableChecksum ? DigestType.CRC32C : DigestType.DUMMY)
-                    .withWriteFlags(deferredSync ? DEFERRED_SYNC : WriteFlag.NONE)
-                    .withPassword(DUMMY_PWD)
+                    .withDigestType(
+                            enableChecksum ? DigestType.CRC32C : DigestType.DUMMY).
+                    withWriteFlags(deferredSync ? DEFERRED_SYNC : WriteFlag.NONE).
+                    withPassword(DUMMY_PWD)
                     .withCustomMetadata(ledgerMetadata)
                     .makeAdv()
                     .execute()
@@ -128,7 +131,9 @@ public class BucketWriter {
             throw new ObjectManagerException(ex.getCause());
         }
 
-        LOG.log(Level.INFO, "Opened BucketWriter for bucket {0}: ledger {1}, replication factor {2}", new Object[]{bucketId, id, replicationFactor});
+        LOG.log(Level.INFO,
+                "Opened BucketWriter for bucket {0}: ledger {1}, replication factor {2}",
+                new Object[]{bucketId, id, replicationFactor});
 
     }
 
@@ -141,11 +146,13 @@ public class BucketWriter {
     }
 
     @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
-    PutPromise writeBlob(String bucketId, String name, byte[] data, int offset, int len) {
+    PutPromise writeBlob(String bucketId, String name, byte[] data, int offset,
+            int len) {
 
         if (len == 0) {
             CompletableFuture<Void> result = new CompletableFuture<>();
-            result.completeExceptionally(new IllegalStateException().fillInStackTrace());
+            result.completeExceptionally(new IllegalStateException().
+                    fillInStackTrace());
             return new PutPromise(null, result);
         }
 
@@ -171,7 +178,8 @@ public class BucketWriter {
                 chunkLen = len - written;
             }
             writtenBytes.addAndGet(chunkLen);
-            lastEntry = lh.writeAsync(entryId, Unpooled.wrappedBuffer(data, chunkStartOffSet, chunkLen));
+            lastEntry = lh.writeAsync(entryId, Unpooled.wrappedBuffer(data,
+                    chunkStartOffSet, chunkLen));
             chunkStartOffSet += chunkLen;
             written += chunkLen;
             entryId++;
@@ -180,25 +188,30 @@ public class BucketWriter {
         if (lastEntry == null) {
             pendingWrites.decrementAndGet();
             CompletableFuture<Void> result = new CompletableFuture<>();
-            result.completeExceptionally(new IllegalStateException().fillInStackTrace());
+            result.completeExceptionally(new IllegalStateException().
+                    fillInStackTrace());
             return new PutPromise(null, result);
         }
 
         // we are attaching to lastEntry, because BookKeeper will ackknowledge writes in order
-        CompletableFuture<Long> afterMetadata = lastEntry.handleAsync((Long _entryId, Throwable u) -> {
-            pendingWrites.decrementAndGet();
-            if (u != null) {
-                throw new ObjectManagerRuntimeException(new ObjectManagerException(u));
-            }
-            try {
-                metadataStorageManager.registerObject(bucketId, id,
-                        firstEntryId, numEntries, maxEntrySize, len, blobId, name, 0);
-                return null;
-            } catch (Throwable err) {
-                LOG.log(Level.SEVERE, "bad error while completing blob", err);
-                throw new RuntimeException(err);
-            }
-        }, callbacksExecutor);
+        CompletableFuture<Long> afterMetadata = lastEntry.handleAsync(
+                (Long _entryId, Throwable u) -> {
+                    pendingWrites.decrementAndGet();
+                    if (u != null) {
+                        throw new ObjectManagerRuntimeException(
+                                new ObjectManagerException(u));
+                    }
+                    try {
+                        metadataStorageManager.registerObject(bucketId, id,
+                                firstEntryId, numEntries, maxEntrySize, len,
+                                blobId, name, 0);
+                        return null;
+                    } catch (Throwable err) {
+                        LOG.log(Level.SEVERE, "bad error while completing blob",
+                                err);
+                        throw new RuntimeException(err);
+                    }
+                }, callbacksExecutor);
         return new PutPromise(blobId, afterMetadata);
     }
 
@@ -207,7 +220,8 @@ public class BucketWriter {
 
         if (len == 0) {
             CompletableFuture<Void> result = new CompletableFuture<>();
-            result.completeExceptionally(new IllegalStateException().fillInStackTrace());
+            result.completeExceptionally(new IllegalStateException().
+                    fillInStackTrace());
             return new PutPromise(null, result);
         }
 
@@ -215,7 +229,8 @@ public class BucketWriter {
         if (_numEntries >= Integer.MAX_VALUE) {
             // very huge !
             CompletableFuture<Void> result = new CompletableFuture<>();
-            result.completeExceptionally(new IllegalArgumentException().fillInStackTrace());
+            result.completeExceptionally(new IllegalArgumentException().
+                    fillInStackTrace());
             return new PutPromise(null, result);
         }
 
@@ -255,7 +270,9 @@ public class BucketWriter {
                     while (n < chunkLen) {
                         int count = in.read(chunk, 0 + n, chunkLen - n);
                         if (count < 0) {
-                            throw new EOFException("short read from stream, read up to " + n + " expected " + chunkLen + " for chunk #" + i);
+                            throw new EOFException(
+                                    "short read from stream, read up to " + n + " expected " + chunkLen + " for chunk #"
+                                    + i);
                         }
                         n += count;
                     }
@@ -283,7 +300,8 @@ public class BucketWriter {
         if (lastEntry == null) {
             pendingWrites.decrementAndGet();
             CompletableFuture<Void> result = new CompletableFuture<>();
-            result.completeExceptionally(new IllegalStateException().fillInStackTrace());
+            result.completeExceptionally(new IllegalStateException().
+                    fillInStackTrace());
             return new PutPromise(blobId, result);
         }
 
@@ -298,10 +316,12 @@ public class BucketWriter {
                     try {
                         metadataStorageManager
                                 .registerObject(bucketId, id, firstEntryId,
-                                        numEntries, maxEntrySize, len, blobId, name, 0);
+                                        numEntries, maxEntrySize, len, blobId,
+                                        name, 0);
                         return null;
                     } catch (Throwable err) {
-                        LOG.log(Level.SEVERE, "bad error while completing blob", err);
+                        LOG.log(Level.SEVERE, "bad error while completing blob",
+                                err);
                         throw new RuntimeException(err);
                     }
                 }, callbacksExecutor);
@@ -352,8 +372,7 @@ public class BucketWriter {
     /**
      * Release resources or schedule them to release.
      *
-     * @return {@code true} if really released, {@code false} otherwise
-     * (rescheduled or already closed)
+     * @return {@code true} if really released, {@code false} otherwise (rescheduled or already closed)
      */
     boolean releaseResources() {
         if (pendingWrites.get() > 0) {
@@ -399,17 +418,23 @@ public class BucketWriter {
                 // it
                 lh.force().handle((res, error) -> {
                     if (error != null) {
-                        LOG.log(Level.SEVERE, "Error while forcing final sync on ledger " + lh.getId(), error);
+                        LOG.log(Level.SEVERE,
+                                "Error while forcing final sync on ledger " + lh.
+                                        getId(), error);
                     }
                     // even in case of error we are trying to close the
                     closeHandle();
                     return res;
                 }).get();
             } catch (ExecutionException notReallyAProblem) {
-                LOG.log(Level.INFO, "There was an error while closing ledger " + id + ", this should not be a big problem", notReallyAProblem);
+                LOG.log(Level.INFO,
+                        "There was an error while closing ledger " + id + ", this should not be a big problem",
+                        notReallyAProblem);
             } catch (InterruptedException notReallyAProblem) {
                 Thread.currentThread().interrupt();
-                LOG.log(Level.INFO, "There was an error while closing ledger " + id + ", this should not be a big problem", notReallyAProblem);
+                LOG.log(Level.INFO,
+                        "There was an error while closing ledger " + id + ", this should not be a big problem",
+                        notReallyAProblem);
             }
         } else {
             closeHandle();
@@ -424,10 +449,14 @@ public class BucketWriter {
         try {
             lh.close();
         } catch (BKException notReallyAProblem) {
-            LOG.log(Level.INFO, "There was an error while closing ledger " + id + ", this should not be a big problem", notReallyAProblem);
+            LOG.log(Level.INFO,
+                    "There was an error while closing ledger " + id + ", this should not be a big problem",
+                    notReallyAProblem);
         } catch (InterruptedException notReallyAProblem) {
             Thread.currentThread().interrupt();
-            LOG.log(Level.INFO, "There was an error while closing ledger " + id + ", this should not be a big problem", notReallyAProblem);
+            LOG.log(Level.INFO,
+                    "There was an error while closing ledger " + id + ", this should not be a big problem",
+                    notReallyAProblem);
         }
     }
 

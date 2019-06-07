@@ -70,8 +70,10 @@ public class Configuration {
     public static final String ZOOKEEPER_URL = "zookeeper.url";
     public static final String ZOOKEEPER_URL_DEFAULT = "localhost:2181";
 
-    public static final String BOOKKEEPER_ZK_LEDGERS_ROOT_PATH = "client.bookkeeper.zk.ledgers.root.path";
-    public static final String BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT = "/ledgers";
+    public static final String BOOKKEEPER_ZK_LEDGERS_ROOT_PATH =
+            "client.bookkeeper.zk.ledgers.root.path";
+    public static final String BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT =
+            "/ledgers";
 
     public Configuration() {
         this.properties = new Properties();
@@ -107,11 +109,13 @@ public class Configuration {
     }
 
     public boolean isUseTablespaces() {
-        return Boolean.parseBoolean(properties.getProperty(USE_TABLESPACES, USE_TABLESPACES_DEFAULT));
+        return Boolean.parseBoolean(properties.getProperty(USE_TABLESPACES,
+                USE_TABLESPACES_DEFAULT));
     }
 
     public boolean isManageTablespaces() {
-        return Boolean.parseBoolean(properties.getProperty(MANAGE_TABLESPACES, MANAGE_TABLESPACES_DEFAULT));
+        return Boolean.parseBoolean(properties.getProperty(MANAGE_TABLESPACES,
+                MANAGE_TABLESPACES_DEFAULT));
     }
 
     public Configuration setUseTablespaces(boolean value) {
@@ -134,7 +138,8 @@ public class Configuration {
     }
 
     public String getBucketsTableSpace() {
-        return properties.getProperty(BUCKETS_TABLESPACE, BUCKETS_TABLESPACE_DEFAULT);
+        return properties.getProperty(BUCKETS_TABLESPACE,
+                BUCKETS_TABLESPACE_DEFAULT);
     }
 
     public Configuration setReplicationFactor(int factor) {
@@ -143,7 +148,8 @@ public class Configuration {
     }
 
     public int getReplicationFactor() {
-        return Integer.parseInt(properties.getProperty(REPLICATION_FACTOR, REPLICATION_FACTOR_DEFAULT + ""));
+        return Integer.parseInt(properties.getProperty(REPLICATION_FACTOR,
+                REPLICATION_FACTOR_DEFAULT + ""));
     }
 
     public Configuration setMaxBytesPerLedger(long value) {
@@ -152,7 +158,8 @@ public class Configuration {
     }
 
     public long getMaxBytesPerLedger() {
-        return Long.parseLong(properties.getProperty(MAX_BYTES_PER_LEDGER, MAX_BYTES_PER_LEDGER_DEFAULT + ""));
+        return Long.parseLong(properties.getProperty(MAX_BYTES_PER_LEDGER,
+                MAX_BYTES_PER_LEDGER_DEFAULT + ""));
     }
 
     public Configuration setMaxEntrySize(int value) {
@@ -161,7 +168,8 @@ public class Configuration {
     }
 
     public int getMaxEntrySize() {
-        return Integer.parseInt(properties.getProperty(MAX_ENTRY_SIZE, MAX_ENTRY_SIZE_DEFAULT + ""));
+        return Integer.parseInt(properties.getProperty(MAX_ENTRY_SIZE,
+                MAX_ENTRY_SIZE_DEFAULT + ""));
     }
 
     public Configuration setConcurrentWriters(int v) {
@@ -175,15 +183,18 @@ public class Configuration {
     }
 
     public int getConcurrentWriters() {
-        return Integer.parseInt(properties.getProperty(CUNCURRENT_WRITERS, CUNCURRENT_WRITERS_DEFAULT + ""));
+        return Integer.parseInt(properties.getProperty(CUNCURRENT_WRITERS,
+                CUNCURRENT_WRITERS_DEFAULT + ""));
     }
 
     public int getMaxReaders() {
-        return Integer.parseInt(properties.getProperty(MAX_READERS, MAX_READERS_DEFAULT + ""));
+        return Integer.parseInt(properties.getProperty(MAX_READERS,
+                MAX_READERS_DEFAULT + ""));
     }
 
     public boolean isEnableChecksum() {
-        return Boolean.parseBoolean(properties.getProperty(ENABLE_CHECKSUM, ENABLE_CHECKSUM_DEFAULT + ""));
+        return Boolean.parseBoolean(properties.getProperty(ENABLE_CHECKSUM,
+                ENABLE_CHECKSUM_DEFAULT + ""));
     }
 
     public Configuration setEnableCheckSum(boolean value) {
@@ -192,7 +203,8 @@ public class Configuration {
     }
 
     public boolean isDeferredSync() {
-        return Boolean.parseBoolean(properties.getProperty(DEFERRED_SYNC, DEFERRED_SYNC_DEFAULT + ""));
+        return Boolean.parseBoolean(properties.getProperty(DEFERRED_SYNC,
+                DEFERRED_SYNC_DEFAULT + ""));
     }
 
     public Configuration setDeferredSync(boolean value) {

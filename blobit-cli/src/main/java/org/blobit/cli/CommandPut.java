@@ -28,7 +28,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.blobit.core.api.BucketHandle;
@@ -42,6 +41,37 @@ import org.blobit.core.api.PutPromise;
  */
 @Parameters(commandDescription = "Put a BLOB")
 public class CommandPut extends BucketCommand {
+
+    private static void writeOrScan(File theFile, String name, BucketHandle bucketHandle,
+            AtomicInteger totalFiles, AtomicLong totalBytes, List<PutPromise> results) throws IOException,
+            InterruptedException, ObjectManagerException {
+        if (theFile.isDirectory() && name == null) {
+            File[] children = theFile.listFiles();
+            if (children != null) {
+                for (File child : children) {
+                    writeOrScan(child, name, bucketHandle, totalFiles, totalBytes, results);
+                }
+            }
+        } else {
+            writeFile(theFile, name, bucketHandle, totalFiles, totalBytes, results);
+        }
+    }
+
+    private static void writeFile(File file, String name, BucketHandle bucketHandle,
+            AtomicInteger totalCount, AtomicLong totalWritten, List<PutPromise> results)
+            throws IOException, InterruptedException, ObjectManagerException {
+        if (name == null || name.isEmpty()) {
+            name = file.getName();
+        }
+        totalCount.incrementAndGet();
+        try (InputStream ii = new BufferedInputStream(new FileInputStream(file))) {
+            PutPromise put = bucketHandle
+                    .put(name, file.length(), ii);
+            System.out.println("PUT PROMISE: object id: '" + put.id + "' name: '" + name + "'");
+            results.add(put);
+            totalWritten.addAndGet(file.length());
+        }
+    }
 
     @Parameter(names = "--name", description = "Name of the blob, default to the same name of the file to write")
     public String name;
@@ -79,9 +109,13 @@ public class CommandPut extends BucketCommand {
         AtomicLong totalBytes = new AtomicLong();
         AtomicInteger totalFiles = new AtomicInteger();
         if (file.isFile()) {
-            System.out.println("PUT BUCKET '" + bucket + "' NAME '" + name + "' " + file.length() + " bytes (maxEntrySize " + maxEntrySize + " bytes, replicationFactor: " + replication + ", checksum:" + checksum + " deferredSync:" + deferredSync + ")");
+            System.out.println("PUT BUCKET '" + bucket + "' NAME '" + name + "' " + file.length()
+                    + " bytes (maxEntrySize " + maxEntrySize + " bytes, replicationFactor: " + replication
+                    + ", checksum:" + checksum + " deferredSync:" + deferredSync + ")");
         } else if (file.isDirectory()) {
-            System.out.println("PUT BUCKET '" + bucket + "' DIRECTORY '" + file + "' (maxEntrySize " + maxEntrySize + " bytes, replicationFactor: " + replication + ", checksum:" + checksum + " deferredSync:" + deferredSync + ")");
+            System.out.println("PUT BUCKET '" + bucket + "' DIRECTORY '" + file + "' (maxEntrySize " + maxEntrySize
+                    + " bytes, replicationFactor: " + replication + ", checksum:" + checksum + " deferredSync:"
+                    + deferredSync + ")");
         } else {
             throw new IOException("File " + file + " does not exists");
         }
@@ -97,38 +131,9 @@ public class CommandPut extends BucketCommand {
             }
             long _stop = System.currentTimeMillis();
             double speed = (totalBytes.get() * 1000) / (1024 * 1024.0 * (_stop - _start));
-            System.out.println(totalFiles + " OBJECTs " + (totalBytes.get() / (1024 * 1024)) + " MBs WRITTEN SUCCESSFULLY, " + speed + " MB/s");
+            System.out.println(totalFiles + " OBJECTs " + (totalBytes.get() / (1024 * 1024))
+                    + " MBs WRITTEN SUCCESSFULLY, " + speed + " MB/s");
         });
-    }
-
-    private static void writeOrScan(File theFile, String name, BucketHandle bucketHandle,
-            AtomicInteger totalFiles, AtomicLong totalBytes, List<PutPromise> results) throws IOException, InterruptedException, ObjectManagerException {
-        if (theFile.isDirectory() && name == null) {
-            File[] children = theFile.listFiles();
-            if (children != null) {
-                for (File child : children) {
-                    writeOrScan(child, name, bucketHandle, totalFiles, totalBytes, results);
-                }
-            }
-        } else {
-            writeFile(theFile, name, bucketHandle, totalFiles, totalBytes, results);
-        }
-    }
-
-    private static void writeFile(File file, String name, BucketHandle bucketHandle,
-            AtomicInteger totalCount, AtomicLong totalWritten, List<PutPromise> results)
-            throws IOException, InterruptedException, ObjectManagerException {
-        if (name == null || name.isEmpty()) {
-            name = file.getName();
-        }
-        totalCount.incrementAndGet();
-        try (InputStream ii = new BufferedInputStream(new FileInputStream(file))) {
-            PutPromise put = bucketHandle
-                    .put(name, file.length(), ii);
-            System.out.println("PUT PROMISE: object id: '" + put.id + "' name: '" + name + "'");
-            results.add(put);
-            totalWritten.addAndGet(file.length());
-        }
     }
 
 }

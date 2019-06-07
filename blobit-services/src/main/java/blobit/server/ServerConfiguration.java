@@ -42,7 +42,7 @@ public final class ServerConfiguration {
 
     public static final String PROPERTY_DATABASE_START = "server.database.start";
     public static final boolean PROPERTY_DATABASE_START_DEFAULT = true;
-    
+
     public static final String PROPERTY_BOOKKEEPER_START = "server.bookkeeper.start";
     public static final boolean PROPERTY_BOOKKEEPER_START_DEFAULT = true;
 
@@ -63,7 +63,6 @@ public final class ServerConfiguration {
     public static final String PROPERTY_GC_PERIOD = "server.gc.period";
     public static final int PROPERTY_GC_PERIOD_DEFAULT = 60;
 
-    
     public ServerConfiguration(Properties properties) {
         this.properties = new Properties();
         this.properties.putAll(properties);

@@ -21,7 +21,6 @@ package org.blobit.cli;
 
 import com.beust.jcommander.Parameters;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.blobit.core.api.BucketConfiguration;
 
 /**
  * Delete a bucket
@@ -41,7 +40,8 @@ public class CommandListBuckets extends Command {
         AtomicInteger count = new AtomicInteger();
         doWithClient(client -> {
             client.listBuckets((md) -> {
-                System.out.println("BUCKET '" + md.getBucketId() + "', uuid '" + md.getUuid() + "' tablespace '" + md.getTableSpaceName() + "'");
+                System.out.println("BUCKET '" + md.getBucketId() + "', uuid '" + md.getUuid() + "' tablespace '" + md.
+                        getTableSpaceName() + "'");
                 count.incrementAndGet();
             });
         });

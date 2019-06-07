@@ -42,7 +42,7 @@ public class NetworkUtils {
 
     public static int assignFirstFreePort() throws IOException {
         try (
-            ServerSocket socket = new ServerSocket(0);) {
+                ServerSocket socket = new ServerSocket(0);) {
             return socket.getLocalPort();
 
         }

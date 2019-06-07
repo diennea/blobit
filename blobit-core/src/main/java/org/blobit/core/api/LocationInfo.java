@@ -22,8 +22,7 @@ package org.blobit.core.api;
 import java.util.List;
 
 /**
- * Detailed information about location of the data. This mostly is a wrapper
- * around BookKeeper metadata.
+ * Detailed information about location of the data. This mostly is a wrapper around BookKeeper metadata.
  *
  * @author eolivelli
  */
@@ -37,8 +36,8 @@ public interface LocationInfo {
     String getId();
 
     /**
-     * Servers that are known to store data at the given offset. This datum is
-     * read from metadata, servers are not queried directly.
+     * Servers that are known to store data at the given offset. This datum is read from metadata, servers are not
+     * queried directly.
      *
      * @param offset
      * @return the list of servers
@@ -53,20 +52,18 @@ public interface LocationInfo {
     long getSize();
 
     /**
-     * Get the list of segments, each part of the object can be stored on
-     * different machines.
+     * Get the list of segments, each part of the object can be stored on different machines.
      *
-     * @return the list of split points, it usually contains at least one entry
-     * if the blob is not empty.
+     * @return the list of split points, it usually contains at least one entry if the blob is not empty.
      */
     List<Long> getSegmentsStartOffsets();
 
     /**
      * Describe a server.
      */
-    public static interface ServerInfo {
+    interface ServerInfo {
 
-        public String getAddress();
+        String getAddress();
 
     }
 }

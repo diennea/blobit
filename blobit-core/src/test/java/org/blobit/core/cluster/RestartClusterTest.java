@@ -19,12 +19,14 @@
  */
 package org.blobit.core.cluster;
 
+import herddb.jdbc.HerdDBEmbeddedDataSource;
+import herddb.server.ServerConfiguration;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.Properties;
 import java.util.Random;
-
 import org.blobit.core.api.BucketConfiguration;
+import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerFactory;
@@ -34,14 +36,11 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-import herddb.jdbc.HerdDBEmbeddedDataSource;
-import herddb.server.ServerConfiguration;
-import org.blobit.core.api.BucketHandle;
-
 public class RestartClusterTest {
 
     @Rule
-    public final TemporaryFolder tmp = new TemporaryFolder(new File("target").getAbsoluteFile());
+    public final TemporaryFolder tmp = new TemporaryFolder(new File("target").
+            getAbsoluteFile());
 
     private static final String BUCKET_ID = "mybucket";
     private static final byte[] TEST_DATA = new byte[100 * 1024];
@@ -54,31 +53,42 @@ public class RestartClusterTest {
     @Test
     public void testRestart() throws Exception {
         Properties dsProperties = new Properties();
-        dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
+        dsProperties.put(ServerConfiguration.PROPERTY_MODE,
+                ServerConfiguration.PROPERTY_MODE_LOCAL);
 
         Path path = tmp.newFolder("zk").toPath();
 
         String insertedID;
 
         try (ZKTestEnv env = new ZKTestEnv(path);
-                HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
+                HerdDBEmbeddedDataSource datasource =
+                new HerdDBEmbeddedDataSource(
+                        dsProperties)) {
             env.startBookie();
-            Configuration configuration = new Configuration().setType(Configuration.TYPE_BOOKKEEPER)
+            Configuration configuration = new Configuration().setType(
+                    Configuration.TYPE_BOOKKEEPER)
                     .setConcurrentWriters(10).setZookeeperUrl(env.getAddress());
 
             /* First ObjectManager */
-            try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
-                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
+            try (ObjectManager manager = ObjectManagerFactory.
+                    createObjectManager(configuration, datasource);) {
+                manager.createBucket(BUCKET_ID, BUCKET_ID,
+                        BucketConfiguration.DEFAULT).get();
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
                 PutPromise put = bucket.put(null, TEST_DATA);
                 insertedID = put.get();
-                Assert.assertArrayEquals(TEST_DATA, bucket.get(insertedID).get());
+                Assert.
+                        assertArrayEquals(TEST_DATA, bucket.get(insertedID).
+                                get());
             }
 
             /* Second ObjectManager */
-            try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
+            try (ObjectManager manager = ObjectManagerFactory.
+                    createObjectManager(configuration, datasource);) {
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
-                Assert.assertArrayEquals(TEST_DATA, bucket.get(insertedID).get());
+                Assert.
+                        assertArrayEquals(TEST_DATA, bucket.get(insertedID).
+                                get());
             }
         }
     }

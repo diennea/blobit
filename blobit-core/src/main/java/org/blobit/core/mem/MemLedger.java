@@ -78,14 +78,14 @@ class MemLedger {
 
     Collection<ObjectMetadata> listObjects() {
         return data
-            .entrySet()
-            .stream()
-            .map(entry -> {
-                return new ObjectMetadata(
-                    entry.getValue().entryId.toId(),
-                    entry.getValue().data.length);
-            })
-            .collect(Collectors.toList());
+                .entrySet()
+                .stream()
+                .map(entry -> {
+                    return new ObjectMetadata(
+                            entry.getValue().entryId.toId(),
+                            entry.getValue().data.length);
+                })
+                .collect(Collectors.toList());
     }
 
     byte[] get(long firstEntryId) throws ObjectManagerException {
@@ -96,10 +96,10 @@ class MemLedger {
         return res.data;
     }
 
-    public MemEntryId put(byte[] _data) {
+    public MemEntryId put(byte[] entryData) {
         long id = nextId.incrementAndGet();
-        MemEntryId entryId = new MemEntryId(this.ledgerId, id, _data.length);
-        data.put(id, new MemEntry(entryId, _data));
+        MemEntryId entryId = new MemEntryId(this.ledgerId, id, entryData.length);
+        data.put(id, new MemEntry(entryId, entryData));
         return entryId;
     }
 

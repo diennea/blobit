@@ -37,7 +37,8 @@ public class NamedObjectDownloadPromise {
     public final CompletableFuture<?> future;
 
     public NamedObjectDownloadPromise(String name,
-            List<String> id, long length, CompletableFuture<?> future) {
+            List<String> id, long length,
+            CompletableFuture<?> future) {
         this.name = name;
         this.id = id;
         this.length = length;

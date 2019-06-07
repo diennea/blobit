@@ -19,19 +19,16 @@
  */
 package org.blobit.core.cluster;
 
+import static org.blobit.core.api.Configuration.BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT;
+import static org.blobit.core.util.TestUtils.NOOP;
 import java.nio.file.Path;
-
 import org.apache.bookkeeper.client.BookKeeperAdmin;
 import org.apache.bookkeeper.common.util.ReflectionUtils;
 import org.apache.bookkeeper.conf.ServerConfiguration;
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory;
-//import org.apache.bookkeeper.meta.LongHierarchicalLedgerManagerFactory;
 import org.apache.bookkeeper.proto.BookieServer;
-import org.apache.bookkeeper.stats.CodahaleMetricsProvider;
 import org.apache.bookkeeper.stats.StatsProvider;
-import static org.blobit.core.api.Configuration.BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT;
 import org.blobit.core.util.TestUtils;
-import static org.blobit.core.util.TestUtils.NOOP;
 
 public class ZKTestEnv implements AutoCloseable {
 
@@ -55,8 +52,11 @@ public class ZKTestEnv implements AutoCloseable {
 
         Path targetDir = path.resolve("bookie_data");
         conf.setZkServers("localhost:1282");
-        conf.setLedgerDirNames(new String[]{targetDir.toAbsolutePath().toString()});
-        conf.setLedgerManagerFactoryClass(HierarchicalLedgerManagerFactory.class);
+        conf.setLedgerDirNames(new String[]{targetDir.toAbsolutePath().
+            toString()});
+        conf.
+                setLedgerManagerFactoryClass(
+                        HierarchicalLedgerManagerFactory.class);
         conf.setZkLedgersRootPath(BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT);
         int numJournals = 1;
         String[] journals = new String[numJournals];
@@ -78,13 +78,12 @@ public class ZKTestEnv implements AutoCloseable {
         conf.setAutoRecoveryDaemonEnabled(false);
         conf.setEnableLocalTransport(true);
         conf.setAllowLoopback(true);
-        conf.setProperty("codahaleStatsJmxEndpoint", "BlobIt_Bookie");
-        conf.setStatsProviderClass(CodahaleMetricsProvider.class);
 
         BookKeeperAdmin.format(conf, false, false);
-        Class<? extends StatsProvider> statsProviderClass
-                = conf.getStatsProviderClass();
-        StatsProvider statsProvider = ReflectionUtils.newInstance(statsProviderClass);
+        Class<? extends StatsProvider> statsProviderClass =
+                conf.getStatsProviderClass();
+        StatsProvider statsProvider = ReflectionUtils.newInstance(
+                statsProviderClass);
         statsProvider.start(conf);
         this.bookie = new BookieServer(conf, statsProvider.getStatsLogger(""));
         this.bookie.start();

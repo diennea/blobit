@@ -19,14 +19,17 @@
  */
 package org.blobit.core.cluster;
 
+import herddb.jdbc.HerdDBEmbeddedDataSource;
+import herddb.server.ServerConfiguration;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.Random;
-
 import org.blobit.core.api.BucketConfiguration;
+import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.Configuration;
+import org.blobit.core.api.GetPromise;
 import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerFactory;
 import org.blobit.core.api.PutPromise;
@@ -35,16 +38,11 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-import herddb.jdbc.HerdDBEmbeddedDataSource;
-import herddb.server.ServerConfiguration;
-import java.util.concurrent.CompletableFuture;
-import org.blobit.core.api.BucketHandle;
-import org.blobit.core.api.GetPromise;
-
 public class SimpleClusterReadWriteTest {
 
     @Rule
-    public final TemporaryFolder tmp = new TemporaryFolder(new File("target").getAbsoluteFile());
+    public final TemporaryFolder tmp = new TemporaryFolder(new File("target").
+            getAbsoluteFile());
 
     private static final String BUCKET_ID = "mybucket";
     private static final byte[] TEST_DATA = new byte[100 * 1024];
@@ -57,19 +55,24 @@ public class SimpleClusterReadWriteTest {
     @Test
     public void testWrite() throws Exception {
         Properties dsProperties = new Properties();
-        dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
+        dsProperties.put(ServerConfiguration.PROPERTY_MODE,
+                ServerConfiguration.PROPERTY_MODE_LOCAL);
         try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
-                HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
+                HerdDBEmbeddedDataSource datasource =
+                new HerdDBEmbeddedDataSource(
+                        dsProperties)) {
             env.startBookie();
-            Configuration configuration
-                    = new Configuration()
+            Configuration configuration =
+                    new Configuration()
                             .setType(Configuration.TYPE_BOOKKEEPER)
                             .setConcurrentWriters(10)
                             .setZookeeperUrl(env.getAddress());
 
-            try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
+            try (ObjectManager manager = ObjectManagerFactory.
+                    createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
-                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
+                manager.createBucket(BUCKET_ID, BUCKET_ID,
+                        BucketConfiguration.DEFAULT).get();
                 List<PutPromise> batch = new ArrayList<>();
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
                 for (int i = 0; i < 1000; i++) {
@@ -83,11 +86,18 @@ public class SimpleClusterReadWriteTest {
                 }
 
                 long _stopWrite = System.currentTimeMillis();
-                double speedWrite = (int) (batch.size() * 60_000.0 / (_stopWrite - _start));
+                double speedWrite =
+                        (int) (batch.size() * 60_000.0 / (_stopWrite - _start));
                 double bandWrite = speedWrite * TEST_DATA.length;
 
-                long total = (batch.size() * TEST_DATA.length * 1L) / (1024 * 1024);
-                System.out.println("TIME: " + (_stopWrite - _start) + " ms for " + batch.size() + " blobs, total " + total + " MBs, " + speedWrite + " blobs/h, " + speedWrite * 24 + " blobs/day " + (bandWrite / 1e9) + " Gbytes/h");
+                long total =
+                        (batch.size() * TEST_DATA.length * 1L) / (1024 * 1024);
+                System.out.println(
+                        "TIME: " + (_stopWrite - _start) + " ms for " + batch.
+                                size() + " blobs, total "
+                        + total + " MBs, " + speedWrite + " blobs/h, " + speedWrite * 24 + " blobs/day " + (bandWrite
+                        / 1e9)
+                        + " Gbytes/h");
 
                 _start = _stopWrite;
 
@@ -103,9 +113,13 @@ public class SimpleClusterReadWriteTest {
 
                 long _stop = System.currentTimeMillis();
 
-                double speed = (int) (batch.size() * 60_000.0 / (_stop - _start));
+                double speed = (int) (batch.size() * 60_000.0
+                        / (_stop - _start));
                 double band = speed * TEST_DATA.length;
-                System.out.println("TIME: " + (_stop - _start) + " ms for " + batch.size() + " blobs, total " + total + " MBs, " + speed + " blobs/h, " + speed * 24 + " blobs/day " + (band / 1e9) + " Gbytes/h");
+                System.out.println("TIME: " + (_stop - _start) + " ms for "
+                        + batch.size() + " blobs, total " + total + " MBs, "
+                        + speed + " blobs/h, " + speed * 24 + " blobs/day "
+                        + (band / 1e9) + " Gbytes/h");
             }
         }
     }
