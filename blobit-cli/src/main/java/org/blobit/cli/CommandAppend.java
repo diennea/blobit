@@ -26,7 +26,6 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.Configuration;
@@ -83,7 +82,6 @@ public class CommandAppend extends BucketCommand {
     public void execute() throws Exception {
         long _start = System.currentTimeMillis();
         AtomicLong totalBytes = new AtomicLong();
-        AtomicInteger totalFiles = new AtomicInteger();
         if (file.isFile()) {
             System.out.println("APPEND BUCKET '" + bucket + "' NAME '" + name + "' " + file.length()
                     + " bytes (maxEntrySize " + maxEntrySize + " bytes, replicationFactor: " + replication

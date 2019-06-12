@@ -49,7 +49,7 @@ public class CommandPut extends BucketCommand {
             File[] children = theFile.listFiles();
             if (children != null) {
                 for (File child : children) {
-                    writeOrScan(child, name, bucketHandle, totalFiles, totalBytes, results);
+                    writeOrScan(child, null, bucketHandle, totalFiles, totalBytes, results);
                 }
             }
         } else {
