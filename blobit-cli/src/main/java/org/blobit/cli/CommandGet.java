@@ -29,7 +29,7 @@ import org.blobit.core.api.DownloadPromise;
 import org.blobit.core.api.NamedObjectDownloadPromise;
 
 /**
- *
+ * Download a blob.
  * @author eolivelli
  */
 @Parameters(commandDescription = "Get a BLOB")
@@ -43,7 +43,7 @@ public class CommandGet extends BucketCommand {
 
     @Parameter(names = "--out", description = "File to write to", required = true)
     public File file;
-        
+
     public CommandGet(CommandContext main) {
         super(main);
     }

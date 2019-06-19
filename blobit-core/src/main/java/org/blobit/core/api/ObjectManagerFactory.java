@@ -20,7 +20,6 @@
 package org.blobit.core.api;
 
 import javax.sql.DataSource;
-
 import org.blobit.core.cluster.ClusterObjectManager;
 import org.blobit.core.mem.LocalManager;
 
@@ -41,7 +40,8 @@ public class ObjectManagerFactory {
      * @throws ObjectManagerException
      * @see ObjectManager#close()
      */
-    public static ObjectManager createObjectManager(Configuration configuration, DataSource datasource) throws ObjectManagerException {
+    public static ObjectManager createObjectManager(Configuration configuration,
+            DataSource datasource) throws ObjectManagerException {
 
         final ObjectManager result;
         switch (configuration.getType()) {
@@ -57,7 +57,8 @@ public class ObjectManagerFactory {
             }
 
             default:
-                throw new ObjectManagerException("bad type " + configuration.getType());
+                throw new ObjectManagerException("bad type " + configuration.
+                        getType());
         }
 
         result.start();

@@ -36,7 +36,7 @@ public final class NamedObjectDeletePromise {
     public final List<String> id;
     public final CompletableFuture<?> future;
 
-    public NamedObjectDeletePromise(String name, 
+    public NamedObjectDeletePromise(String name,
             List<String> id, CompletableFuture<?> future) {
         this.name = name;
         this.id = id;

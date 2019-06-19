@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-
 import org.apache.bookkeeper.bookie.Bookie;
 import org.apache.bookkeeper.client.BookKeeperAdmin;
 import org.apache.bookkeeper.common.util.ReflectionUtils;
@@ -46,7 +45,7 @@ import org.apache.bookkeeper.stats.codahale.CodahaleMetricsProvider;
  */
 public class EmbeddedBookie implements AutoCloseable {
 
-    private final static Logger LOG = Logger.getLogger(EmbeddedBookie.class.getName());
+    private static final Logger LOG = Logger.getLogger(EmbeddedBookie.class.getName());
     private final ServerConfiguration configuration;
     private final Path baseDirectory;
     private BookieServer bookieServer;
@@ -59,8 +58,10 @@ public class EmbeddedBookie implements AutoCloseable {
 
     public void start() throws Exception {
         org.apache.bookkeeper.conf.ServerConfiguration conf = new org.apache.bookkeeper.conf.ServerConfiguration();
-        conf.setZkTimeout(configuration.getInt(ServerConfiguration.PROPERTY_ZOOKEEPER_SESSIONTIMEOUT, ServerConfiguration.PROPERTY_ZOOKEEPER_SESSIONTIMEOUT_DEFAULT));
-        String zkServers = configuration.getString(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT);
+        conf.setZkTimeout(configuration.getInt(ServerConfiguration.PROPERTY_ZOOKEEPER_SESSIONTIMEOUT,
+                ServerConfiguration.PROPERTY_ZOOKEEPER_SESSIONTIMEOUT_DEFAULT));
+        String zkServers = configuration.getString(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS,
+                ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT);
         String zkLedgersRootPath = configuration.getString(ServerConfiguration.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH,
                 ServerConfiguration.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT);
         String metadataServiceUri = "zk+null://" + zkServers.replace(",", ";") + "" + zkLedgersRootPath;
@@ -76,7 +77,8 @@ public class EmbeddedBookie implements AutoCloseable {
         // by default we will not require fsync on journal, set this to true if you have only one machine
         conf.setJournalSyncData(false);
 
-        int port = configuration.getInt(ServerConfiguration.PROPERTY_BOOKKEEPER_BOOKIE_PORT, ServerConfiguration.PROPERTY_BOOKKEEPER_BOOKIE_PORT_DEFAULT);
+        int port = configuration.getInt(ServerConfiguration.PROPERTY_BOOKKEEPER_BOOKIE_PORT,
+                ServerConfiguration.PROPERTY_BOOKKEEPER_BOOKIE_PORT_DEFAULT);
 
         conf.setUseHostNameAsBookieID(true);
         Path bookie_dir = baseDirectory.resolve("bookie");
@@ -85,8 +87,10 @@ public class EmbeddedBookie implements AutoCloseable {
             if (_port == null) {
                 _port = NetworkUtils.assignFirstFreePort();
                 LOG.log(Level.SEVERE, "As configuration parameter "
-                        + ServerConfiguration.PROPERTY_BOOKKEEPER_BOOKIE_PORT + " is {0},I have choosen to listen on port {1}."
-                        + " Set to a positive number in order to use a fixed port", new Object[]{Integer.toString(port), Integer.toString(_port)});
+                        + ServerConfiguration.PROPERTY_BOOKKEEPER_BOOKIE_PORT
+                        + " is {0},I have choosen to listen on port {1}."
+                        + " Set to a positive number in order to use a fixed port",
+                        new Object[]{Integer.toString(port), Integer.toString(_port)});
                 persistLocalBookiePort(bookie_dir, _port);
             }
             port = _port;
@@ -143,8 +147,8 @@ public class EmbeddedBookie implements AutoCloseable {
             }
         }
 
-        Class<? extends StatsProvider> statsProviderClass
-                = conf.getStatsProviderClass();
+        Class<? extends StatsProvider> statsProviderClass =
+                conf.getStatsProviderClass();
         statsProvider = ReflectionUtils.newInstance(statsProviderClass);
         statsProvider.start(conf);
         bookieServer = new BookieServer(conf, statsProvider.getStatsLogger(""));
@@ -161,7 +165,8 @@ public class EmbeddedBookie implements AutoCloseable {
 
     }
 
-    private void dumpBookieConfiguration(Path bookie_dir, org.apache.bookkeeper.conf.ServerConfiguration conf) throws IOException {
+    private void dumpBookieConfiguration(Path bookie_dir, org.apache.bookkeeper.conf.ServerConfiguration conf) throws
+            IOException {
         // dump actual BookKeeper configuration in order to use bookkeeper shell
         Path actual_bookkeeper_configuration = bookie_dir.resolve("embedded.bookie.properties");
         StringBuilder builder = new StringBuilder();

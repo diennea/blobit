@@ -19,23 +19,23 @@
  */
 package blobit.server;
 
-import java.io.File;
-import java.nio.file.Paths;
-import java.util.Properties;
-import java.util.concurrent.CountDownLatch;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import blobit.daemons.PidFileLocker;
 import herddb.jdbc.HerdDBDataSource;
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Properties;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
 import java.util.logging.LogManager;
+import java.util.logging.Logger;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerFactory;
@@ -47,6 +47,84 @@ import org.eclipse.jetty.webapp.WebAppContext;
  * Created by enrico.olivelli on 23/03/2015.
  */
 public class ServerMain implements AutoCloseable {
+    private static ServerMain runningInstance;
+    private static final Logger LOG = Logger.getLogger(ServerMain.class.getName());
+    private static final CountDownLatch running = new CountDownLatch(1);
+    public static void main(String... args) {
+        try {
+            LOG.severe("Starting BlobIt");
+            Properties configuration = new Properties();
+
+            boolean configFileFromParameter = false;
+            for (int i = 0; i < args.length; i++) {
+                String arg = args[i];
+                if (!arg.startsWith("-")) {
+                    File configFile = new File(args[i]).getAbsoluteFile();
+                    LOG.severe("Reading configuration from " + configFile);
+                    try (InputStreamReader reader = new InputStreamReader(new FileInputStream(configFile),
+                            StandardCharsets.UTF_8)) {
+                        configuration.load(reader);
+                    }
+                    configFileFromParameter = true;
+                } else if (arg.equals("--use-env")) {
+                    System.getenv().forEach((key, value) -> {
+                        System.out.println("Considering env as system property " + key + " -> " + value);
+                        System.setProperty(key, value);
+                    });
+                } else if (arg.startsWith("-D")) {
+                    int equals = arg.indexOf('=');
+                    if (equals > 0) {
+                        String key = arg.substring(2, equals);
+                        String value = arg.substring(equals + 1);
+                        System.setProperty(key, value);
+                    }
+                }
+            }
+            if (!configFileFromParameter) {
+                File configFile = new File("conf/server.properties").getAbsoluteFile();
+                System.out.println("Reading configuration from " + configFile);
+                if (configFile.isFile()) {
+                    try (InputStreamReader reader = new InputStreamReader(new FileInputStream(configFile),
+                            StandardCharsets.UTF_8)) {
+                        configuration.load(reader);
+                    }
+                }
+            }
+
+            System.getProperties().forEach((k, v) -> {
+                String key = k + "";
+                if (!key.startsWith("java") && !key.startsWith("user")) {
+                    configuration.put(k, v);
+                }
+            });
+
+            LogManager.getLogManager().readConfiguration();
+
+            Runtime.getRuntime().addShutdownHook(new Thread("ctrlc-hook") {
+
+                @Override
+                public void run() {
+                    System.out.println("Ctrl-C trapped. Shutting down");
+                    ServerMain _brokerMain = runningInstance;
+                    if (_brokerMain != null) {
+                        _brokerMain.close();
+                    }
+                }
+
+            });
+            runningInstance = new ServerMain(configuration);
+            runningInstance.start();
+
+            runningInstance.join();
+
+        } catch (Throwable t) {
+            t.printStackTrace();
+            System.exit(1);
+        }
+    }
+    public static ServerMain getRunningInstance() {
+        return runningInstance;
+    }
 
     private final Properties configuration;
     private final PidFileLocker pidFileLocker;
@@ -62,7 +140,6 @@ public class ServerMain implements AutoCloseable {
     private ObjectManager client;
     private HerdDBDataSource datasource;
 
-    private static ServerMain runningInstance;
 
     public ServerMain(Properties configuration) {
         this.configuration = configuration;
@@ -111,87 +188,11 @@ public class ServerMain implements AutoCloseable {
         running.countDown();
     }
 
-    public static void main(String... args) {
-        try {
-            LOG.severe("Starting BlobIt");
-            Properties configuration = new Properties();
-
-            boolean configFileFromParameter = false;
-            for (int i = 0; i < args.length; i++) {
-                String arg = args[i];
-                if (!arg.startsWith("-")) {
-                    File configFile = new File(args[i]).getAbsoluteFile();
-                    LOG.severe("Reading configuration from " + configFile);
-                    try (InputStreamReader reader = new InputStreamReader(new FileInputStream(configFile), StandardCharsets.UTF_8)) {
-                        configuration.load(reader);
-                    }
-                    configFileFromParameter = true;
-                } else if (arg.equals("--use-env")) {
-                    System.getenv().forEach((key, value) -> {
-                        System.out.println("Considering env as system property " + key + " -> " + value);
-                        System.setProperty(key, value);
-                    });
-                } else if (arg.startsWith("-D")) {
-                    int equals = arg.indexOf('=');
-                    if (equals > 0) {
-                        String key = arg.substring(2, equals);
-                        String value = arg.substring(equals + 1);
-                        System.setProperty(key, value);
-                    }
-                }
-            }
-            if (!configFileFromParameter) {
-                File configFile = new File("conf/server.properties").getAbsoluteFile();
-                System.out.println("Reading configuration from " + configFile);
-                if (configFile.isFile()) {
-                    try (InputStreamReader reader = new InputStreamReader(new FileInputStream(configFile), StandardCharsets.UTF_8)) {
-                        configuration.load(reader);
-                    }
-                }
-            }
-
-            System.getProperties().forEach((k, v) -> {
-                String key = k + "";
-                if (!key.startsWith("java") && !key.startsWith("user")) {
-                    configuration.put(k, v);
-                }
-            });
-
-            LogManager.getLogManager().readConfiguration();
-
-            Runtime.getRuntime().addShutdownHook(new Thread("ctrlc-hook") {
-
-                @Override
-                public void run() {
-                    System.out.println("Ctrl-C trapped. Shutting down");
-                    ServerMain _brokerMain = runningInstance;
-                    if (_brokerMain != null) {
-                        _brokerMain.close();
-                    }
-                }
-
-            });
-            runningInstance = new ServerMain(configuration);
-            runningInstance.start();
-
-            runningInstance.join();
-
-        } catch (Throwable t) {
-            t.printStackTrace();
-            System.exit(1);
-        }
-    }
-    private static final Logger LOG = Logger.getLogger(ServerMain.class.getName());
 
     public boolean isStarted() {
         return started;
     }
 
-    private final static CountDownLatch running = new CountDownLatch(1);
-
-    public static ServerMain getRunningInstance() {
-        return runningInstance;
-    }
 
     public ObjectManager getClient() {
         return client;
@@ -218,14 +219,19 @@ public class ServerMain implements AutoCloseable {
         // this is only starting the Bookie
         server.start();
 
-        boolean startDatabase = config.getBoolean(ServerConfiguration.PROPERTY_DATABASE_START, ServerConfiguration.PROPERTY_DATABASE_START_DEFAULT);
+        boolean startDatabase = config.getBoolean(ServerConfiguration.PROPERTY_DATABASE_START,
+                ServerConfiguration.PROPERTY_DATABASE_START_DEFAULT);
         if (startDatabase) {
             herddb.server.ServerConfiguration databaseConfiguration = new herddb.server.ServerConfiguration();
-            
+
             // use the same BookKeeper cluster
-            databaseConfiguration.set(herddb.server.ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, config.getString(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT));
-            databaseConfiguration.set(herddb.server.ServerConfiguration.PROPERTY_MODE, herddb.server.ServerConfiguration.PROPERTY_MODE_CLUSTER);
-            String zkServers = config.getString(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT);
+            databaseConfiguration.set(herddb.server.ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, config.getString(
+                    ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS,
+                    ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT));
+            databaseConfiguration.set(herddb.server.ServerConfiguration.PROPERTY_MODE,
+                    herddb.server.ServerConfiguration.PROPERTY_MODE_CLUSTER);
+            String zkServers = config.getString(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS,
+                    ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT);
             String zkLedgersRootPath = config.getString(ServerConfiguration.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH,
                     ServerConfiguration.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT);
             String metadataServiceUri = "zk+null://" + zkServers.replace(",", ";") + "" + zkLedgersRootPath;
@@ -242,12 +248,13 @@ public class ServerMain implements AutoCloseable {
                 }
 
             }
-            LOG.info("HerdDB configuration: "+databaseConfiguration);
+            LOG.info("HerdDB configuration: " + databaseConfiguration);
             database = new herddb.server.Server(databaseConfiguration);
             database.start();
             database.waitForStandaloneBoot();
         }
-        int gcPeriod = config.getInt(ServerConfiguration.PROPERTY_GC_PERIOD, ServerConfiguration.PROPERTY_GC_PERIOD_DEFAULT);
+        int gcPeriod = config.getInt(ServerConfiguration.PROPERTY_GC_PERIOD,
+                ServerConfiguration.PROPERTY_GC_PERIOD_DEFAULT);
 
         boolean httpEnabled = config.getBoolean("http.enable", true);
         if (httpEnabled || gcPeriod > 0) {
@@ -256,7 +263,8 @@ public class ServerMain implements AutoCloseable {
                 datasource.setUrl(database.getJdbcUrl());
             } else {
                 String herdDbUrl = config.getString("database.url", "jdbc:herddb:zookeeper:" + config
-                        .getString(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT));
+                        .getString(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS,
+                                ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS_DEFAULT));
                 datasource.setUrl(herdDbUrl);
             }
             Configuration clientConfiguration = new Configuration(configuration);

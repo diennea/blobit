@@ -35,11 +35,10 @@ public interface ObjectManager extends AutoCloseable {
      * @param bucketId
      * @return The handle.
      *
-     * @see #createBucket(java.lang.String, java.lang.String,
-     * org.blobit.core.api.BucketConfiguration)
+     * @see #createBucket(java.lang.String, java.lang.String, org.blobit.core.api.BucketConfiguration)
      * @see #getBucketMetadata(java.lang.String)
      */
-    public BucketHandle getBucket(String bucketId);
+    BucketHandle getBucket(String bucketId);
 
     /**
      * Creates a new bucket to store data
@@ -48,15 +47,16 @@ public interface ObjectManager extends AutoCloseable {
      * @param tablespaceName
      * @param configuration
      */
-    public CompletableFuture<BucketMetadata> createBucket(String bucketId, String tablespaceName, BucketConfiguration configuration);
+    CompletableFuture<BucketMetadata> createBucket(String bucketId,
+            String tablespaceName,
+            BucketConfiguration configuration);
 
     /**
-     * Marks an existing bucket for deletion. Space will not be released
-     * immediately.
+     * Marks an existing bucket for deletion. Space will not be released immediately.
      *
      * @param bucketId
      */
-    public CompletableFuture<?> deleteBucket(String bucketId);
+    CompletableFuture<?> deleteBucket(String bucketId);
 
     /**
      * List every existing bucket.
@@ -64,7 +64,7 @@ public interface ObjectManager extends AutoCloseable {
      * @param consumer
      * @throws ObjectManagerException
      */
-    public void listBuckets(Consumer<BucketMetadata> consumer) throws ObjectManagerException;
+    void listBuckets(Consumer<BucketMetadata> consumer) throws ObjectManagerException;
 
     /**
      * Access metadata of a single bucket
@@ -72,27 +72,26 @@ public interface ObjectManager extends AutoCloseable {
      * @return
      * @throws ObjectManagerException
      */
-    public BucketMetadata getBucketMetadata(String bucketId) throws ObjectManagerException;
+    BucketMetadata getBucketMetadata(String bucketId) throws ObjectManagerException;
 
     /**
-     * Loops over every bucket and performs {@link BucketHandle#gc()}. This
-     * method can be called concurrencly by several clients in the cluster.
-     * Usually this action iw performed periodically by server nodes.
+     * Loops over every bucket and performs {@link BucketHandle#gc()}. This method can be called concurrencly by several
+     * clients in the cluster. Usually this action iw performed periodically by server nodes.
      *
      * @see BucketHandle#gc()
      */
-    public void gc();
+    void gc();
 
     /**
      * Tries to cleaup and save resources due to deletion of buckets
      *
      * @throws ObjectManagerException
      */
-    public void cleanup() throws ObjectManagerException;
+    void cleanup() throws ObjectManagerException;
 
-    public void start() throws ObjectManagerException;
+    void start() throws ObjectManagerException;
 
     @Override
-    public void close();
+    void close();
 
 }

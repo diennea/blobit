@@ -19,24 +19,21 @@
  */
 package org.blobit.core.cluster;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
-import org.apache.bookkeeper.client.api.BKException;
-import org.apache.bookkeeper.client.api.BookKeeper;
-import org.apache.bookkeeper.client.api.LedgerEntry;
-
-import org.blobit.core.api.ObjectManagerException;
-
 import io.netty.buffer.ByteBuf;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import org.apache.bookkeeper.client.api.BKException;
+import org.apache.bookkeeper.client.api.BookKeeper;
 import org.apache.bookkeeper.client.api.DigestType;
+import org.apache.bookkeeper.client.api.LedgerEntry;
 import org.apache.bookkeeper.client.api.ReadHandle;
+import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectManagerRuntimeException;
 
 /**
@@ -46,7 +43,8 @@ import org.blobit.core.api.ObjectManagerRuntimeException;
  */
 public class BucketReader {
 
-    private static final Logger LOG = Logger.getLogger(BucketReader.class.getName());
+    private static final Logger LOG = Logger.getLogger(BucketReader.class.
+            getName());
 
     private final ReadHandle lh;
     private final boolean owningHandle;
@@ -86,7 +84,8 @@ public class BucketReader {
         LOG.log(Level.INFO, "Opened BucketReader for ledger {0}", ledgerId);
     }
 
-    public CompletableFuture<byte[]> readObject(long entryId, long last, int length) {
+    public CompletableFuture<byte[]> readObject(long entryId, long last,
+            int length) {
 
         pendingReads.incrementAndGet();
         return lh.readUnconfirmedAsync(entryId, last)
@@ -94,7 +93,8 @@ public class BucketReader {
                     pendingReads.decrementAndGet();
                     if (u != null) {
                         valid = false;
-                        throw new ObjectManagerRuntimeException(new ObjectManagerException(u));
+                        throw new ObjectManagerRuntimeException(
+                                new ObjectManagerException(u));
                     }
 
                     final byte[] data = new byte[length];
@@ -114,7 +114,10 @@ public class BucketReader {
     }
 
     public CompletableFuture<?> streamObject(long firstEntryId, long last,
-            long length, int entrySize, long objectLength, OutputStream output, long offset) {
+            long length, int entrySize,
+            long objectLength,
+            OutputStream output,
+            long offset) {
         pendingReads.incrementAndGet();
 
         // skip first chunks
@@ -142,42 +145,48 @@ public class BucketReader {
         while (scheduledLength < length) {
             boolean firstEntry = currentEntryId == firstEntryId;
             long sizeUpToEntry = (currentEntryId - firstEntryId) * entrySize;
-            int currentEntrySize = currentEntryId == last ? (int) (objectLength - sizeUpToEntry) : entrySize;
-            final long _currentEntryId = currentEntryId;
+            int currentEntrySize =
+                    currentEntryId == last ? (int) (objectLength - sizeUpToEntry) : entrySize;
+            final long currentEntryIdFinal = currentEntryId;
 
-            long readFromThisEntry = firstEntry ? (currentEntrySize - _remainingOffsetFirstEntry) : currentEntrySize;
+            long readFromThisEntry =
+                    firstEntry ? (currentEntrySize - _remainingOffsetFirstEntry) : currentEntrySize;
             if (readFromThisEntry + scheduledLength > length) {
                 readFromThisEntry = (length - scheduledLength);
             }
 
-            final int _bytesToDownload = (int) readFromThisEntry;
+            final int bytesToDownload = (int) readFromThisEntry;
 
             remainingLength -= readFromThisEntry;
 
             scheduledLength += readFromThisEntry;
             if (currentStage == null) {
                 // first one, a little special
-                currentStage = lh.readUnconfirmedAsync(_currentEntryId, _currentEntryId)
+                currentStage = lh.readUnconfirmedAsync(currentEntryIdFinal,
+                        currentEntryIdFinal)
                         .handle((Iterable<LedgerEntry> entries, Throwable bkError) -> {
                             if (bkError != null) {
-                                throw new ObjectManagerRuntimeException(new ObjectManagerException(bkError));
+                                throw new ObjectManagerRuntimeException(
+                                        new ObjectManagerException(bkError));
                             }
 
                             for (LedgerEntry entry : entries) {
                                 ByteBuf buf = entry.getEntryBuffer();
                                 int readable = buf.readableBytes();
-                                final int toRead = Math.min(_bytesToDownload, readable - _remainingOffsetFirstEntry);
+                                final int toRead = Math.min(bytesToDownload,
+                                        readable - _remainingOffsetFirstEntry);
                                 byte[] data = new byte[toRead];
                                 buf.skipBytes(_remainingOffsetFirstEntry);
                                 buf.readBytes(data, 0, toRead);
                                 entry.close();
 
-                                // write to client                        
+                                // write to client
                                 try {
                                     output.write(data, 0, toRead);
                                     totalWrittenToStream.addAndGet(toRead);
                                 } catch (IOException err) {
-                                    throw new ObjectManagerRuntimeException(new ObjectManagerException(err));
+                                    throw new ObjectManagerRuntimeException(
+                                            new ObjectManagerException(err));
                                 }
                             }
                             return null;
@@ -188,26 +197,34 @@ public class BucketReader {
                     if (error != null) {
                         nextStage.completeExceptionally(error);
                     } else {
-                        lh.readUnconfirmedAsync(_currentEntryId, _currentEntryId)
+                        lh.
+                                readUnconfirmedAsync(currentEntryIdFinal,
+                                        currentEntryIdFinal)
                                 .handle((Iterable<LedgerEntry> entries, Throwable bkError) -> {
                                     if (bkError != null) {
-                                        nextStage.completeExceptionally(new ObjectManagerException(bkError));
+                                        nextStage.completeExceptionally(
+                                                new ObjectManagerException(
+                                                        bkError));
                                         return null;
                                     }
                                     for (LedgerEntry entry : entries) {
                                         ByteBuf buf = entry.getEntryBuffer();
                                         int readable = buf.readableBytes();
-                                        final int toRead = Math.min(_bytesToDownload, readable);
+                                        final int toRead = Math.min(
+                                                bytesToDownload, readable);
                                         byte[] data = new byte[toRead];
                                         buf.readBytes(data, 0, toRead);
                                         entry.close();
 
-                                        // write to client                        
+                                        // write to client
                                         try {
                                             output.write(data, 0, toRead);
-                                            totalWrittenToStream.addAndGet(toRead);
+                                            totalWrittenToStream.addAndGet(
+                                                    toRead);
                                         } catch (IOException err) {
-                                            throw new ObjectManagerRuntimeException(new ObjectManagerException(err));
+                                            throw new ObjectManagerRuntimeException(
+                                                    new ObjectManagerException(
+                                                            err));
                                         }
                                     }
                                     nextStage.complete(null);
@@ -250,7 +267,8 @@ public class BucketReader {
                 try {
                     lh.close();
                 } catch (BKException | InterruptedException err) {
-                    LOG.log(Level.SEVERE, "error while closing ledger " + lh.getId(), err);
+                    LOG.log(Level.SEVERE, "error while closing ledger " + lh.
+                            getId(), err);
                 }
             }
         }

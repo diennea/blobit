@@ -24,7 +24,6 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Properties;
-
 import org.apache.curator.test.TestingServer;
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.BucketHandle;
@@ -40,7 +39,7 @@ import org.junit.rules.TemporaryFolder;
  * @author enrico.olivelli
  */
 public class SimpleClusterTest {
-    
+
     static {
         System.setProperty("zookeeper.admin.enableServer", "false");
     }
@@ -64,8 +63,10 @@ public class SimpleClusterTest {
                 props.put(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, zookeeperServer.getConnectString());
                 props.put(ServerConfiguration.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH, "/custom-path");
 
-                props.put("herddb." + herddb.server.ServerConfiguration.PROPERTY_BASEDIR, folder.newFolder().getAbsolutePath());
-                props.put("herddb." + herddb.server.ServerConfiguration.PROPERTY_MODE, herddb.server.ServerConfiguration.PROPERTY_MODE_CLUSTER);
+                props.put("herddb." + herddb.server.ServerConfiguration.PROPERTY_BASEDIR, folder.newFolder().
+                        getAbsolutePath());
+                props.put("herddb." + herddb.server.ServerConfiguration.PROPERTY_MODE,
+                        herddb.server.ServerConfiguration.PROPERTY_MODE_CLUSTER);
 
                 // client configuration of the BlobIt client started inside the server (For the HTTP API)
                 props.put(Configuration.ZOOKEEPER_URL, zookeeperServer.getConnectString());

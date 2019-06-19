@@ -35,13 +35,15 @@ public class NamedObjectGetPromise {
 
     public final CompletableFuture<List<byte[]>> future;
 
-    public NamedObjectGetPromise(List<String> id, long length, CompletableFuture<List<byte[]>> future) {
+    public NamedObjectGetPromise(List<String> id, long length,
+            CompletableFuture<List<byte[]>> future) {
         this.id = id;
         this.length = length;
         this.future = future;
     }
 
-    public List<byte[]> get(long timeout, TimeUnit t) throws InterruptedException, ObjectManagerException, TimeoutException {
+    public List<byte[]> get(long timeout, TimeUnit t) throws InterruptedException, ObjectManagerException,
+            TimeoutException {
         try {
             return FutureUtils.result(future, timeout, t);
         } catch (InterruptedException ie) {

@@ -20,7 +20,8 @@
 package org.blobit.core.cluster;
 
 import static org.junit.Assert.assertTrue;
-
+import herddb.jdbc.HerdDBEmbeddedDataSource;
+import herddb.server.ServerConfiguration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -30,8 +31,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-
+import java.util.logging.ConsoleHandler;
+import java.util.logging.Level;
+import java.util.logging.SimpleFormatter;
 import org.blobit.core.api.BucketConfiguration;
+import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerFactory;
@@ -41,13 +45,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-import herddb.jdbc.HerdDBEmbeddedDataSource;
-import herddb.server.ServerConfiguration;
-import java.util.logging.ConsoleHandler;
-import java.util.logging.Level;
-import java.util.logging.SimpleFormatter;
-import org.blobit.core.api.BucketHandle;
-
 public class SimpleClusterReadWriteLongBlobsTest {
 
     @Rule
@@ -56,11 +53,13 @@ public class SimpleClusterReadWriteLongBlobsTest {
 //    @Before
     public void setupLogger() throws Exception {
         Level level = Level.FINER;
-        Thread.setDefaultUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+        Thread.setDefaultUncaughtExceptionHandler(
+                new Thread.UncaughtExceptionHandler() {
 
             @Override
             public void uncaughtException(Thread t, Throwable e) {
-                System.err.println("uncaughtException from thread " + t.getName() + ": " + e);
+                System.err.println("uncaughtException from thread " + t.
+                        getName() + ": " + e);
                 e.printStackTrace();
             }
         });
@@ -84,21 +83,26 @@ public class SimpleClusterReadWriteLongBlobsTest {
     @Test
     public void testWrite() throws Exception {
         Properties dsProperties = new Properties();
-        dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
+        dsProperties.put(ServerConfiguration.PROPERTY_MODE,
+                ServerConfiguration.PROPERTY_MODE_LOCAL);
         try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
-                HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
+                HerdDBEmbeddedDataSource datasource =
+                new HerdDBEmbeddedDataSource(
+                        dsProperties)) {
             env.startBookie();
-            Configuration configuration
-                    = new Configuration()
+            Configuration configuration =
+                    new Configuration()
                             .setType(Configuration.TYPE_BOOKKEEPER)
                             .setConcurrentWriters(10)
                             .setZookeeperUrl(env.getAddress());
 
-            try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
+            try (ObjectManager manager = ObjectManagerFactory.
+                    createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
                 Collection<PutPromise> batch = new LinkedBlockingQueue<>();
 
-                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
+                manager.createBucket(BUCKET_ID, BUCKET_ID,
+                        BucketConfiguration.DEFAULT).get();
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
                 ExecutorService exec = Executors.newFixedThreadPool(4);
 
@@ -125,10 +129,14 @@ public class SimpleClusterReadWriteLongBlobsTest {
                 }
 
                 long _stop = System.currentTimeMillis();
-                double speed = (int) (batch.size() * 60_000.0 / (_stop - _start));
+                double speed =
+                        (int) (batch.size() * 60_000.0 / (_stop - _start));
                 double band = speed * TEST_DATA.length;
-                long total = (batch.size() * TEST_DATA.length * 1L) / (1024 * 1024);
-                System.out.println("TIME: " + (_stop - _start) + " ms for " + batch.size() + " blobs, total " + total + " MBs, " + speed + " blobs/h, " + speed * 24 + " blobs/day " + (band / 1e9) + " Gbytes/h");
+                long total =
+                        (batch.size() * TEST_DATA.length * 1L) / (1024 * 1024);
+                System.out.println(
+                        "TIME: " + (_stop - _start) + " ms for " + batch.size() + " blobs, total " + total + " MBs, "
+                        + speed + " blobs/h, " + speed * 24 + " blobs/day " + (band / 1e9) + " Gbytes/h");
             }
         }
     }

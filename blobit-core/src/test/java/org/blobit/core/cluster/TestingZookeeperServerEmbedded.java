@@ -54,7 +54,8 @@ public class TestingZookeeperServerEmbedded implements AutoCloseable {
         p.setProperty("syncEnabled", "false");
         p.setProperty("dataDir", dir.getAbsolutePath());
         p.setProperty("clientPort", clientPort + "");
-        p.setProperty("authProvider.1", "org.apache.zookeeper.server.auth.SASLAuthenticationProvider");
+        p.setProperty("authProvider.1",
+                "org.apache.zookeeper.server.auth.SASLAuthenticationProvider");
         p.setProperty("kerberos.removeHostFromPrincipal", "true");
         p.setProperty("kerberos.removeRealmFromPrincipal", "true");
 
@@ -98,7 +99,8 @@ public class TestingZookeeperServerEmbedded implements AutoCloseable {
     }
 
     private ServerCnxnFactory getServerConnectionFactory() throws Exception {
-        Field cnxnFactoryField = ZooKeeperServerMain.class.getDeclaredField("cnxnFactory");
+        Field cnxnFactoryField = ZooKeeperServerMain.class.getDeclaredField(
+                "cnxnFactory");
         cnxnFactoryField.setAccessible(true);
         ServerCnxnFactory cnxnFactory;
 
@@ -112,7 +114,8 @@ public class TestingZookeeperServerEmbedded implements AutoCloseable {
     }
 
     private ZooKeeperServer getZooKeeperServer(ServerCnxnFactory cnxnFactory) throws Exception {
-        Field zkServerField = ServerCnxnFactory.class.getDeclaredField("zkServer");
+        Field zkServerField = ServerCnxnFactory.class.getDeclaredField(
+                "zkServer");
         zkServerField.setAccessible(true);
         ZooKeeperServer zkServer;
 

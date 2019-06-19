@@ -28,7 +28,8 @@ import java.util.function.LongBinaryOperator;
  */
 public final class EnsureLongIncrementAccumulator implements LongBinaryOperator {
 
-    public static final EnsureLongIncrementAccumulator INSTANCE = new EnsureLongIncrementAccumulator();
+    public static final EnsureLongIncrementAccumulator INSTANCE =
+            new EnsureLongIncrementAccumulator();
 
     @Override
     public long applyAsLong(long left, long right) {

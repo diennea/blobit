@@ -19,6 +19,13 @@
  */
 package org.blobit.core.common;
 
+import static org.hamcrest.CoreMatchers.instanceOf;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
 import java.io.ByteArrayOutputStream;
@@ -38,13 +45,6 @@ import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectManagerFactory;
 import org.blobit.core.api.ObjectNotFoundException;
 import org.blobit.core.cluster.ZKTestEnv;
-import static org.hamcrest.CoreMatchers.instanceOf;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -76,16 +76,20 @@ public class NamesAPITest {
     @Test
     public void testAppendBookKeeper() throws Exception {
         Properties dsProperties = new Properties();
-        dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
+        dsProperties.put(ServerConfiguration.PROPERTY_MODE,
+                ServerConfiguration.PROPERTY_MODE_LOCAL);
         try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
-                HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
+                HerdDBEmbeddedDataSource datasource =
+                new HerdDBEmbeddedDataSource(
+                        dsProperties)) {
             env.startBookie();
-            Configuration configuration
-                    = new Configuration()
+            Configuration configuration =
+                    new Configuration()
                             .setType(Configuration.TYPE_BOOKKEEPER)
                             .setConcurrentWriters(4)
                             .setZookeeperUrl(env.getAddress());
-            try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
+            try (ObjectManager manager = ObjectManagerFactory.
+                    createObjectManager(configuration, datasource);) {
                 testAppends(manager);
             }
         }
@@ -94,18 +98,21 @@ public class NamesAPITest {
     @Test
     public void testAppendMemory() throws Exception {
 
-        Configuration configuration
-                = new Configuration()
+        Configuration configuration =
+                new Configuration()
                         .setType(Configuration.TYPE_MEM)
                         .setConcurrentWriters(4);
-        try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, null);) {
+        try (ObjectManager manager = ObjectManagerFactory.createObjectManager(
+                configuration, null);) {
             testAppends(manager);
         }
 
     }
 
-    private void testAppends(final ObjectManager manager) throws ObjectManagerException, InterruptedException, ExecutionException {
-        manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
+    private void testAppends(final ObjectManager manager) throws ObjectManagerException, InterruptedException,
+            ExecutionException {
+        manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).
+                get();
         BucketHandle bucket = manager.getBucket(BUCKET_ID);
         String name = "foo";
         String firstObjectId = bucket.put(name, TEST_DATA).get();
@@ -132,31 +139,37 @@ public class NamesAPITest {
             bucket.downloadByName(name, size::set, oo, 0, -1).get();
             byte[] resultArray = oo.toByteArray();
             assertEquals(TEST_DATA.length + TEST_DATA2.length, size.get());
-            assertEquals(TEST_DATA.length + TEST_DATA2.length, resultArray.length);
+            assertEquals(TEST_DATA.length + TEST_DATA2.length,
+                    resultArray.length);
             assertTrue(Arrays.equals(TEST_DATA, 0, TEST_DATA.length,
                     resultArray, 0, TEST_DATA.length));
             assertTrue(Arrays.equals(TEST_DATA2, 0, TEST_DATA2.length,
-                    resultArray, TEST_DATA.length, TEST_DATA.length + TEST_DATA2.length));
+                    resultArray, TEST_DATA.length,
+                    TEST_DATA.length + TEST_DATA2.length));
         }
         {
             // download with given length
             ByteArrayOutputStream oo = new ByteArrayOutputStream();
             AtomicLong size = new AtomicLong();
-            bucket.downloadByName(name, size::set, oo, 0, objectMd.getSize()).get();
+            bucket.downloadByName(name, size::set, oo, 0, objectMd.getSize()).
+                    get();
             byte[] resultArray = oo.toByteArray();
             assertEquals(TEST_DATA.length + TEST_DATA2.length, size.get());
-            assertEquals(TEST_DATA.length + TEST_DATA2.length, resultArray.length);
+            assertEquals(TEST_DATA.length + TEST_DATA2.length,
+                    resultArray.length);
             assertTrue(Arrays.equals(TEST_DATA, 0, TEST_DATA.length,
                     resultArray, 0, TEST_DATA.length));
             assertTrue(Arrays.equals(TEST_DATA2, 0, TEST_DATA2.length,
-                    resultArray, TEST_DATA.length, TEST_DATA.length + TEST_DATA2.length));
+                    resultArray, TEST_DATA.length,
+                    TEST_DATA.length + TEST_DATA2.length));
         }
 
         {
             // download with offset starting at second part, len = -1
             ByteArrayOutputStream oo = new ByteArrayOutputStream();
             AtomicLong size = new AtomicLong();
-            bucket.downloadByName(name, size::set, oo, TEST_DATA.length, -1).get();
+            bucket.downloadByName(name, size::set, oo, TEST_DATA.length, -1).
+                    get();
             byte[] resultArray = oo.toByteArray();
             assertEquals(TEST_DATA2.length, size.get());
             assertEquals(TEST_DATA2.length, resultArray.length);
@@ -168,7 +181,8 @@ public class NamesAPITest {
             // download with offset starting at second part, len = fixed
             ByteArrayOutputStream oo = new ByteArrayOutputStream();
             AtomicLong size = new AtomicLong();
-            bucket.downloadByName(name, size::set, oo, TEST_DATA.length, TEST_DATA2.length).get();
+            bucket.downloadByName(name, size::set, oo, TEST_DATA.length,
+                    TEST_DATA2.length).get();
             byte[] resultArray = oo.toByteArray();
             assertEquals(TEST_DATA2.length, size.get());
             assertEquals(TEST_DATA2.length, resultArray.length);
@@ -180,7 +194,8 @@ public class NamesAPITest {
             // download with offset = total len, len = -1
             ByteArrayOutputStream oo = new ByteArrayOutputStream();
             AtomicLong size = new AtomicLong();
-            bucket.downloadByName(name, size::set, oo, TEST_DATA.length + TEST_DATA2.length, -1).get();
+            bucket.downloadByName(name, size::set, oo,
+                    TEST_DATA.length + TEST_DATA2.length, -1).get();
             byte[] resultArray = oo.toByteArray();
             assertEquals(0, size.get());
             assertEquals(0, resultArray.length);
@@ -189,7 +204,8 @@ public class NamesAPITest {
             // download with offset = total len, len = 0
             ByteArrayOutputStream oo = new ByteArrayOutputStream();
             AtomicLong size = new AtomicLong();
-            bucket.downloadByName(name, size::set, oo, TEST_DATA.length + TEST_DATA2.length, 0).get();
+            bucket.downloadByName(name, size::set, oo,
+                    TEST_DATA.length + TEST_DATA2.length, 0).get();
             byte[] resultArray = oo.toByteArray();
             assertEquals(0, size.get());
             assertEquals(0, resultArray.length);
@@ -203,7 +219,8 @@ public class NamesAPITest {
             byte[] resultArray = oo.toByteArray();
             assertEquals(5, size.get());
             assertEquals(5, resultArray.length);
-            assertTrue(Arrays.equals(TEST_DATA, TEST_DATA.length - 2, TEST_DATA.length,
+            assertTrue(Arrays.equals(TEST_DATA, TEST_DATA.length - 2,
+                    TEST_DATA.length,
                     resultArray, 0, 2));
             assertTrue(Arrays.equals(TEST_DATA2, 0, 3,
                     resultArray, 2, 5));
@@ -217,11 +234,13 @@ public class NamesAPITest {
                     TEST_DATA.length + TEST_DATA2.length + 10).get();
             byte[] resultArray = oo.toByteArray();
             assertEquals(TEST_DATA.length + TEST_DATA2.length, size.get());
-            assertEquals(TEST_DATA.length + TEST_DATA2.length, resultArray.length);
+            assertEquals(TEST_DATA.length + TEST_DATA2.length,
+                    resultArray.length);
             assertTrue(Arrays.equals(TEST_DATA, 0, TEST_DATA.length,
                     resultArray, 0, TEST_DATA.length));
             assertTrue(Arrays.equals(TEST_DATA2, 0, TEST_DATA2.length,
-                    resultArray, TEST_DATA.length, TEST_DATA.length + TEST_DATA2.length));
+                    resultArray, TEST_DATA.length,
+                    TEST_DATA.length + TEST_DATA2.length));
         }
 
         {
@@ -232,11 +251,13 @@ public class NamesAPITest {
                     TEST_DATA.length + TEST_DATA2.length + 10).get();
             byte[] resultArray = oo.toByteArray();
             assertEquals(TEST_DATA.length + TEST_DATA2.length - 3, size.get());
-            assertEquals(TEST_DATA.length + TEST_DATA2.length - 3, resultArray.length);
+            assertEquals(TEST_DATA.length + TEST_DATA2.length - 3,
+                    resultArray.length);
             assertTrue(Arrays.equals(TEST_DATA, 3, TEST_DATA.length,
                     resultArray, 0, TEST_DATA.length - 3));
             assertTrue(Arrays.equals(TEST_DATA2, 0, TEST_DATA2.length,
-                    resultArray, TEST_DATA.length - 3, TEST_DATA.length + TEST_DATA2.length - 3));
+                    resultArray, TEST_DATA.length - 3,
+                    TEST_DATA.length + TEST_DATA2.length - 3));
         }
 
         NamedObjectDeletePromise deleteHandle = bucket.deleteByName(name);
@@ -297,7 +318,8 @@ public class NamesAPITest {
         assertNull(bucket.statByName(name));
 
         // empty blobs
-        String emptyObjectId = bucket.put("empty-named-object", new byte[0]).get();
+        String emptyObjectId = bucket.put("empty-named-object", new byte[0]).
+                get();
         assertEquals(1, bucket.append(emptyObjectId, "empty-named-object"));
     }
 

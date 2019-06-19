@@ -22,8 +22,8 @@ package org.blobit.core.api;
 import java.util.List;
 
 /**
- * Metadata about an object with a custom name. A named object can span multiple
- * simple objects in case of concatenation/append operations.
+ * Metadata about an object with a custom name. A named object can span multiple simple objects in case of
+ * concatenation/append operations.
  *
  * @author eolivelli
  * @see ObjectMetadata
@@ -34,7 +34,8 @@ public final class NamedObjectMetadata {
     private final long size;
     private final List<ObjectMetadata> objects;
 
-    public NamedObjectMetadata(String name, long size, List<ObjectMetadata> objects) {
+    public NamedObjectMetadata(String name, long size,
+            List<ObjectMetadata> objects) {
         this.name = name;
         this.size = size;
         this.objects = objects;

@@ -19,6 +19,9 @@
  */
 package org.blobit.core.cluster;
 
+import static org.blobit.core.cluster.BucketWriter.BK_METADATA_BUCKET_ID;
+import static org.blobit.core.cluster.BucketWriter.BK_METADATA_BUCKET_UUID;
+import static org.blobit.core.cluster.BucketWriter.DUMMY_PWD;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -36,7 +39,6 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 import org.apache.bookkeeper.client.BKException;
 import org.apache.bookkeeper.client.BookKeeper;
 import org.apache.bookkeeper.client.BookKeeperAdmin;
@@ -58,9 +60,6 @@ import org.blobit.core.api.LocationInfo;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectMetadata;
 import org.blobit.core.api.PutPromise;
-import static org.blobit.core.cluster.BucketWriter.BK_METADATA_BUCKET_ID;
-import static org.blobit.core.cluster.BucketWriter.BK_METADATA_BUCKET_UUID;
-import static org.blobit.core.cluster.BucketWriter.DUMMY_PWD;
 
 /**
  * Stores Objects on Apache BookKeeper
@@ -69,7 +68,8 @@ import static org.blobit.core.cluster.BucketWriter.DUMMY_PWD;
  */
 public class BookKeeperBlobManager implements AutoCloseable {
 
-    private static final Logger LOG = Logger.getLogger(BookKeeperBlobManager.class.getName());
+    private static final Logger LOG = Logger.getLogger(
+            BookKeeperBlobManager.class.getName());
 
     private final HerdDBMetadataStorageManager metadataStorageManager;
     private final BookKeeper bookKeeper;
@@ -81,8 +81,10 @@ public class BookKeeperBlobManager implements AutoCloseable {
     private final boolean enableChecksum;
     private final boolean deferredSync;
     private final ExecutorService callbacksExecutor;
-    private final ExecutorService threadpool = Executors.newSingleThreadExecutor();
-    private ConcurrentMap<Long, BucketWriter> activeWriters = new ConcurrentHashMap<>();
+    private final ExecutorService threadpool = Executors.
+            newSingleThreadExecutor();
+    private ConcurrentMap<Long, BucketWriter> activeWriters =
+            new ConcurrentHashMap<>();
     private final Stats stats = new Stats();
 
     CompletableFuture<? extends LocationInfo> getLocationInfo(BKEntryId bk) {
@@ -91,9 +93,11 @@ public class BookKeeperBlobManager implements AutoCloseable {
                 .readLedgerMetadata(bk.ledgerId)
                 .whenComplete((versionedLedgerMetadata, error) -> {
                     if (error != null) {
-                        result.completeExceptionally(new ObjectManagerException(error));
+                        result.completeExceptionally(new ObjectManagerException(
+                                error));
                     } else {
-                        result.complete(new BKLocationInfo(bk, versionedLedgerMetadata.getValue()));
+                        result.complete(new BKLocationInfo(bk,
+                                versionedLedgerMetadata.getValue()));
                     }
 
                 });
@@ -129,7 +133,8 @@ public class BookKeeperBlobManager implements AutoCloseable {
         }
     }
 
-    public PutPromise put(String bucketId, String name, byte[] data, int offset, int len) {
+    public PutPromise put(String bucketId, String name, byte[] data, int offset,
+            int len) {
         if (data.length < offset + len || offset < 0 || len < 0) {
             throw new IndexOutOfBoundsException();
         }
@@ -140,7 +145,8 @@ public class BookKeeperBlobManager implements AutoCloseable {
                 result.complete(null);
             } else {
                 try {
-                    metadataStorageManager.append(bucketId, BKEntryId.EMPTY_ENTRY_ID, name);
+                    metadataStorageManager.append(bucketId,
+                            BKEntryId.EMPTY_ENTRY_ID, name);
                     result.complete(null);
                 } catch (ObjectManagerException err) {
                     result.completeExceptionally(err);
@@ -169,9 +175,13 @@ public class BookKeeperBlobManager implements AutoCloseable {
 
     static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
 
-    DownloadPromise download(String bucketId, String id, Consumer<Long> lengthCallback, OutputStream output, long offset, long length) {
+    DownloadPromise download(String bucketId, String id,
+            Consumer<Long> lengthCallback, OutputStream output,
+            long offset,
+            long length) {
         if (id == null) {
-            return new DownloadPromise(null, 0, wrapGenericException(new IllegalArgumentException("null id")));
+            return new DownloadPromise(null, 0, wrapGenericException(
+                    new IllegalArgumentException("null id")));
         }
         if (BKEntryId.EMPTY_ENTRY_ID.equals(id) || length == 0) {
             lengthCallback.accept(0L);
@@ -187,7 +197,8 @@ public class BookKeeperBlobManager implements AutoCloseable {
                 result.complete(null);
                 return new DownloadPromise(id, 0, result);
             }
-            // notify the called about the expected length (for instance an HTTP server will send the Content-Length header)
+            // notify the called about the expected length (for instance an HTTP server will send the
+            // Content-Length header)
             long finalLength;
             if (length < 0) {
                 finalLength = entry.length;
@@ -206,8 +217,10 @@ public class BookKeeperBlobManager implements AutoCloseable {
             BucketReader reader = readers.borrowObject(entry.ledgerId);
             try {
                 CompletableFuture<?> result = reader
-                        .streamObject(entry.firstEntryId, entry.firstEntryId + entry.numEntries - 1,
-                                finalLength, entry.entrySize, entry.length, output, offset);
+                        .streamObject(entry.firstEntryId,
+                                entry.firstEntryId + entry.numEntries - 1,
+                                finalLength, entry.entrySize, entry.length,
+                                output, offset);
                 return new DownloadPromise(id, entry.length, result);
             } finally {
                 readers.returnObject(entry.ledgerId, reader);
@@ -219,7 +232,8 @@ public class BookKeeperBlobManager implements AutoCloseable {
 
     GetPromise get(String bucketId, String id) {
         if (id == null) {
-            return new GetPromise(null, 0, wrapGenericException(new IllegalArgumentException("null id")));
+            return new GetPromise(null, 0, wrapGenericException(
+                    new IllegalArgumentException("null id")));
         }
         if (BKEntryId.EMPTY_ENTRY_ID.equals(id)) {
             CompletableFuture<byte[]> result = new CompletableFuture<>();
@@ -230,13 +244,17 @@ public class BookKeeperBlobManager implements AutoCloseable {
             BKEntryId entry = BKEntryId.parseId(id);
             // as we are returing a byte[] we are limited to an int length
             if (entry.length >= Integer.MAX_VALUE) {
-                return new GetPromise(id, 0, wrapGenericException(new UnsupportedOperationException("Cannot read an " + entry.length + " bytes object into a byte[]")));
+                return new GetPromise(id, 0, wrapGenericException(
+                        new UnsupportedOperationException(
+                                "Cannot read an " + entry.length + " bytes object into a byte[]")));
             }
             final int resultSize = (int) entry.length;
             BucketReader reader = readers.borrowObject(entry.ledgerId);
             try {
                 CompletableFuture<byte[]> result = reader
-                        .readObject(entry.firstEntryId, entry.firstEntryId + entry.numEntries - 1, resultSize);
+                        .readObject(entry.firstEntryId,
+                                entry.firstEntryId + entry.numEntries - 1,
+                                resultSize);
                 return new GetPromise(id, entry.length, result);
             } finally {
                 readers.returnObject(entry.ledgerId, reader);
@@ -260,17 +278,21 @@ public class BookKeeperBlobManager implements AutoCloseable {
         return new ObjectMetadata(id, entry.length);
     }
 
-    private final class WritersFactory implements KeyedPooledObjectFactory<String, BucketWriter> {
+    private final class WritersFactory implements
+            KeyedPooledObjectFactory<String, BucketWriter> {
 
         @Override
         public PooledObject<BucketWriter> makeObject(String bucketId) throws Exception {
             BucketWriter writer = new BucketWriter(bucketId,
-                    bookKeeper, replicationFactor, maxEntrySize, maxBytesPerLedger,
+                    bookKeeper, replicationFactor, maxEntrySize,
+                    maxBytesPerLedger,
                     enableChecksum,
-                    deferredSync, metadataStorageManager, BookKeeperBlobManager.this
+                    deferredSync, metadataStorageManager,
+                    BookKeeperBlobManager.this
             );
             activeWriters.put(writer.getId(), writer);
-            DefaultPooledObject<BucketWriter> be = new DefaultPooledObject<>(writer);
+            DefaultPooledObject<BucketWriter> be = new DefaultPooledObject<>(
+                    writer);
             return be;
         }
 
@@ -293,7 +315,8 @@ public class BookKeeperBlobManager implements AutoCloseable {
         }
     }
 
-    private final class ReadersFactory implements KeyedPooledObjectFactory<Long, BucketReader> {
+    private final class ReadersFactory implements
+            KeyedPooledObjectFactory<Long, BucketReader> {
 
         @Override
         public PooledObject<BucketReader> makeObject(Long ledgerId) throws Exception {
@@ -304,9 +327,11 @@ public class BookKeeperBlobManager implements AutoCloseable {
                 // the reader will se the LedgerHandle internal to the BucketWriter
                 // as a 'reader' the LedgerHandle will continue to work even if 'closed'
                 // because in BookKeeper 'closed' means something like 'sealed'
-                reader = new BucketReader(writer.getLh(), BookKeeperBlobManager.this);
+                reader = new BucketReader(writer.getLh(),
+                        BookKeeperBlobManager.this);
             } else {
-                reader = new BucketReader(ledgerId, bookKeeper, BookKeeperBlobManager.this);
+                reader = new BucketReader(ledgerId, bookKeeper,
+                        BookKeeperBlobManager.this);
             }
 
             return new DefaultPooledObject<>(reader);
@@ -334,7 +359,8 @@ public class BookKeeperBlobManager implements AutoCloseable {
         }
     }
 
-    public BookKeeperBlobManager(Configuration configuration, HerdDBMetadataStorageManager metadataStorageManager) throws ObjectManagerException {
+    public BookKeeperBlobManager(Configuration configuration,
+            HerdDBMetadataStorageManager metadataStorageManager) throws ObjectManagerException {
         try {
             this.replicationFactor = configuration.getReplicationFactor();
             this.maxBytesPerLedger = configuration.getMaxBytesPerLedger();
@@ -345,44 +371,59 @@ public class BookKeeperBlobManager implements AutoCloseable {
             this.enableChecksum = configuration.isEnableChecksum();
             this.deferredSync = configuration.isDeferredSync();
 
-            this.callbacksExecutor = Executors.newFixedThreadPool(concurrentWrites);
+            this.callbacksExecutor = Executors.newFixedThreadPool(
+                    concurrentWrites);
             ClientConfiguration clientConfiguration = new ClientConfiguration();
             clientConfiguration.setThrottleValue(0);
-            clientConfiguration.setLedgerManagerFactoryClass(HierarchicalLedgerManagerFactory.class);
+            clientConfiguration.setLedgerManagerFactoryClass(
+                    HierarchicalLedgerManagerFactory.class);
             clientConfiguration.setEnableDigestTypeAutodetection(true);
 
-            String zkLedgersRootPath = configuration.getProperty(Configuration.BOOKKEEPER_ZK_LEDGERS_ROOT_PATH,
+            String zkLedgersRootPath = configuration.getProperty(
+                    Configuration.BOOKKEEPER_ZK_LEDGERS_ROOT_PATH,
                     Configuration.BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT);
             String zkServers = configuration.getZookkeeperUrl();
-            String metadataServiceURI = "zk+null://" + zkServers.replace(",", ";") + zkLedgersRootPath;
-            LOG.log(Level.INFO, "BlobIt client is using BookKeeper metadataservice URI: {0}", metadataServiceURI);
+            String metadataServiceURI = "zk+null://" + zkServers.replace(",",
+                    ";") + zkLedgersRootPath;
+            LOG.log(Level.INFO,
+                    "BlobIt client is using BookKeeper metadataservice URI: {0}",
+                    metadataServiceURI);
             clientConfiguration.setMetadataServiceUri(metadataServiceURI);
 
 //            clientConfiguration.setUseV2WireProtocol(true);
             for (String key : configuration.keys()) {
                 if (key.startsWith("bookkeeper.")) {
                     String rawKey = key.substring("bookkeeper.".length());
-                    clientConfiguration.setProperty(rawKey, configuration.getProperty(key));
+                    clientConfiguration.setProperty(rawKey, configuration.
+                            getProperty(key));
                 }
             }
-            LOG.info("ObjectManager will use BookKeeper ensemble at " + configuration.getZookkeeperUrl() + ", that is BK configuration bookkeeper.metadataServiceUri=" + clientConfiguration.getMetadataServiceUriUnchecked());
+            LOG.info(
+                    "ObjectManager will use BookKeeper ensemble at " + configuration.
+                            getZookkeeperUrl() + ", that is BK configuration bookkeeper.metadataServiceUri="
+                    + clientConfiguration.
+                            getMetadataServiceUriUnchecked());
 
-            GenericKeyedObjectPoolConfig configWriters = new GenericKeyedObjectPoolConfig();
+            GenericKeyedObjectPoolConfig configWriters =
+                    new GenericKeyedObjectPoolConfig();
             configWriters.setMaxTotalPerKey(concurrentWrites);
             configWriters.setMaxIdlePerKey(concurrentWrites);
             configWriters.setTestOnReturn(true);
             configWriters.setTestOnBorrow(true);
             configWriters.setBlockWhenExhausted(true);
-            this.writers = new GenericKeyedObjectPool<>(new WritersFactory(), configWriters);
+            this.writers = new GenericKeyedObjectPool<>(new WritersFactory(),
+                    configWriters);
 
-            GenericKeyedObjectPoolConfig configReaders = new GenericKeyedObjectPoolConfig();
+            GenericKeyedObjectPoolConfig configReaders =
+                    new GenericKeyedObjectPoolConfig();
             configReaders.setMaxTotalPerKey(1);
             configReaders.setMaxIdlePerKey(1);
             configReaders.setMaxTotal(concurrentReaders);
             configReaders.setTestOnReturn(true);
             configReaders.setTestOnBorrow(true);
             configReaders.setBlockWhenExhausted(true);
-            this.readers = new GenericKeyedObjectPool<>(new ReadersFactory(), configReaders);
+            this.readers = new GenericKeyedObjectPool<>(new ReadersFactory(),
+                    configReaders);
 
             this.bookKeeper = BookKeeper
                     .forConfig(clientConfiguration)
@@ -399,9 +440,11 @@ public class BookKeeperBlobManager implements AutoCloseable {
             for (long ledgerId : admin.listLedgers()) {
                 String bucketUUID;
                 String bucketid;
-                try (LedgerHandle lh = bookKeeper.openLedgerNoRecovery(ledgerId, BookKeeper.DigestType.CRC32C, DUMMY_PWD);) {
+                try (LedgerHandle lh = bookKeeper.openLedgerNoRecovery(ledgerId,
+                        BookKeeper.DigestType.CRC32C, DUMMY_PWD);) {
                     LedgerMetadata ledgerMetadata = admin.getLedgerMetadata(lh);
-                    Map<String, byte[]> metadata = ledgerMetadata.getCustomMetadata();
+                    Map<String, byte[]> metadata = ledgerMetadata.
+                            getCustomMetadata();
                     byte[] _bucketUUid = metadata.get(BK_METADATA_BUCKET_UUID);
                     byte[] _bucketId = metadata.get(BK_METADATA_BUCKET_ID);
                     if (_bucketUUid == null || _bucketId == null) {
@@ -412,9 +455,12 @@ public class BookKeeperBlobManager implements AutoCloseable {
                 }
                 boolean found = buckets
                         .stream()
-                        .anyMatch(b -> b.getBucketId().equals(bucketid) && b.getUuid().equals(bucketUUID));
+                        .anyMatch(b -> b.getBucketId().equals(bucketid) && b.
+                        getUuid().equals(bucketUUID));
                 if (found) {
-                    LOG.log(Level.INFO, "found droppable ledger {0}, for {1}, {2}", new Object[]{ledgerId, bucketid, bucketUUID});
+                    LOG.log(Level.INFO,
+                            "found droppable ledger {0}, for {1}, {2}",
+                            new Object[]{ledgerId, bucketid, bucketUUID});
                     bookKeeper.deleteLedger(ledgerId);
                 }
             }
@@ -497,7 +543,8 @@ public class BookKeeperBlobManager implements AutoCloseable {
     }
 
     void closeAllActiveWritersForTests() {
-        List<BucketWriter> actualWriters = new ArrayList<>(activeWriters.values());
+        List<BucketWriter> actualWriters = new ArrayList<>(activeWriters.
+                values());
         writers.clear();
         for (BucketWriter writer : actualWriters) {
             writer.awaitTermination();

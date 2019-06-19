@@ -19,19 +19,6 @@
  */
 package org.blobit.core.mem;
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-
-import org.blobit.core.api.BucketConfiguration;
-import org.blobit.core.api.BucketMetadata;
-import org.blobit.core.api.LedgerMetadata;
-import org.blobit.core.api.ObjectManager;
-import org.blobit.core.api.ObjectManagerException;
-import org.blobit.core.api.ObjectMetadata;
-import org.blobit.core.api.PutPromise;
-
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -40,23 +27,34 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.apache.bookkeeper.common.concurrent.FutureUtils;
+import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.BucketHandle;
+import org.blobit.core.api.BucketMetadata;
 import org.blobit.core.api.DeletePromise;
 import org.blobit.core.api.DownloadPromise;
 import org.blobit.core.api.GetPromise;
+import org.blobit.core.api.LedgerMetadata;
 import org.blobit.core.api.LocationInfo;
 import org.blobit.core.api.LocationInfo.ServerInfo;
 import org.blobit.core.api.NamedObjectDeletePromise;
 import org.blobit.core.api.NamedObjectDownloadPromise;
 import org.blobit.core.api.NamedObjectGetPromise;
 import org.blobit.core.api.NamedObjectMetadata;
+import org.blobit.core.api.ObjectManager;
+import org.blobit.core.api.ObjectManagerException;
+import org.blobit.core.api.ObjectMetadata;
 import org.blobit.core.api.ObjectNotFoundException;
+import org.blobit.core.api.PutPromise;
 
 /**
  * MetadataManager all in memory for unit tests
@@ -65,21 +63,36 @@ import org.blobit.core.api.ObjectNotFoundException;
  */
 public class LocalManager implements ObjectManager {
 
-    private final Map<String, MemBucket> buckets = new ConcurrentHashMap<>();
     private static final Consumer<Long> NULL_LEN_CALLBACK = (l) -> {
     };
+    private static final List<ServerInfo> LOCAL_SERVER =
+            Collections.unmodifiableList(Arrays.asList(
+                    (ServerInfo) () -> "local-vm"));
+    private static final List<Long> OFFSET_0 =
+            Collections.unmodifiableList(Arrays.asList(0L));
+
+    private static <T> CompletableFuture<T> wrapGenericException(Exception err) {
+        CompletableFuture<T> error = new CompletableFuture<>();
+        error.completeExceptionally(new ObjectManagerException(err));
+        return error;
+    }
+    private final Map<String, MemBucket> buckets = new ConcurrentHashMap<>();
 
     @Override
-    public CompletableFuture<BucketMetadata> createBucket(String name, String bucketTableSpaceName, BucketConfiguration configuration) {
+    public CompletableFuture<BucketMetadata> createBucket(String name,
+            String bucketTableSpaceName,
+            BucketConfiguration configuration) {
 
         CompletableFuture<BucketMetadata> res = new CompletableFuture<>();
         MemBucket oldBucket = buckets.computeIfAbsent(name, (bname) -> {
             return new MemBucket(bname, configuration);
         });
         if (oldBucket == null) {
-            res.completeExceptionally(new ObjectManagerException("bucket " + name + " already exists").fillInStackTrace());
+            res.completeExceptionally(new ObjectManagerException(
+                    "bucket " + name + " already exists").fillInStackTrace());
         } else {
-            res.complete(new BucketMetadata(name, UUID.randomUUID().toString(), BucketMetadata.STATUS_ACTIVE,
+            res.complete(new BucketMetadata(name, UUID.randomUUID().toString(),
+                    BucketMetadata.STATUS_ACTIVE,
                     configuration, bucketTableSpaceName));
         }
         return res;
@@ -99,10 +112,100 @@ public class LocalManager implements ObjectManager {
         return getMemBucket(bucketId).getMetadata();
     }
 
+    @Override
+
+    public BucketHandle getBucket(String bucketId) {
+        return new BucketHandleImpl(bucketId);
+    }
+
+    private MemBucket getMemBucket(String bucketId) throws ObjectManagerException {
+        MemBucket bucket = buckets.get(bucketId);
+        if (bucket == null) {
+            throw new ObjectManagerException(
+                    "bucket " + bucketId + " does not exist");
+        }
+        return bucket;
+    }
+
+    @Override
+    public CompletableFuture<?> deleteBucket(String bucketId) {
+        buckets.remove(bucketId);
+        return CompletableFuture.completedFuture(null);
+    }
+
+    Collection<Long> listDeletableLedgers(String bucketId) throws ObjectManagerException {
+        return getMemBucket(bucketId).listDeletableLedgers();
+    }
+
+    Collection<LedgerMetadata> listLedgersbyBucketId(String bucketId) throws ObjectManagerException {
+        return getMemBucket(bucketId).listLedgers();
+    }
+
+    Collection<ObjectMetadata> listObjectsByLedger(String bucketId,
+            long ledgerId) throws ObjectManagerException {
+        return getMemBucket(bucketId).getLedger(ledgerId).listObjects();
+    }
+
+    @Override
+    public void close() {
+        buckets.clear();
+    }
+
+    @Override
+    public void cleanup() throws ObjectManagerException {
+    }
+
+    @Override
+    public void start() {
+
+    }
+
+    @Override
+    public void gc() {
+        buckets.values().forEach(MemBucket::gc);
+    }
+
+    private static final class MemLocationInfo implements LocationInfo {
+
+        private final MemEntryId id;
+
+        public MemLocationInfo(MemEntryId id) {
+            this.id = id;
+        }
+
+        @Override
+        public String getId() {
+            return id.toId();
+        }
+
+        @Override
+        public List<ServerInfo> getServersAtPosition(long offset) {
+            if (offset < 0 || offset >= id.length) {
+                return Collections.emptyList();
+            }
+            return LOCAL_SERVER;
+        }
+
+        @Override
+        public long getSize() {
+            return id.length;
+        }
+
+        @Override
+        public List<Long> getSegmentsStartOffsets() {
+            if (id.length == 0) {
+                return Collections.emptyList();
+            }
+            return OFFSET_0;
+        }
+
+    }
+
     private class BucketHandleImpl implements BucketHandle {
 
         private final String bucketId;
-        private final ConcurrentHashMap<String, List<String>> objectNames = new ConcurrentHashMap<>();
+        private final ConcurrentHashMap<String, List<String>> objectNames =
+                new ConcurrentHashMap<>();
 
         public BucketHandleImpl(String bucketId) {
             this.bucketId = bucketId;
@@ -137,12 +240,14 @@ public class LocalManager implements ObjectManager {
                     System.arraycopy(data, offset, copy, 0, len);
                     data = copy;
                 }
-                MemEntryId res = getMemBucket(bucketId).getCurrentLedger().put(data);
+                MemEntryId res = getMemBucket(bucketId).getCurrentLedger().put(
+                        data);
                 /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
                 if (name != null) {
                     objectNames.put(name, Arrays.asList(res.toId()));
                 }
-                return new PutPromise(res.toId(), CompletableFuture.<Void>completedFuture(null));
+                return new PutPromise(res.toId(), CompletableFuture.
+                        <Void>completedFuture(null));
             } catch (ObjectManagerException err) {
                 CompletableFuture<Void> res = new CompletableFuture<>();
                 res.completeExceptionally(err);
@@ -155,9 +260,11 @@ public class LocalManager implements ObjectManager {
         public GetPromise get(String objectId) {
             try {
                 MemEntryId id = MemEntryId.parseId(objectId);
-                byte[] res = getMemBucket(bucketId).getLedger(id.ledgerId).get(id.entryId);
+                byte[] res = getMemBucket(bucketId).getLedger(id.ledgerId).get(
+                        id.entryId);
                 /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
-                return new GetPromise(objectId, res.length, CompletableFuture.completedFuture(res));
+                return new GetPromise(objectId, res.length, CompletableFuture.
+                        completedFuture(res));
             } catch (ObjectManagerException err) {
                 CompletableFuture<byte[]> res = new CompletableFuture<>();
                 res.completeExceptionally(err);
@@ -202,7 +309,6 @@ public class LocalManager implements ObjectManager {
 
         @Override
         public NamedObjectMetadata statByName(String name) {
-            // TODO: handle multiple object per-name
             List<String> ids = objectNames.get(name);
             if (ids == null) {
                 return null;
@@ -232,7 +338,8 @@ public class LocalManager implements ObjectManager {
         @Override
         public NamedObjectDownloadPromise downloadByName(String name,
                 Consumer<Long> lengthCallback,
-                OutputStream output, int offset, long length) {
+                OutputStream output,
+                int offset, long length) {
             List<String> ids = null;
             try {
                 ids = objectNames.get(name);
@@ -257,7 +364,8 @@ public class LocalManager implements ObjectManager {
                 }
                 lengthCallback.accept(length);
                 CompletableFuture<?> result = new CompletableFuture<>();
-                NamedObjectDownloadPromise res = new NamedObjectDownloadPromise(name, ids, length, result);
+                NamedObjectDownloadPromise res = new NamedObjectDownloadPromise(
+                        name, ids, length, result);
                 if (length <= 0) {
                     // early exit, nothing to to
                     FutureUtils.complete(result, null);
@@ -299,12 +407,15 @@ public class LocalManager implements ObjectManager {
         private void startDownloadSegment(List<MemEntryId> segments, int index,
                 long offsetInSegment,
                 long remainingLen,
-                OutputStream output, CompletableFuture<?> result) {
+                OutputStream output,
+                CompletableFuture<?> result) {
             MemEntryId currentSegment = segments.get(index);
 
-            long lengthForCurrentSegment = Math.min(remainingLen, currentSegment.length - offsetInSegment);
+            long lengthForCurrentSegment = Math.min(remainingLen,
+                    currentSegment.length - offsetInSegment);
 
-            DownloadPromise download = download(currentSegment.toId(), NULL_LEN_CALLBACK,
+            DownloadPromise download = download(currentSegment.toId(),
+                    NULL_LEN_CALLBACK,
                     output, offsetInSegment, lengthForCurrentSegment);
             download.future.whenComplete((a, error) -> {
                 if (error != null) {
@@ -312,7 +423,8 @@ public class LocalManager implements ObjectManager {
                     // fast fail, complete the future
                     result.completeExceptionally(error);
                 } else {
-                    long newRemainingLen = remainingLen - lengthForCurrentSegment;
+                    long newRemainingLen =
+                            remainingLen - lengthForCurrentSegment;
 
                     if (newRemainingLen == 0) {
                         FutureUtils.complete(result, null);
@@ -331,7 +443,7 @@ public class LocalManager implements ObjectManager {
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
         public NamedObjectDeletePromise deleteByName(String name) {
             CompletableFuture<?> res = new CompletableFuture<>();
-            List<String> ids = objectNames.remove(name);;
+            List<String> ids = objectNames.remove(name);
             if (ids != null && !ids.isEmpty()) {
                 AtomicInteger count = new AtomicInteger(ids.size());
                 for (String id : ids) {
@@ -347,7 +459,7 @@ public class LocalManager implements ObjectManager {
                     });
                 }
             } else {
-                // empty object ? nothing to delete                    
+                // empty object ? nothing to delete
                 FutureUtils.complete(res, null);
             }
             return new NamedObjectDeletePromise(name, ids, res);
@@ -356,7 +468,9 @@ public class LocalManager implements ObjectManager {
 
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
         @Override
-        public DownloadPromise download(String objectId, Consumer<Long> lengthCallback, OutputStream output,
+        public DownloadPromise download(String objectId,
+                Consumer<Long> lengthCallback,
+                OutputStream output,
                 long offset, long length) {
             try {
                 GetPromise result = get(objectId);
@@ -389,7 +503,8 @@ public class LocalManager implements ObjectManager {
                         b = ii.read();
                     }
                 }
-                return new DownloadPromise(objectId, countWritten, CompletableFuture.completedFuture(null));
+                return new DownloadPromise(objectId, countWritten,
+                        CompletableFuture.completedFuture(null));
             } catch (IOException | InterruptedException | ObjectManagerException err) {
                 CompletableFuture<Void> res = new CompletableFuture<>();
                 res.completeExceptionally(err);
@@ -401,7 +516,8 @@ public class LocalManager implements ObjectManager {
         public int append(String objectId, String name) throws ObjectManagerException {
             return objectNames.compute(name, (_name, currentList) -> {
                 if (currentList != null) {
-                    List<String> newList = new ArrayList<>(currentList.size() + 1);
+                    List<String> newList = new ArrayList<>(
+                            currentList.size() + 1);
                     newList.addAll(currentList);
                     newList.add(objectId);
                     return newList;
@@ -418,7 +534,8 @@ public class LocalManager implements ObjectManager {
                 MemEntryId id = MemEntryId.parseId(objectId);
                 getMemBucket(bucketId).getLedger(id.ledgerId).delete(id.entryId);
                 /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
-                return new DeletePromise(objectId, CompletableFuture.completedFuture(null));
+                return new DeletePromise(objectId, CompletableFuture.
+                        completedFuture(null));
             } catch (ObjectManagerException err) {
                 CompletableFuture<Void> res = new CompletableFuture<>();
                 res.completeExceptionally(err);
@@ -435,8 +552,10 @@ public class LocalManager implements ObjectManager {
         }
 
         @Override
-        public CompletableFuture<? extends LocationInfo> getLocationInfo(String objectId) {
-            CompletableFuture<MemLocationInfo> result = new CompletableFuture<>();
+        public CompletableFuture<? extends LocationInfo> getLocationInfo(
+                String objectId) {
+            CompletableFuture<MemLocationInfo> result =
+                    new CompletableFuture<>();
             try {
                 MemEntryId id = MemEntryId.parseId(objectId);
                 result.complete(new MemLocationInfo(id));
@@ -446,105 +565,6 @@ public class LocalManager implements ObjectManager {
             return result;
         }
 
-    }
-
-    private final static class MemLocationInfo implements LocationInfo {
-
-        private final MemEntryId id;
-
-        public MemLocationInfo(MemEntryId id) {
-            this.id = id;
-        }
-
-        @Override
-        public String getId() {
-            return id.toId();
-        }
-
-        @Override
-        public List<ServerInfo> getServersAtPosition(long offset) {
-            if (offset < 0 || offset >= id.length) {
-                return Collections.emptyList();
-            }
-            return LOCAL_SERVER;
-        }
-
-        @Override
-        public long getSize() {
-            return id.length;
-        }
-
-        @Override
-        public List<Long> getSegmentsStartOffsets() {
-            if (id.length == 0) {
-                return Collections.emptyList();
-            }
-            return OFFSET_0;
-        }
-
-    }
-
-    private final static List<ServerInfo> LOCAL_SERVER
-            = Collections.unmodifiableList(Arrays.asList((ServerInfo) () -> "local-vm"));
-
-    private final static List<Long> OFFSET_0
-            = Collections.unmodifiableList(Arrays.asList(0L));
-
-    @Override
-
-    public BucketHandle getBucket(String bucketId) {
-        return new BucketHandleImpl(bucketId);
-    }
-
-    private MemBucket getMemBucket(String bucketId) throws ObjectManagerException {
-        MemBucket bucket = buckets.get(bucketId);
-        if (bucket == null) {
-            throw new ObjectManagerException("bucket " + bucketId + " does not exist");
-        }
-        return bucket;
-    }
-
-    @Override
-    public CompletableFuture<?> deleteBucket(String bucketId) {
-        buckets.remove(bucketId);
-        return CompletableFuture.completedFuture(null);
-    }
-
-    Collection<Long> listDeletableLedgers(String bucketId) throws ObjectManagerException {
-        return getMemBucket(bucketId).listDeletableLedgers();
-    }
-
-    Collection<LedgerMetadata> listLedgersbyBucketId(String bucketId) throws ObjectManagerException {
-        return getMemBucket(bucketId).listLedgers();
-    }
-
-    Collection<ObjectMetadata> listObjectsByLedger(String bucketId, long ledgerId) throws ObjectManagerException {
-        return getMemBucket(bucketId).getLedger(ledgerId).listObjects();
-    }
-
-    @Override
-    public void close() {
-        buckets.clear();
-    }
-
-    @Override
-    public void cleanup() throws ObjectManagerException {
-    }
-
-    @Override
-    public void start() {
-
-    }
-
-    @Override
-    public void gc() {
-        buckets.values().forEach(MemBucket::gc);
-    }
-
-    private static <T> CompletableFuture<T> wrapGenericException(Exception err) {
-        CompletableFuture<T> error = new CompletableFuture<>();
-        error.completeExceptionally(new ObjectManagerException(err));
-        return error;
     }
 
 }

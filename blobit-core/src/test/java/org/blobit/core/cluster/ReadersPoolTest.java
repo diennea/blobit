@@ -19,28 +19,26 @@
  */
 package org.blobit.core.cluster;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import herddb.jdbc.HerdDBEmbeddedDataSource;
+import herddb.server.ServerConfiguration;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
-
+import org.apache.bookkeeper.client.BKException;
+import org.apache.commons.pool2.impl.DefaultPooledObjectInfo;
 import org.blobit.core.api.BucketConfiguration;
+import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.Configuration;
+import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectManagerFactory;
+import org.blobit.core.util.TestUtils;
+import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-
-import herddb.jdbc.HerdDBEmbeddedDataSource;
-import herddb.server.ServerConfiguration;
-import java.util.Map;
-import org.apache.bookkeeper.client.BKException;
-import org.apache.commons.pool2.impl.DefaultPooledObjectInfo;
-import org.blobit.core.api.BucketHandle;
-import org.blobit.core.api.ObjectManagerException;
-import org.blobit.core.util.TestUtils;
-import org.junit.Assert;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 public class ReadersPoolTest {
 
@@ -58,38 +56,53 @@ public class ReadersPoolTest {
     @Test
     public void testReaderNotUsingWriter() throws Exception {
         Properties dsProperties = new Properties();
-        dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
+        dsProperties.put(ServerConfiguration.PROPERTY_MODE,
+                ServerConfiguration.PROPERTY_MODE_LOCAL);
         try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
-                HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
+                HerdDBEmbeddedDataSource datasource =
+                new HerdDBEmbeddedDataSource(
+                        dsProperties)) {
             env.startBookie();
-            Configuration configuration
-                    = new Configuration()
+            Configuration configuration =
+                    new Configuration()
                             .setType(Configuration.TYPE_BOOKKEEPER)
                             .setMaxBytesPerLedger(TEST_DATA.length - 1) // we want a new ledger for each blob
                             .setConcurrentReaders(2)
                             .setZookeeperUrl(env.getAddress());
-            try (ClusterObjectManager manager = (ClusterObjectManager) ObjectManagerFactory.createObjectManager(configuration, datasource);
-                    ClusterObjectManager managerReaders = (ClusterObjectManager) ObjectManagerFactory.createObjectManager(configuration, datasource);) {
-                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
+            try (ClusterObjectManager manager =
+                    (ClusterObjectManager) ObjectManagerFactory.
+                            createObjectManager(configuration, datasource);
+                    ClusterObjectManager managerReaders =
+                    (ClusterObjectManager) ObjectManagerFactory.
+                            createObjectManager(configuration, datasource);) {
+                manager.createBucket(BUCKET_ID, BUCKET_ID,
+                        BucketConfiguration.DEFAULT).get();
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
                 BucketHandle bucketReaders = managerReaders.getBucket(BUCKET_ID);
                 // perform a put, a new writer must be allocated
                 String blobId = bucket.put(null, TEST_DATA).get();
                 BKEntryId entryId = BKEntryId.parseId(blobId);
 
-                BookKeeperBlobManager blobManagerReaders = managerReaders.getBlobManager();
+                BookKeeperBlobManager blobManagerReaders = managerReaders.
+                        getBlobManager();
                 {
-                    Map<String, List<DefaultPooledObjectInfo>> all = blobManagerReaders.readers.listAllObjects();
+                    Map<String, List<DefaultPooledObjectInfo>> all =
+                            blobManagerReaders.readers.
+                                    listAllObjects();
                     assertTrue(all.isEmpty());
                 }
 
                 bucketReaders.get(blobId).get();
-                assertEquals(0, blobManagerReaders.getStats().getUsedWritersAsReaders());
+                assertEquals(0, blobManagerReaders.getStats().
+                        getUsedWritersAsReaders());
                 {
-                    Map<String, List<DefaultPooledObjectInfo>> all = blobManagerReaders.readers.listAllObjects();
+                    Map<String, List<DefaultPooledObjectInfo>> all =
+                            blobManagerReaders.readers.
+                                    listAllObjects();
                     assertEquals(1, all.size());
 
-                    DefaultPooledObjectInfo readerStats = all.get(entryId.ledgerId + "").get(0);
+                    DefaultPooledObjectInfo readerStats = all.get(
+                            entryId.ledgerId + "").get(0);
                     assertEquals(1, readerStats.getBorrowedCount());
 
                     bucketReaders.get(blobId).get();
@@ -100,12 +113,16 @@ public class ReadersPoolTest {
 
                 {
                     // get will fail
-                    ObjectManagerException error = TestUtils.expectThrows(ObjectManagerException.class,
+                    ObjectManagerException error = TestUtils.expectThrows(
+                            ObjectManagerException.class,
                             () -> bucketReaders.get(blobId).get());
-                    assertTrue(error.getCause() instanceof BKException.BKBookieHandleNotAvailableException);
+                    assertTrue(
+                            error.getCause() instanceof BKException.BKBookieHandleNotAvailableException);
 
                     // reader is not evicted upon failures
-                    Map<String, List<DefaultPooledObjectInfo>> all = blobManagerReaders.readers.listAllObjects();
+                    Map<String, List<DefaultPooledObjectInfo>> all =
+                            blobManagerReaders.readers.
+                                    listAllObjects();
                     assertEquals(1, all.size());
                 }
 
@@ -115,9 +132,12 @@ public class ReadersPoolTest {
                 {
                     // get will now succeeed
                     bucketReaders.get(blobId).get();
-                    Map<String, List<DefaultPooledObjectInfo>> all = blobManagerReaders.readers.listAllObjects();
+                    Map<String, List<DefaultPooledObjectInfo>> all =
+                            blobManagerReaders.readers.
+                                    listAllObjects();
                     assertEquals(1, all.size());
-                    DefaultPooledObjectInfo readerStats = all.get(entryId.ledgerId + "").get(0);
+                    DefaultPooledObjectInfo readerStats = all.get(
+                            entryId.ledgerId + "").get(0);
                     assertEquals(1, readerStats.getBorrowedCount());
                 }
 
@@ -127,11 +147,15 @@ public class ReadersPoolTest {
 
                 bucketReaders.get(blobId2).get();
 
-                Map<String, List<DefaultPooledObjectInfo>> all = blobManagerReaders.readers.listAllObjects();
+                Map<String, List<DefaultPooledObjectInfo>> all =
+                        blobManagerReaders.readers.
+                                listAllObjects();
                 assertEquals(2, all.size());
-                DefaultPooledObjectInfo readerStats1 = all.get(entryId.ledgerId + "").get(0);
+                DefaultPooledObjectInfo readerStats1 = all.get(
+                        entryId.ledgerId + "").get(0);
                 assertEquals(1, readerStats1.getBorrowedCount());
-                DefaultPooledObjectInfo readerStats2 = all.get(entryId2.ledgerId + "").get(0);
+                DefaultPooledObjectInfo readerStats2 = all.get(
+                        entryId2.ledgerId + "").get(0);
                 assertEquals(1, readerStats2.getBorrowedCount());
 
                 // third ledger, we have concurrentReaders = 2, so we can read concurrently only from 2 ledgers
@@ -151,18 +175,25 @@ public class ReadersPoolTest {
     @Test
     public void testReaderUseOpenWriter() throws Exception {
         Properties dsProperties = new Properties();
-        dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
+        dsProperties.put(ServerConfiguration.PROPERTY_MODE,
+                ServerConfiguration.PROPERTY_MODE_LOCAL);
         try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
-                HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
+                HerdDBEmbeddedDataSource datasource =
+                new HerdDBEmbeddedDataSource(
+                        dsProperties)) {
             env.startBookie();
-            Configuration configuration
-                    = new Configuration()
+            Configuration configuration =
+                    new Configuration()
                             .setType(Configuration.TYPE_BOOKKEEPER)
-                            .setMaxBytesPerLedger(TEST_DATA.length) // we want a new ledger for each blob, but the first writer is not to be closed
+                            .setMaxBytesPerLedger(TEST_DATA.length) // we want a new ledger for each blob, but the
+                                                                    //first writer is not to be closed
                             .setConcurrentReaders(2)
                             .setZookeeperUrl(env.getAddress());
-            try (ClusterObjectManager manager = (ClusterObjectManager) ObjectManagerFactory.createObjectManager(configuration, datasource);) {
-                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
+            try (ClusterObjectManager manager =
+                    (ClusterObjectManager) ObjectManagerFactory.
+                            createObjectManager(configuration, datasource);) {
+                manager.createBucket(BUCKET_ID, BUCKET_ID,
+                        BucketConfiguration.DEFAULT).get();
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
                 // perform a put, a new writer must be allocated
                 String blobId = bucket.put(null, TEST_DATA).get();
@@ -171,7 +202,9 @@ public class ReadersPoolTest {
 
                 BookKeeperBlobManager blobManager = manager.getBlobManager();
                 {
-                    Map<String, List<DefaultPooledObjectInfo>> all = blobManager.readers.listAllObjects();
+                    Map<String, List<DefaultPooledObjectInfo>> all =
+                            blobManager.readers.
+                                    listAllObjects();
                     assertTrue(all.isEmpty());
                 }
 
@@ -181,10 +214,13 @@ public class ReadersPoolTest {
                 assertEquals(1, blobManager.getStats().getUsedWritersAsReaders());
 
                 {
-                    Map<String, List<DefaultPooledObjectInfo>> all = blobManager.readers.listAllObjects();
+                    Map<String, List<DefaultPooledObjectInfo>> all =
+                            blobManager.readers.
+                                    listAllObjects();
                     assertEquals(1, all.size());
 
-                    DefaultPooledObjectInfo readerStats = all.get(entryId.ledgerId + "").get(0);
+                    DefaultPooledObjectInfo readerStats = all.get(
+                            entryId.ledgerId + "").get(0);
                     assertEquals(1, readerStats.getBorrowedCount());
 
                     bucket.get(blobId).get();
@@ -194,32 +230,43 @@ public class ReadersPoolTest {
                 env.stopBookie();
 
                 {
-                    Map<String, List<DefaultPooledObjectInfo>> allWriters = blobManager.writers.listAllObjects();
+                    Map<String, List<DefaultPooledObjectInfo>> allWriters =
+                            blobManager.writers.
+                                    listAllObjects();
                     assertEquals(1, allWriters.size());
 
                     // get will fail
-                    ObjectManagerException error = TestUtils.expectThrows(ObjectManagerException.class,
+                    ObjectManagerException error = TestUtils.expectThrows(
+                            ObjectManagerException.class,
                             () -> bucket.get(blobId).get());
-                    assertTrue(error.getCause() instanceof BKException.BKBookieHandleNotAvailableException);
+                    assertTrue(
+                            error.getCause() instanceof BKException.BKBookieHandleNotAvailableException);
 
-                    assertEquals(1, blobManager.getStats().getUsedWritersAsReaders());
+                    assertEquals(1, blobManager.getStats().
+                            getUsedWritersAsReaders());
 
                     // writers pool is not touched
                     allWriters = blobManager.writers.listAllObjects();
                     assertEquals(1, allWriters.size());
 
                     // reader is not evicted upon failures
-                    Map<String, List<DefaultPooledObjectInfo>> allReaders = blobManager.readers.listAllObjects();
+                    Map<String, List<DefaultPooledObjectInfo>> allReaders =
+                            blobManager.readers.
+                                    listAllObjects();
                     assertEquals(1, allReaders.size());
 
                 }
 
                 {
                     // put will fail, writer will be eventually disposed
-                    ObjectManagerException error = TestUtils.expectThrows(ObjectManagerException.class,
+                    ObjectManagerException error = TestUtils.expectThrows(
+                            ObjectManagerException.class,
                             () -> bucket.put(null, TEST_DATA).get());
-                    assertTrue(error.getCause() instanceof BKException.BKNotEnoughBookiesException);
-                    Map<String, List<DefaultPooledObjectInfo>> allWriters = blobManager.writers.listAllObjects();
+                    assertTrue(
+                            error.getCause() instanceof BKException.BKNotEnoughBookiesException);
+                    Map<String, List<DefaultPooledObjectInfo>> allWriters =
+                            blobManager.writers.
+                                    listAllObjects();
                     assertTrue(allWriters.isEmpty());
                 }
 
@@ -229,10 +276,14 @@ public class ReadersPoolTest {
                 {
                     // get will now succeeed
                     bucket.get(blobId).get();
-                    assertEquals(1, blobManager.getStats().getUsedWritersAsReaders());
-                    Map<String, List<DefaultPooledObjectInfo>> allReaders = blobManager.readers.listAllObjects();
+                    assertEquals(1, blobManager.getStats().
+                            getUsedWritersAsReaders());
+                    Map<String, List<DefaultPooledObjectInfo>> allReaders =
+                            blobManager.readers.
+                                    listAllObjects();
                     assertEquals(1, allReaders.size());
-                    DefaultPooledObjectInfo readerStats = allReaders.get(entryId.ledgerId + "").get(0);
+                    DefaultPooledObjectInfo readerStats = allReaders.get(
+                            entryId.ledgerId + "").get(0);
                     assertEquals(1, readerStats.getBorrowedCount());
                 }
 
@@ -242,11 +293,15 @@ public class ReadersPoolTest {
 
                 bucket.get(blobId2).get();
 
-                Map<String, List<DefaultPooledObjectInfo>> all = blobManager.readers.listAllObjects();
+                Map<String, List<DefaultPooledObjectInfo>> all =
+                        blobManager.readers.
+                                listAllObjects();
                 assertEquals(2, all.size());
-                DefaultPooledObjectInfo readerStats1 = all.get(entryId.ledgerId + "").get(0);
+                DefaultPooledObjectInfo readerStats1 = all.get(
+                        entryId.ledgerId + "").get(0);
                 assertEquals(1, readerStats1.getBorrowedCount());
-                DefaultPooledObjectInfo readerStats2 = all.get(entryId2.ledgerId + "").get(0);
+                DefaultPooledObjectInfo readerStats2 = all.get(
+                        entryId2.ledgerId + "").get(0);
                 assertEquals(1, readerStats2.getBorrowedCount());
 
                 // third ledger, we have concurrentReaders = 2, so we can read concurrently only from 2 ledgers

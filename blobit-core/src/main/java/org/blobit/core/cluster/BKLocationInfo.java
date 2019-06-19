@@ -57,7 +57,8 @@ public class BKLocationInfo implements LocationInfo {
         List<BookieSocketAddress> ensembleAt = metadata.getEnsembleAt(entryNum);
         return ensembleAt
                 .stream()
-                .map(ba -> new BKServerInfo(ba.getHostName() + ":" + ba.getPort()))
+                .map(ba -> new BKServerInfo(ba.getHostName() + ":" + ba.
+                getPort()))
                 .collect(Collectors.toList());
     }
 

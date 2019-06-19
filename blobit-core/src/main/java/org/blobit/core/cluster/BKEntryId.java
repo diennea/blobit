@@ -31,10 +31,11 @@ class BKEntryId {
     public final int entrySize;
     public final long length;
     public final int numEntries;
-    
+
     public static final String EMPTY_ENTRY_ID = formatId(0, 0, 0, 0, 0);
 
-    public BKEntryId(long ledgerId, long firstEntryId, int entrySize, long length, int numEntries) {
+    public BKEntryId(long ledgerId, long firstEntryId, int entrySize,
+            long length, int numEntries) {
         this.ledgerId = ledgerId;
         this.firstEntryId = firstEntryId;
         this.entrySize = entrySize;
@@ -46,7 +47,8 @@ class BKEntryId {
         return formatId(ledgerId, firstEntryId, entrySize, length, numEntries);
     }
 
-    static String formatId(long ledgerId, long firstEntryId, int entrySize, long length, int numEntries) {
+    static String formatId(long ledgerId, long firstEntryId, int entrySize,
+            long length, int numEntries) {
         StringBuilder res = new StringBuilder();
         res.append(ledgerId);
         res.append('-');
@@ -73,7 +75,8 @@ class BKEntryId {
 
     @Override
     public String toString() {
-        return "BKEntryId{" + "ledgerId=" + ledgerId + ", firstEntryId=" + firstEntryId + ", entrySize=" + entrySize + ", length=" + length + ", numEntries=" + numEntries + '}';
+        return "BKEntryId{" + "ledgerId=" + ledgerId + ", firstEntryId=" + firstEntryId + ", entrySize=" + entrySize
+                + ", length=" + length + ", numEntries=" + numEntries + '}';
     }
 
 }

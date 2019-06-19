@@ -19,36 +19,33 @@
  */
 package org.blobit.core.cluster;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Properties;
-import java.util.Random;
-
-import org.blobit.core.api.BucketConfiguration;
-import org.blobit.core.api.Configuration;
-import org.blobit.core.api.ObjectManager;
-import org.blobit.core.api.ObjectManagerFactory;
-import org.blobit.core.api.PutPromise;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
-
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
 import io.netty.util.internal.PlatformDependent;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.EOFException;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+import java.util.Random;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Logger;
 import org.apache.bookkeeper.common.concurrent.FutureUtils;
+import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.BucketHandle;
+import org.blobit.core.api.Configuration;
 import org.blobit.core.api.DownloadPromise;
+import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerException;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import org.blobit.core.api.ObjectManagerFactory;
+import org.blobit.core.api.PutPromise;
+import org.junit.Rule;
+import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
 public class SimpleClusterWriterTest {
 
@@ -85,19 +82,24 @@ public class SimpleClusterWriterTest {
     @Test
     public void testWrite() throws Exception {
         Properties dsProperties = new Properties();
-        dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
+        dsProperties.put(ServerConfiguration.PROPERTY_MODE,
+                ServerConfiguration.PROPERTY_MODE_LOCAL);
         try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
-                HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
+                HerdDBEmbeddedDataSource datasource =
+                new HerdDBEmbeddedDataSource(
+                        dsProperties)) {
             env.startBookie();
-            Configuration configuration
-                    = new Configuration()
+            Configuration configuration =
+                    new Configuration()
                             .setType(Configuration.TYPE_BOOKKEEPER)
                             .setConcurrentWriters(4)
                             .setZookeeperUrl(env.getAddress());
-            try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
+            try (ObjectManager manager = ObjectManagerFactory.
+                    createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
 
-                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
+                manager.createBucket(BUCKET_ID, BUCKET_ID,
+                        BucketConfiguration.DEFAULT).get();
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
                 bucket.put(null, TEST_DATA).get();
 
@@ -114,10 +116,14 @@ public class SimpleClusterWriterTest {
                 }
 
                 long _stop = System.currentTimeMillis();
-                double speed = (int) (batch.size() * 60_000.0 / (_stop - _start));
+                double speed =
+                        (int) (batch.size() * 60_000.0 / (_stop - _start));
                 double band = speed * TEST_DATA.length;
-                long total = (batch.size() * TEST_DATA.length * 1L) / (1024 * 1024);
-                System.out.println("TIME: " + (_stop - _start) + " ms for " + batch.size() + " blobs, total " + total + " MBs, " + speed + " blobs/h " + (band / 1e9) + " Gbytes/h");
+                long total =
+                        (batch.size() * TEST_DATA.length * 1L) / (1024 * 1024);
+                System.out.println(
+                        "TIME: " + (_stop - _start) + " ms for " + batch.size() + " blobs, total " + total + " MBs, "
+                        + speed + " blobs/h " + (band / 1e9) + " Gbytes/h");
             }
         }
     }
@@ -125,24 +131,31 @@ public class SimpleClusterWriterTest {
     @Test
     public void testStreamingWritesStreamShortRead() throws Exception {
         Properties dsProperties = new Properties();
-        dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
+        dsProperties.put(ServerConfiguration.PROPERTY_MODE,
+                ServerConfiguration.PROPERTY_MODE_LOCAL);
         try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
-                HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
+                HerdDBEmbeddedDataSource datasource =
+                new HerdDBEmbeddedDataSource(
+                        dsProperties)) {
             env.startBookie();
-            Configuration configuration
-                    = new Configuration()
+            Configuration configuration =
+                    new Configuration()
                             .setType(Configuration.TYPE_BOOKKEEPER)
                             .setConcurrentWriters(4)
                             .setZookeeperUrl(env.getAddress());
-            try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
+            try (ObjectManager manager = ObjectManagerFactory.
+                    createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
 
-                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
+                manager.createBucket(BUCKET_ID, BUCKET_ID,
+                        BucketConfiguration.DEFAULT).get();
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
 
                 try {
-                    ByteArrayInputStream in = new ByteArrayInputStream(TEST_DATA);
-                    PutPromise putResult = bucket.put(null, TEST_DATA.length * 2, in);
+                    ByteArrayInputStream in =
+                            new ByteArrayInputStream(TEST_DATA);
+                    PutPromise putResult = bucket.
+                            put(null, TEST_DATA.length * 2, in);
                     putResult.get();
                     fail();
                 } catch (ObjectManagerException err) {
@@ -159,26 +172,32 @@ public class SimpleClusterWriterTest {
     @Test
     public void testStreamingWrites() throws Exception {
         Properties dsProperties = new Properties();
-        dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
+        dsProperties.put(ServerConfiguration.PROPERTY_MODE,
+                ServerConfiguration.PROPERTY_MODE_LOCAL);
         try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
-                HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
+                HerdDBEmbeddedDataSource datasource =
+                new HerdDBEmbeddedDataSource(
+                        dsProperties)) {
             env.startBookie();
-            Configuration configuration
-                    = new Configuration()
+            Configuration configuration =
+                    new Configuration()
                             .setType(Configuration.TYPE_BOOKKEEPER)
                             .setConcurrentWriters(4)
                             .setMaxEntrySize(TEST_DATA.length / 2 - 1)
                             .setZookeeperUrl(env.getAddress());
-            try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
+            try (ObjectManager manager = ObjectManagerFactory.
+                    createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
 
-                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
+                manager.createBucket(BUCKET_ID, BUCKET_ID,
+                        BucketConfiguration.DEFAULT).get();
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
 
                 int[] testcases = {0, TEST_DATA.length * 2 /* too big */, 10, 1040, TEST_DATA.length};
                 List<PutPromise> results = new ArrayList<>();
                 for (int size : testcases) {
-                    ByteArrayInputStream in = new ByteArrayInputStream(TEST_DATA);
+                    ByteArrayInputStream in =
+                            new ByteArrayInputStream(TEST_DATA);
                     PutPromise putResult = bucket.put(null, size, in);
                     results.add(putResult);
                 }
@@ -199,11 +218,12 @@ public class SimpleClusterWriterTest {
                 for (int i = 0; i < testcases.length; i++) {
                     int expectedSize = testcases[i];
                     String id = results.get(i).id;
-                    if (id != null) { // failed writes do not carry id an id                        
+                    if (id != null) { // failed writes do not carry id an id
                         byte[] data = bucket.get(id).get();
                         assertEquals(expectedSize, data.length);
 //                        Arrays.equals(TEST_DATA, 0, expectedSize, data, 0, data.length);
-                        PlatformDependent.equals(TEST_DATA, 0, data, 0, expectedSize);
+                        PlatformDependent.equals(TEST_DATA, 0, data, 0,
+                                expectedSize);
                     } else {
                         assertTrue(expectedSize > TEST_DATA.length);
                     }
@@ -223,20 +243,25 @@ public class SimpleClusterWriterTest {
     public void testStreamingReads() throws Exception {
 
         Properties dsProperties = new Properties();
-        dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
+        dsProperties.put(ServerConfiguration.PROPERTY_MODE,
+                ServerConfiguration.PROPERTY_MODE_LOCAL);
         try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
-                HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
+                HerdDBEmbeddedDataSource datasource =
+                new HerdDBEmbeddedDataSource(
+                        dsProperties)) {
             env.startBookie();
-            Configuration configuration
-                    = new Configuration()
+            Configuration configuration =
+                    new Configuration()
                             .setType(Configuration.TYPE_BOOKKEEPER)
                             .setConcurrentWriters(4)
                             .setMaxEntrySize(64 * 1024)
                             .setZookeeperUrl(env.getAddress());
-            try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
+            try (ObjectManager manager = ObjectManagerFactory.
+                    createObjectManager(configuration, datasource);) {
                 long _start = System.currentTimeMillis();
 
-                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
+                manager.createBucket(BUCKET_ID, BUCKET_ID,
+                        BucketConfiguration.DEFAULT).get();
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
 
                 int[] testdatasizes = {
@@ -279,12 +304,15 @@ public class SimpleClusterWriterTest {
                             testdata.length,
                             testdata.length + 100 /* bigger than original len*/};
                         List<DownloadPromise> results = new ArrayList<>();
-                        List<ByteArrayOutputStream> resultStreams = new ArrayList<>();
+                        List<ByteArrayOutputStream> resultStreams =
+                                new ArrayList<>();
                         List<AtomicLong> contentLengths = new ArrayList<>();
                         for (int maxLength : maxLengths) {
-                            ByteArrayOutputStream out = new ByteArrayOutputStream();
+                            ByteArrayOutputStream out =
+                                    new ByteArrayOutputStream();
                             AtomicLong dataToReceive = new AtomicLong();
-                            DownloadPromise putResult = bucket.download(id, dataToReceive::set, out, offset, maxLength);
+                            DownloadPromise putResult = bucket.download(id,
+                                    dataToReceive::set, out, offset, maxLength);
                             results.add(putResult);
                             resultStreams.add(out);
                             contentLengths.add(dataToReceive);
@@ -306,13 +334,18 @@ public class SimpleClusterWriterTest {
                                 expectedSize = testdata.length - offset;
                             }
                             byte[] data = stream.toByteArray();
-                            LOG.info("testcase datasize " + testdata.length + ", offset " + offset + ", " + downloadPromise.id + " originalExpectedSize " + originalExpectedSize + ", expected size " + expectedSize + " ->  (object len " + testdata.length + ") actual " + data.length);
+                            LOG.info(
+                                    "testcase datasize " + testdata.length + ", offset " + offset + ", "
+                                    + downloadPromise.id + " originalExpectedSize " + originalExpectedSize
+                                    + ", expected size " + expectedSize + " ->  (object len " + testdata.length
+                                    + ") actual " + data.length);
 
                             assertEquals(expectedSize, data.length);
                             if (offset >= testdata.length) {
                                 assertEquals(0, data.length);
                             } else {
-                                PlatformDependent.equals(testdata, offset, data, 0, expectedSize);
+                                PlatformDependent.equals(testdata, offset, data,
+                                        0, expectedSize);
                             }
                             assertEquals(expectedSize, contentLength.intValue());
 
@@ -323,23 +356,29 @@ public class SimpleClusterWriterTest {
             }
         }
     }
-    private static final Logger LOG = Logger.getLogger(SimpleClusterWriterTest.class.getName());
+    private static final Logger LOG = Logger.getLogger(
+            SimpleClusterWriterTest.class.getName());
 
     @Test
     public void testEmptyBlob() throws Exception {
         Properties dsProperties = new Properties();
-        dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
+        dsProperties.put(ServerConfiguration.PROPERTY_MODE,
+                ServerConfiguration.PROPERTY_MODE_LOCAL);
         try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
-                HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
+                HerdDBEmbeddedDataSource datasource =
+                new HerdDBEmbeddedDataSource(
+                        dsProperties)) {
             env.startBookie();
-            Configuration configuration
-                    = new Configuration()
+            Configuration configuration =
+                    new Configuration()
                             .setType(Configuration.TYPE_BOOKKEEPER)
                             .setConcurrentWriters(4)
                             .setZookeeperUrl(env.getAddress());
-            try (ObjectManager manager = ObjectManagerFactory.createObjectManager(configuration, datasource);) {
+            try (ObjectManager manager = ObjectManagerFactory.
+                    createObjectManager(configuration, datasource);) {
 
-                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
+                manager.createBucket(BUCKET_ID, BUCKET_ID,
+                        BucketConfiguration.DEFAULT).get();
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
                 PutPromise put = bucket.put(null, new byte[0]);
 

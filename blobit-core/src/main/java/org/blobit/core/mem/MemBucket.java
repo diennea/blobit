@@ -20,7 +20,6 @@
 package org.blobit.core.mem;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -67,14 +66,16 @@ final class MemBucket {
             return new MemLedger(bucketId, ledgerId);
         });
         if (old == null) {
-            throw new ObjectManagerException("ledger " + ledgerId + " already exists in bucket " + bucketId);
+            throw new ObjectManagerException(
+                    "ledger " + ledgerId + " already exists in bucket " + bucketId);
         }
     }
 
     MemLedger getLedger(long ledgerId) throws ObjectManagerException {
         MemLedger res = ledgers.get(ledgerId);
         if (res == null) {
-            throw new ObjectManagerException("ledger does not exists in bucket " + bucketId);
+            throw new ObjectManagerException(
+                    "ledger does not exists in bucket " + bucketId);
         }
         return res;
     }
@@ -85,14 +86,14 @@ final class MemBucket {
 
     Collection<Long> listDeletableLedgers() {
         return ledgers.values().stream()
-            .filter(MemLedger::isEmpty)
-            .map(MemLedger::getLedgerId)
-            .collect(Collectors.toList());
+                .filter(MemLedger::isEmpty)
+                .map(MemLedger::getLedgerId)
+                .collect(Collectors.toList());
     }
 
     Collection<LedgerMetadata> listLedgers() {
         return ledgers.values().stream().map(MemLedger::getMetadata)
-            .collect(Collectors.toList());
+                .collect(Collectors.toList());
     }
 
     MemLedger getCurrentLedger() throws ObjectManagerException {
@@ -115,6 +116,5 @@ final class MemBucket {
             deleteLedger(id);
         }
     }
-
 
 }

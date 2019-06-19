@@ -19,15 +19,8 @@
  */
 package org.blobit.cli;
 
-import com.beust.jcommander.Parameter;
-import herddb.jdbc.HerdDBDataSource;
-
-import org.blobit.core.api.Configuration;
-import org.blobit.core.api.ObjectManager;
-import org.blobit.core.api.ObjectManagerFactory;
-
 /**
- *
+ * Base class for all commands.
  * @author eolivelli
  */
 public abstract class AbstractCommand {

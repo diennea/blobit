@@ -19,32 +19,28 @@
  */
 package org.blobit.core.cluster;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import herddb.jdbc.HerdDBEmbeddedDataSource;
+import herddb.server.ServerConfiguration;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
-
+import org.apache.bookkeeper.client.BKException;
+import org.apache.commons.pool2.impl.DefaultPooledObjectInfo;
 import org.blobit.core.api.BucketConfiguration;
+import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.Configuration;
+import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectManagerFactory;
+import org.blobit.core.util.TestUtils;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-import herddb.jdbc.HerdDBEmbeddedDataSource;
-import herddb.server.ServerConfiguration;
-import java.util.Map;
-import org.apache.bookkeeper.client.BKException;
-import org.apache.commons.pool2.impl.DefaultPooledObjectInfo;
-import org.blobit.core.api.BucketHandle;
-import org.blobit.core.api.ObjectManagerException;
-import org.blobit.core.util.TestUtils;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-
 public class WritersPoolTest {
 
-    @Rule
-    public final TemporaryFolder tmp = new TemporaryFolder();
 
     private static final String BUCKET_ID = "mybucket";
     private static final byte[] TEST_DATA = new byte[1 * 1024];
@@ -53,33 +49,44 @@ public class WritersPoolTest {
         Random random = new Random();
         random.nextBytes(TEST_DATA);
     }
+    @Rule
+    public final TemporaryFolder tmp = new TemporaryFolder();
 
     @Test
     public void testWrite() throws Exception {
         Properties dsProperties = new Properties();
-        dsProperties.put(ServerConfiguration.PROPERTY_MODE, ServerConfiguration.PROPERTY_MODE_LOCAL);
+        dsProperties.put(ServerConfiguration.PROPERTY_MODE,
+                ServerConfiguration.PROPERTY_MODE_LOCAL);
         try (ZKTestEnv env = new ZKTestEnv(tmp.newFolder("zk").toPath());
-                HerdDBEmbeddedDataSource datasource = new HerdDBEmbeddedDataSource(dsProperties)) {
+                HerdDBEmbeddedDataSource datasource =
+                new HerdDBEmbeddedDataSource(
+                        dsProperties)) {
             env.startBookie();
-            Configuration configuration
-                    = new Configuration()
+            Configuration configuration =
+                    new Configuration()
                             .setType(Configuration.TYPE_BOOKKEEPER)
                             .setConcurrentWriters(4)
                             .setMaxBytesPerLedger(TEST_DATA.length * 2 - 1)
                             .setZookeeperUrl(env.getAddress());
-            try (ClusterObjectManager manager = (ClusterObjectManager) ObjectManagerFactory.createObjectManager(configuration, datasource);) {
-                manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).get();
+            try (ClusterObjectManager manager =
+                    (ClusterObjectManager) ObjectManagerFactory.
+                            createObjectManager(configuration, datasource);) {
+                manager.createBucket(BUCKET_ID, BUCKET_ID,
+                        BucketConfiguration.DEFAULT).get();
                 BucketHandle bucket = manager.getBucket(BUCKET_ID);
                 // perform a put, a new writer must be allocated
                 bucket.put(null, TEST_DATA).get();
 
                 BookKeeperBlobManager blobManager = manager.getBlobManager();
                 {
-                    Map<String, List<DefaultPooledObjectInfo>> all = blobManager.writers.listAllObjects();
+                    Map<String, List<DefaultPooledObjectInfo>> all =
+                            blobManager.writers.
+                                    listAllObjects();
                     List<DefaultPooledObjectInfo> writers = all.get(BUCKET_ID);
                     assertEquals(1, writers.size());
                     DefaultPooledObjectInfo writerStats = writers.get(0);
-                    System.out.println("Stats: " + writerStats.getBorrowedCount());
+                    System.out.println("Stats: " + writerStats.
+                            getBorrowedCount());
                     assertEquals(1, writerStats.getBorrowedCount());
 
                     // new put, same writer
@@ -89,18 +96,23 @@ public class WritersPoolTest {
 
                 {
                     // we have passed MaxBytesPerLedger, writer is no more valid, so it is disposed
-                    Map<String, List<DefaultPooledObjectInfo>> all = blobManager.writers.listAllObjects();
+                    Map<String, List<DefaultPooledObjectInfo>> all =
+                            blobManager.writers.
+                                    listAllObjects();
                     assertTrue(all.isEmpty());
                 }
 
                 {
                     // new put, new writer, we have passed MaxBytesPerLedger
                     bucket.put(null, TEST_DATA).get();
-                    Map<String, List<DefaultPooledObjectInfo>> all = blobManager.writers.listAllObjects();
+                    Map<String, List<DefaultPooledObjectInfo>> all =
+                            blobManager.writers.
+                                    listAllObjects();
                     List<DefaultPooledObjectInfo> writers = all.get(BUCKET_ID);
                     assertEquals(1, writers.size());
                     DefaultPooledObjectInfo writerStats = writers.get(0);
-                    System.out.println("Stats: " + writerStats.getBorrowedCount());
+                    System.out.println("Stats: " + writerStats.
+                            getBorrowedCount());
                     assertEquals(1, writerStats.getBorrowedCount());
                 }
 
@@ -108,10 +120,14 @@ public class WritersPoolTest {
 
                 {
                     // put will fail, writer will be eventually disposed
-                    ObjectManagerException error = TestUtils.expectThrows(ObjectManagerException.class,
+                    ObjectManagerException error = TestUtils.expectThrows(
+                            ObjectManagerException.class,
                             () -> bucket.put(null, TEST_DATA).get());
-                    assertTrue(error.getCause() instanceof BKException.BKNotEnoughBookiesException);
-                    Map<String, List<DefaultPooledObjectInfo>> all = blobManager.writers.listAllObjects();
+                    assertTrue(
+                            error.getCause() instanceof BKException.BKNotEnoughBookiesException);
+                    Map<String, List<DefaultPooledObjectInfo>> all =
+                            blobManager.writers.
+                                    listAllObjects();
                     assertTrue(all.isEmpty());
                 }
 
@@ -121,7 +137,9 @@ public class WritersPoolTest {
                 {
                     // put will succeeed
                     bucket.put(null, TEST_DATA).get();
-                    Map<String, List<DefaultPooledObjectInfo>> all = blobManager.writers.listAllObjects();
+                    Map<String, List<DefaultPooledObjectInfo>> all =
+                            blobManager.writers.
+                                    listAllObjects();
                     assertEquals(1, all.size());
                 }
 

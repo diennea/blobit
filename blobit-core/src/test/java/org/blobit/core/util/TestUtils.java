@@ -27,7 +27,8 @@ import java.util.concurrent.Callable;
  */
 public class TestUtils {
 
-    public static final double WAIT_FOR_CONDITION_MULTIPLIER = Integer.getInteger("magnews.tests.waitforcondition.multiplier", 1);
+    public static final double WAIT_FOR_CONDITION_MULTIPLIER = Integer.
+            getInteger("magnews.tests.waitforcondition.multiplier", 1);
 
     /**
      * ** Stolen from JUnit 4.13 ** *
@@ -48,7 +49,8 @@ public class TestUtils {
      * @param runnable a function that is expected to throw an exception when executed
      * @since 4.13
      */
-    public static void assertThrows(Class<? extends Throwable> expectedThrowable, ThrowingRunnable runnable) {
+    public static void assertThrows(Class<? extends Throwable> expectedThrowable,
+            ThrowingRunnable runnable) {
         expectThrows(expectedThrowable, runnable);
     }
 
@@ -64,7 +66,8 @@ public class TestUtils {
      * @return the exception thrown by {@code runnable}
      * @since 4.13
      */
-    public static <T extends Throwable> T expectThrows(Class<T> expectedThrowable, ThrowingRunnable runnable) {
+    public static <T extends Throwable> T expectThrows(
+            Class<T> expectedThrowable, ThrowingRunnable runnable) {
         try {
             runnable.run();
         } catch (Throwable actualThrown) {
@@ -74,24 +77,30 @@ public class TestUtils {
                 return retVal;
             } else {
                 actualThrown.printStackTrace();
-                String mismatchMessage = String.format("unexpected exception type thrown expected %s actual %s",
-                        expectedThrowable.getSimpleName(), actualThrown.getClass().getSimpleName());
+                String mismatchMessage = String.format(
+                        "unexpected exception type thrown expected %s actual %s",
+                        expectedThrowable.getSimpleName(), actualThrown.
+                        getClass().getSimpleName());
 
                 // The AssertionError(String, Throwable) ctor is only available on JDK7.
-                AssertionError assertionError = new AssertionError(mismatchMessage);
+                AssertionError assertionError = new AssertionError(
+                        mismatchMessage);
                 assertionError.initCause(actualThrown);
                 throw assertionError;
             }
         }
-        String message = String.format("expected %s to be thrown, but nothing was thrown",
+        String message = String.format(
+                "expected %s to be thrown, but nothing was thrown",
                 expectedThrowable.getSimpleName());
         throw new AssertionError(message);
     }
 
-    public static void waitForCondition(Callable<Boolean> condition, Callable<Void> callback, int seconds) throws Exception {
+    public static void waitForCondition(Callable<Boolean> condition,
+            Callable<Void> callback, int seconds) throws Exception {
         try {
             long _start = System.currentTimeMillis();
-            long millis = (long) (seconds * 1000 * WAIT_FOR_CONDITION_MULTIPLIER);
+            long millis =
+                    (long) (seconds * 1000 * WAIT_FOR_CONDITION_MULTIPLIER);
             while (System.currentTimeMillis() - _start <= millis) {
                 if (condition.call()) {
                     return;
@@ -104,12 +113,13 @@ public class TestUtils {
             throw new AssertionError("test interrupted!");
         } catch (Exception ee) {
             ee.printStackTrace();
-            throw new AssertionError("error while evaluating condition:" + ee, ee);
+            throw new AssertionError("error while evaluating condition:" + ee,
+                    ee);
         }
         throw new AssertionError("condition not met in time!");
     }
 
-    public static Callable<Void> NOOP = new Callable<Void>() {
+    public static final Callable<Void> NOOP = new Callable<Void>() {
         @Override
         public Void call() {
             return null;
