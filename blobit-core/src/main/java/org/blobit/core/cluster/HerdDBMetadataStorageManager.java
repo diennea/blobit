@@ -190,8 +190,8 @@ public class HerdDBMetadataStorageManager {
 
     public void init() throws ObjectManagerException {
         try {
-            ensureTablespace(bucketsTablespace, bucketsTableSpacesReplicaCount);
-            ensureTable(bucketsTablespace, BUCKET_TABLE, CREATE_BUCKETS_TABLE);
+            ensureTablespace(bucketsTablespace, bucketsTableSpacesReplicaCount, false);
+            ensureTable(bucketsTablespace, BUCKET_TABLE, CREATE_BUCKETS_TABLE, false);
             reloadBuckets();
         } catch (SQLException err) {
             throw new ObjectManagerException(err);
@@ -442,21 +442,38 @@ public class HerdDBMetadataStorageManager {
     }
 
     private void ensureTablespace(String schema, int replicaCount) throws SQLException {
+        ensureTablespace(schema, replicaCount, true);
+    }
+
+    private void ensureTablespace(String schema, int replicaCount, boolean failOnConcurrentCreation)
+            throws SQLException {
         if (!useTablespaces || !manageTablespaces) {
             return;
         }
         try (Connection connection = datasource.getConnection()) {
             connection.setSchema(TableSpace.DEFAULT);
-            DatabaseMetaData metaData = connection.getMetaData();
-            boolean existTablespace;
-            try (ResultSet schemas = metaData.getSchemas(null, schema);) {
-                existTablespace = schemas.next();
-            }
+            final DatabaseMetaData metaData = connection.getMetaData();
+            boolean existTablespace = checkTablespaceExistence(schema, metaData);
             if (!existTablespace) {
                 try (Statement s = connection.createStatement();) {
                     s.executeUpdate(createTableSpaceStatement(schema, replicaCount));
+                } catch (SQLException e) {
+                    /* Check if a concurrent process already created the tablespace */
+                    if (failOnConcurrentCreation || !checkTablespaceExistence(schema, metaData)) {
+                        /*
+                         * We should fail on concurrent creation or creation failed and tablespace still
+                         * doesn't exists, throw original error
+                         */
+                        throw e;
+                    }
                 }
             }
+        }
+    }
+
+    private boolean checkTablespaceExistence(String schema, DatabaseMetaData metaData) throws SQLException {
+        try (ResultSet schemas = metaData.getSchemas(null, schema);) {
+            return schemas.next();
         }
     }
 
@@ -466,28 +483,43 @@ public class HerdDBMetadataStorageManager {
         }
         try (Connection connection = datasource.getConnection()) {
             connection.setSchema(bucketsTablespace);
-            DatabaseMetaData metaData = connection.getMetaData();
-            try (ResultSet schemas = metaData.getSchemas(null, schema);) {
-                return schemas.next();
-            }
+            final DatabaseMetaData metaData = connection.getMetaData();
+            return checkTablespaceExistence(schema, metaData);
         }
     }
 
     private void ensureTable(String schema, String name, String createSql) throws SQLException {
+        ensureTable(schema, name, createSql, true);
+    }
+
+    private void ensureTable(String schema, String name, String createSql, boolean failOnConcurrentCreation)
+            throws SQLException {
         try (Connection connection = datasource.getConnection()) {
             if (useTablespaces) {
                 connection.setSchema(schema);
             }
-            DatabaseMetaData metaData = connection.getMetaData();
-            boolean existTable;
-            try (ResultSet rs = metaData.getTables(null, null, name, null)) {
-                existTable = rs.next();
-            }
+            final DatabaseMetaData metaData = connection.getMetaData();
+            boolean existTable = checkTableExistence(name, metaData);
             if (!existTable) {
                 try (Statement s = connection.createStatement();) {
                     s.executeUpdate(createSql);
+                } catch (SQLException e) {
+                    /* Check if a concurrent process already created the table */
+                    if (failOnConcurrentCreation || !checkTableExistence(name, metaData)) {
+                        /*
+                         * We should fail on concurrent creation or creation failed and table still
+                         * doesn't exists, throw original error
+                         */
+                        throw e;
+                    }
                 }
             }
+        }
+    }
+
+    private boolean checkTableExistence(String table, DatabaseMetaData metaData) throws SQLException {
+        try (ResultSet rs = metaData.getTables(null, null, table, null)) {
+            return rs.next();
         }
     }
 
