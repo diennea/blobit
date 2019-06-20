@@ -19,6 +19,8 @@
  */
 package org.blobit.core.cluster;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import herddb.model.TableSpace;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -34,18 +36,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
 import javax.sql.DataSource;
-
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.BucketMetadata;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.LedgerMetadata;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectMetadata;
-
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import herddb.model.TableSpace;
 
 /**
  * Stores metadata on HerdDB
