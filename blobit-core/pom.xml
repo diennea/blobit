@@ -6,6 +6,7 @@
         <artifactId>blobit</artifactId>
         <version>0.3.0-SNAPSHOT</version>
     </parent>
+    <name>BlobIt</name>
     <artifactId>blobit-core</artifactId>
     <packaging>jar</packaging>
     <build>
@@ -36,6 +37,14 @@
                     <groupId>org.slf4j</groupId>
                     <artifactId>slf4j-log4j12</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.rocksdb</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>            
         <dependency>
@@ -63,15 +72,10 @@
             <version>${libs.bookkeeper}</version>  
         </dependency>
         <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-jdk14</artifactId>
-            <version>1.6.4</version>
-        </dependency>       
-        <dependency>
-            <groupId>org.codehaus.jackson</groupId>
-            <artifactId>jackson-mapper-asl</artifactId>
-            <version>1.9.13</version>
-        </dependency>       
+            <groupId>io.netty</groupId>
+            <artifactId>netty-all</artifactId>
+            <version>${libs.netty}</version>  
+        </dependency>
         <dependency>
             <groupId>org.herddb</groupId>
             <artifactId>herddb-jdbc</artifactId>
