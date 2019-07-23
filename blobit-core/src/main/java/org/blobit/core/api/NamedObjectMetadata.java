@@ -20,6 +20,7 @@
 package org.blobit.core.api;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * Metadata about an object with a custom name. A named object can span multiple simple objects in case of
@@ -55,6 +56,39 @@ public final class NamedObjectMetadata {
 
     public int getNumObjects() {
         return objects.size();
+    }
+
+    @Override
+    public int hashCode() {
+        int hash = 7;
+        hash = 97 * hash + Objects.hashCode(this.name);
+        hash = 97 * hash + (int) (this.size ^ (this.size >>> 32));
+        hash = 97 * hash + Objects.hashCode(this.objects);
+        return hash;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final NamedObjectMetadata other = (NamedObjectMetadata) obj;
+        if (this.size != other.size) {
+            return false;
+        }
+        if (!Objects.equals(this.name, other.name)) {
+            return false;
+        }
+        if (!Objects.equals(this.objects, other.objects)) {
+            return false;
+        }
+        return true;
     }
 
 }

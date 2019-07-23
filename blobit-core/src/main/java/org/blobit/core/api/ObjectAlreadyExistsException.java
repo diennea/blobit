@@ -20,24 +20,24 @@
 package org.blobit.core.api;
 
 /**
- * A generic error
+ * An Object with the given name already exists and overwrite is not allowed
  *
- * @author enrico.olivelli
+ * @author eolivelli
  */
-public class ObjectManagerException extends RuntimeException {
+public final class ObjectAlreadyExistsException extends ObjectManagerException {
 
-    public ObjectManagerException() {
+    public ObjectAlreadyExistsException() {
     }
 
-    public ObjectManagerException(String message) {
+    public ObjectAlreadyExistsException(String message) {
         super(message);
     }
 
-    public ObjectManagerException(String message, Throwable cause) {
+    public ObjectAlreadyExistsException(String message, Throwable cause) {
         super(message, cause);
     }
 
-    public ObjectManagerException(Throwable cause) {
+    public ObjectAlreadyExistsException(Throwable cause) {
         super(cause);
     }
 

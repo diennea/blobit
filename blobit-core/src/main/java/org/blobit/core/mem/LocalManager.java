@@ -50,10 +50,12 @@ import org.blobit.core.api.NamedObjectDeletePromise;
 import org.blobit.core.api.NamedObjectDownloadPromise;
 import org.blobit.core.api.NamedObjectGetPromise;
 import org.blobit.core.api.NamedObjectMetadata;
+import org.blobit.core.api.ObjectAlreadyExistsException;
 import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectMetadata;
 import org.blobit.core.api.ObjectNotFoundException;
+import org.blobit.core.api.PutOptions;
 import org.blobit.core.api.PutPromise;
 
 /**
@@ -212,12 +214,25 @@ public class LocalManager implements ObjectManager {
         }
 
         @Override
-        public PutPromise put(String name, byte[] data) {
-            return put(name, data, 0, data.length);
+        public void concat(String sourceName, String destName) throws ObjectManagerException {
+            List<String> prevList = objectNames.get(sourceName);
+            if (prevList == null) {
+                throw new ObjectNotFoundException(sourceName);
+            }
+            List<String> compute = objectNames.compute(destName, (n, currentList) -> {
+                if (currentList == null) {
+                    return new ArrayList<>(prevList);
+                } else {
+                    List<String> newList = new ArrayList<>(currentList);
+                    newList.addAll(prevList);
+                    return newList;
+                }
+            });
+            objectNames.remove(sourceName);
         }
 
         @Override
-        public PutPromise put(String name, long length, InputStream input) {
+        public PutPromise put(String name, long length, InputStream input, PutOptions putOptions) {
             DataInputStream ii = new DataInputStream(input);
             // we are in-memory, we can store only 'small' objects
             byte[] content = new byte[(int) length];
@@ -228,12 +243,12 @@ public class LocalManager implements ObjectManager {
                 res.completeExceptionally(err);
                 return new PutPromise(null, res);
             }
-            return put(name, content);
+            return put(name, content, 0, content.length, putOptions);
         }
 
         @Override
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
-        public PutPromise put(String name, byte[] data, int offset, int len) {
+        public PutPromise put(String name, byte[] data, int offset, int len, PutOptions putOptions) {
             try {
                 if (offset != 0 && len < data.length) {
                     byte[] copy = new byte[len];
@@ -244,7 +259,32 @@ public class LocalManager implements ObjectManager {
                         data);
                 /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
                 if (name != null) {
-                    objectNames.put(name, Arrays.asList(res.toId()));
+                    if (putOptions.isOverwrite()) {
+                        List<String> prevList = objectNames.put(name, Arrays.asList(res.toId()));
+                        if (prevList != null) {
+                            // drop old unreferenced objects
+                            for (String objectId : prevList) {
+                                delete(objectId);
+                            }
+                        }
+                    } else if (putOptions.isAppend()) {
+                        objectNames.compute(name, (n, prevList) -> {
+                            if (prevList == null) {
+                                return Arrays.asList(res.toId());
+                            } else {
+                                // prepend prevList to the new list
+                                List<String> resList = new ArrayList<>(prevList);
+                                resList.add(res.toId());
+                                return resList;
+                            }
+                        });
+                    } else {
+                        List<String> list = Arrays.asList(res.toId());
+                        List<String> result = objectNames.computeIfAbsent(name, (n) -> list);
+                        if (list != result) {
+                            return new PutPromise(null, FutureUtils.exception(new ObjectAlreadyExistsException(name)));
+                        }
+                    }
                 }
                 return new PutPromise(res.toId(), CompletableFuture.
                         <Void>completedFuture(null));
@@ -318,7 +358,7 @@ public class LocalManager implements ObjectManager {
                 for (String id : ids) {
                     GetPromise get = this.get(id);
                     size += get.length;
-                    parts.add(new ObjectMetadata(id, size));
+                    parts.add(new ObjectMetadata(id, get.length));
                 }
                 return new NamedObjectMetadata(name,
                         size, parts);
@@ -510,21 +550,6 @@ public class LocalManager implements ObjectManager {
                 res.completeExceptionally(err);
                 return new DownloadPromise(objectId, 0, res);
             }
-        }
-
-        @Override
-        public int append(String objectId, String name) throws ObjectManagerException {
-            return objectNames.compute(name, (_name, currentList) -> {
-                if (currentList != null) {
-                    List<String> newList = new ArrayList<>(
-                            currentList.size() + 1);
-                    newList.addAll(currentList);
-                    newList.add(objectId);
-                    return newList;
-                } else {
-                    return Arrays.asList(objectId);
-                }
-            }).size() - 1;
         }
 
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")

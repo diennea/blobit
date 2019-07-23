@@ -46,6 +46,7 @@ import org.apache.bookkeeper.client.api.WriteFlag;
 import org.blobit.core.api.BucketMetadata;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectManagerRuntimeException;
+import org.blobit.core.api.PutOptions;
 import org.blobit.core.api.PutPromise;
 
 /**
@@ -147,7 +148,7 @@ public class BucketWriter {
 
     @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
     PutPromise writeBlob(String bucketId, String name, byte[] data, int offset,
-            int len) {
+            int len, PutOptions putOptions) {
 
         if (len == 0) {
             CompletableFuture<Void> result = new CompletableFuture<>();
@@ -204,9 +205,11 @@ public class BucketWriter {
                     try {
                         metadataStorageManager.registerObject(bucketId, id,
                                 firstEntryId, numEntries, maxEntrySize, len,
-                                blobId, name, 0);
+                                blobId, name, putOptions.isOverwrite(), putOptions.isAppend());
                         return null;
-                    } catch (Throwable err) {
+                    } catch (ObjectManagerException err) {
+                        throw err;
+                    }catch (Throwable err) {
                         LOG.log(Level.SEVERE, "bad error while completing blob",
                                 err);
                         throw new RuntimeException(err);
@@ -216,7 +219,7 @@ public class BucketWriter {
     }
 
     @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
-    PutPromise writeBlob(String bucketId, String name, long len, InputStream in) {
+    PutPromise writeBlob(String bucketId, String name, long len, InputStream in, PutOptions putOptions) {
 
         if (len == 0) {
             CompletableFuture<Void> result = new CompletableFuture<>();
@@ -317,7 +320,7 @@ public class BucketWriter {
                         metadataStorageManager
                                 .registerObject(bucketId, id, firstEntryId,
                                         numEntries, maxEntrySize, len, blobId,
-                                        name, 0);
+                                        name, putOptions.isOverwrite(), putOptions.isAppend());
                         return null;
                     } catch (Throwable err) {
                         LOG.log(Level.SEVERE, "bad error while completing blob",

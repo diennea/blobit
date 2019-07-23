@@ -51,6 +51,7 @@ import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectMetadata;
 import org.blobit.core.api.ObjectNotFoundException;
+import org.blobit.core.api.PutOptions;
 import org.blobit.core.api.PutPromise;
 
 /**
@@ -97,18 +98,18 @@ public class ClusterObjectManager implements ObjectManager {
         }
 
         @Override
-        public PutPromise put(String name, long length, InputStream input) {
-            return blobManager.put(bucketId, name, length, input);
+        public PutPromise put(String name, long length, InputStream input, PutOptions putOptions) {
+            return blobManager.put(bucketId, name, length, input, putOptions);
         }
 
         @Override
-        public PutPromise put(String name, byte[] data) {
-            return put(name, data, 0, data.length);
+        public PutPromise put(String name, byte[] data, int offset, int len, PutOptions putOptions) {
+            return blobManager.put(bucketId, name, data, offset, len, putOptions);
         }
 
         @Override
-        public PutPromise put(String name, byte[] data, int offset, int len) {
-            return blobManager.put(bucketId, name, data, offset, len);
+        public void concat(String sourceName, String destName) throws ObjectManagerException {
+            metadataManager.concat(bucketId, sourceName, destName);
         }
 
         @Override
@@ -177,7 +178,7 @@ public class ClusterObjectManager implements ObjectManager {
             List<ObjectMetadata> objects = new ArrayList<>();
             long size = 0;
             for (String id : objectIds) {
-                ObjectMetadata objectMetadata = blobManager.stat(bucketId, id);
+                ObjectMetadata objectMetadata = BookKeeperBlobManager.stat(bucketId, id);
                 if (objectMetadata == null) {
                     throw new ObjectNotFoundException(
                             "Object " + id + " was not found while"
@@ -307,11 +308,6 @@ public class ClusterObjectManager implements ObjectManager {
                     }
                 }
             });
-        }
-
-        @Override
-        public int append(String objectId, String name) throws ObjectManagerException {
-            return metadataManager.append(bucketId, objectId, name);
         }
 
         @Override

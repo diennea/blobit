@@ -28,6 +28,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.Arrays;
 import java.util.List;
@@ -40,11 +41,15 @@ import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.NamedObjectDeletePromise;
 import org.blobit.core.api.NamedObjectMetadata;
+import org.blobit.core.api.ObjectAlreadyExistsException;
 import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectManagerFactory;
+import org.blobit.core.api.ObjectMetadata;
 import org.blobit.core.api.ObjectNotFoundException;
+import org.blobit.core.api.PutOptions;
 import org.blobit.core.cluster.ZKTestEnv;
+import org.blobit.core.util.TestUtils;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
@@ -117,9 +122,8 @@ public class NamesAPITest {
         String name = "foo";
         String firstObjectId = bucket.put(name, TEST_DATA).get();
 
-        // create an unnamed blob
-        String secondObjectId = bucket.put(null, TEST_DATA2).get();
-        assertEquals(1, bucket.append(secondObjectId, name));
+        String secondObjectId = bucket.put(name,
+                TEST_DATA2, 0, TEST_DATA2.length, PutOptions.APPEND).get();
 
         NamedObjectMetadata objectMd = bucket.statByName(name);
         assertEquals(2, objectMd.getNumObjects());
@@ -288,12 +292,10 @@ public class NamesAPITest {
         }
 
         // append again (appending to a not existing object will make the object exist)
-        String thirdObjectId = bucket.put(null, TEST_DATA3).get();
-        String fourthObjectId = bucket.put(null, TEST_DATA4).get();
-        assertEquals(0, bucket.append(thirdObjectId, name));
-        assertEquals(1, bucket.append(thirdObjectId, name));
-        assertEquals(2, bucket.append(fourthObjectId, name));
-        assertEquals(3, bucket.append(thirdObjectId, name));
+        String thirdObjectId = bucket.put(name, TEST_DATA3, 0, TEST_DATA3.length, PutOptions.APPEND).get();
+        String thirdObjectIdb = bucket.put(name, TEST_DATA3, 0, TEST_DATA3.length, PutOptions.APPEND).get();
+        String fourthObjectId = bucket.put(name, TEST_DATA4, 0, TEST_DATA4.length, PutOptions.APPEND).get();
+        String thirdObjectIdc = bucket.put(name, TEST_DATA3, 0, TEST_DATA3.length, PutOptions.APPEND).get();
 
         List<byte[]> values = bucket.getByName(name).get();
         assertEquals(4, values.size());
@@ -302,6 +304,11 @@ public class NamesAPITest {
         assertArrayEquals(TEST_DATA3, values.get(1));
         assertArrayEquals(TEST_DATA4, values.get(2));
         assertArrayEquals(TEST_DATA3, values.get(3));
+        NamedObjectMetadata stat = bucket.statByName(name);
+        assertEquals(thirdObjectId, stat.getObject(0).getId());
+        assertEquals(thirdObjectIdb, stat.getObject(1).getId());
+        assertEquals(fourthObjectId, stat.getObject(2).getId());
+        assertEquals(thirdObjectIdc, stat.getObject(3).getId());
 
         // bad guy ! delete the raw object, without deleting the NamedObject
         bucket.delete(fourthObjectId);
@@ -318,9 +325,76 @@ public class NamesAPITest {
         assertNull(bucket.statByName(name));
 
         // empty blobs
-        String emptyObjectId = bucket.put("empty-named-object", new byte[0]).
-                get();
-        assertEquals(1, bucket.append(emptyObjectId, "empty-named-object"));
+        String empty1 = bucket.put("empty-named-object", new byte[0], 0, 0, PutOptions.APPEND).get();
+        ObjectMetadata statEmpty1 = bucket.stat(empty1);
+        assertEquals(0, statEmpty1.getSize());
+
+        String empty2 = bucket.put("empty-named-object", new byte[0], 0, 0, PutOptions.APPEND).get();
+        ObjectMetadata statEmpty2 = bucket.stat(empty2);
+        assertEquals(0, statEmpty2.getSize());
+
+        NamedObjectMetadata statEmptyNamedObject = bucket.statByName("empty-named-object");
+        assertEquals(0, statEmptyNamedObject.getSize());
+        assertEquals(2, statEmptyNamedObject.getNumObjects());
+
+        // concat tests
+        bucket.put("source-object", TEST_DATA).get();
+        bucket.put("dest-object", TEST_DATA2).get();
+        NamedObjectMetadata source1 = bucket.statByName("source-object");
+        assertEquals(1, source1.getNumObjects());
+        assertEquals(TEST_DATA.length, source1.getSize());
+        assertEquals(TEST_DATA.length, source1.getObject(0).size);
+        NamedObjectMetadata dest1 = bucket.statByName("dest-object");
+        assertEquals(1, dest1.getNumObjects());
+        assertEquals(TEST_DATA2.length, dest1.getSize());
+        assertEquals(TEST_DATA2.length, dest1.getObject(0).size);
+
+        bucket.concat("source-object", "dest-object");
+        // source must not exist anymore
+        NamedObjectMetadata existSource = bucket.statByName("source-object");
+        assertNull(existSource);
+        // assert dest status
+        NamedObjectMetadata dest2 = bucket.statByName("dest-object");
+        assertEquals(2, dest2.getNumObjects());
+        assertEquals(dest2.getObject(0), dest1.getObject(0));
+        assertEquals(dest2.getObject(1), source1.getObject(0));
+        assertEquals(source1.getSize() + dest1.getSize(), dest2.getSize());
+
+        // overwrite tests
+        String obj1 = bucket.put("object-to-overwrite", TEST_DATA, 0, TEST_DATA.length,
+                PutOptions.DEFAULT_OPTIONS).get();
+        String obj2 = bucket.put("object-to-overwrite", TEST_DATA, 0, TEST_DATA.length,
+                PutOptions.APPEND).get();
+        NamedObjectMetadata toOverwrite1 = bucket.statByName("object-to-overwrite");
+        assertEquals(2, toOverwrite1.getNumObjects());
+        assertEquals(obj1, toOverwrite1.getObject(0).getId());
+        assertEquals(obj2, toOverwrite1.getObject(1).getId());
+
+        String obj2b = bucket.put("object-to-overwrite", TEST_DATA, 0, TEST_DATA.length,
+                PutOptions.APPEND).get();
+        NamedObjectMetadata toOverwrite1b = bucket.statByName("object-to-overwrite");
+        assertEquals(3, toOverwrite1b.getNumObjects());
+        assertEquals(obj1, toOverwrite1b.getObject(0).getId());
+        assertEquals(obj2, toOverwrite1b.getObject(1).getId());
+        assertEquals(obj2b, toOverwrite1b.getObject(2).getId());
+
+
+        String obj3 = bucket.put("object-to-overwrite", TEST_DATA, 0, TEST_DATA.length, PutOptions.OVERWRITE).get();
+        NamedObjectMetadata toOverwrite2 = bucket.statByName("object-to-overwrite");
+        assertEquals(1, toOverwrite2.getNumObjects());
+        assertEquals(obj3, toOverwrite2.getObject(0).getId());
+
+        // append in streaming mode
+        String obj4 = bucket.put("object-to-overwrite", TEST_DATA.length,
+                new ByteArrayInputStream(TEST_DATA), PutOptions.OVERWRITE).get();
+        NamedObjectMetadata toOverwrite3 = bucket.statByName("object-to-overwrite");
+        assertEquals(1, toOverwrite3.getNumObjects());
+        assertEquals(obj4, toOverwrite3.getObject(0).getId());
+
+        TestUtils.assertThrows(ObjectAlreadyExistsException.class, () -> {
+            bucket.put("object-to-overwrite", TEST_DATA).get();
+        });
+
     }
 
 }

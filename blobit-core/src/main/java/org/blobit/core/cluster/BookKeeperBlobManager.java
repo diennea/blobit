@@ -59,6 +59,7 @@ import org.blobit.core.api.GetPromise;
 import org.blobit.core.api.LocationInfo;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectMetadata;
+import org.blobit.core.api.PutOptions;
 import org.blobit.core.api.PutPromise;
 
 /**
@@ -113,7 +114,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
         }
     }
 
-    public PutPromise put(String bucketId, String name, long len, InputStream in) {
+    public PutPromise put(String bucketId, String name, long len, InputStream in, PutOptions putOptions) {
         if (len == 0) {
             // very special case, the empty blob
             CompletableFuture<Void> result = new CompletableFuture<>();
@@ -124,7 +125,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
             BucketWriter writer = writers.borrowObject(bucketId);
             try {
                 return writer
-                        .writeBlob(bucketId, name, len, in);
+                        .writeBlob(bucketId, name, len, in, putOptions);
             } finally {
                 writers.returnObject(bucketId, writer);
             }
@@ -134,7 +135,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
     }
 
     public PutPromise put(String bucketId, String name, byte[] data, int offset,
-            int len) {
+            int len, PutOptions putOptions) {
         if (data.length < offset + len || offset < 0 || len < 0) {
             throw new IndexOutOfBoundsException();
         }
@@ -145,8 +146,8 @@ public class BookKeeperBlobManager implements AutoCloseable {
                 result.complete(null);
             } else {
                 try {
-                    metadataStorageManager.append(bucketId,
-                            BKEntryId.EMPTY_ENTRY_ID, name);
+                    metadataStorageManager.appendEmptyObject(bucketId,
+                            name, putOptions.isOverwrite());
                     result.complete(null);
                 } catch (ObjectManagerException err) {
                     result.completeExceptionally(err);
@@ -158,7 +159,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
             BucketWriter writer = writers.borrowObject(bucketId);
             try {
                 return writer
-                        .writeBlob(bucketId, name, data, offset, len);
+                        .writeBlob(bucketId, name, data, offset, len, putOptions);
             } finally {
                 writers.returnObject(bucketId, writer);
             }
@@ -264,13 +265,11 @@ public class BookKeeperBlobManager implements AutoCloseable {
         }
     }
 
-    ObjectMetadata stat(String bucketId, String id) {
+    static ObjectMetadata stat(String bucketId, String id) {
         if (id == null) {
             return null;
         }
         if (BKEntryId.EMPTY_ENTRY_ID.equals(id)) {
-            CompletableFuture<byte[]> result = new CompletableFuture<>();
-            result.complete(EMPTY_BYTE_ARRAY);
             return new ObjectMetadata(id, 0);
         }
 

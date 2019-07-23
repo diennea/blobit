@@ -26,6 +26,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLIntegrityConstraintViolationException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,8 +42,10 @@ import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.BucketMetadata;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.LedgerMetadata;
+import org.blobit.core.api.ObjectAlreadyExistsException;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectMetadata;
+import org.blobit.core.api.ObjectNotFoundException;
 
 /**
  * Stores metadata on HerdDB
@@ -138,11 +141,11 @@ public class HerdDBMetadataStorageManager {
     private static final String REGISTER_BLOBNAME =
             "INSERT INTO " + BLOBNAMES_TABLE + " (name, pos, objectid) VALUES (?,?,?)";
 
-    private static final String SELECT_NEW_POS =
-            "SELECT pos FROM " + BLOBNAMES_TABLE + " where name = ? ORDER BY pos LIMIT 1";
-
-    private static final String LOOKUP_BLOB_BY_NAME =
+    private static final String LOOKUP_BLOB_BY_NAME_ORDER_BY_POS =
             "SELECT objectid" + " FROM " + BLOBNAMES_TABLE + " where name=? " + "ORDER BY pos";
+
+    private static final String SELECT_NEW_POS =
+            "SELECT max(pos) FROM " + BLOBNAMES_TABLE + " where name = ?";
 
     private static final String DELETE_BLOBNAME =
             "DELETE FROM " + BLOBNAMES_TABLE + " where name=?";
@@ -322,13 +325,28 @@ public class HerdDBMetadataStorageManager {
             long ledgerId, long entryId, int num_entries,
             int entry_size,
             long size, String objectId,
-            String name, int positionForName) throws ObjectManagerException {
-
+            String name, boolean clear, boolean append) throws ObjectManagerException {
+        int positionForName = 0;
         try (Connection connection = getConnectionForBucket(bucketId);
                 PreparedStatement ps = connection.
                         prepareStatement(REGISTER_BLOB);
                 PreparedStatement psName = connection.prepareStatement(
-                        REGISTER_BLOBNAME);) {
+                        REGISTER_BLOBNAME);
+                PreparedStatement psChoosePos = connection.prepareStatement(
+                        SELECT_NEW_POS);
+                PreparedStatement psClear = connection.prepareStatement(
+                        DELETE_BLOBNAME);
+                ) {
+
+            if (name != null && append && !clear) {
+                psChoosePos.setString(1, name);
+                try (ResultSet rs = psChoosePos.executeQuery()) {
+                    if (rs.next()) {
+                        positionForName = rs.getInt(1) + 1;
+                    }
+                }
+            }
+
             if (name != null) {
                 connection.setAutoCommit(false);
             }
@@ -341,10 +359,25 @@ public class HerdDBMetadataStorageManager {
             ps.executeUpdate();
 
             if (name != null) {
+
+                if (clear) {
+                    psClear.setString(1, name);
+                    psClear.executeUpdate();
+                }
+
                 psName.setString(1, name);
                 psName.setInt(2, positionForName);
                 psName.setString(3, objectId);
-                psName.executeUpdate();
+                try {
+                    psName.executeUpdate();
+                } catch (SQLIntegrityConstraintViolationException duplicate) {
+                    connection.rollback();
+                    if (positionForName == 0) {
+                        throw new ObjectAlreadyExistsException(name);
+                    } else {
+                        throw duplicate;
+                    }
+                }
                 connection.commit();
             }
 
@@ -693,7 +726,7 @@ public class HerdDBMetadataStorageManager {
 
         try (Connection connection = getConnectionForBucket(bucketId);
                 PreparedStatement ps = connection.prepareStatement(
-                        LOOKUP_BLOB_BY_NAME)) {
+                        LOOKUP_BLOB_BY_NAME_ORDER_BY_POS)) {
             ps.setString(1, name);
             try (ResultSet rs = ps.executeQuery()) {
                 // already sorted by position
@@ -708,37 +741,106 @@ public class HerdDBMetadataStorageManager {
         }
     }
 
-    int append(String bucketId, String objectId, String name) throws ObjectManagerException {
+    private int writeOnlyObjectNameRef(String bucketId, String objectId, String name, boolean clear)
+            throws ObjectManagerException {
         try (Connection connection = getConnectionForBucket(bucketId);
-                PreparedStatement ps = connection.prepareStatement(
+                PreparedStatement psChoosePos = connection.prepareStatement(
                         SELECT_NEW_POS);
                 PreparedStatement psName = connection.prepareStatement(
-                        REGISTER_BLOBNAME);) {
-            // doing in transaction won't be useful because we can't lock on a
-            // non existing position !
+                        REGISTER_BLOBNAME);
+                PreparedStatement psClear = connection.prepareStatement(
+                        DELETE_BLOBNAME);) {
+            int positionForName = 0;
+            if (clear) {
+                connection.setAutoCommit(false);
 
-            ps.setString(1, name);
-            int newPos = 0;
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) {
-                    newPos = rs.getInt(1) + 1;
+                psClear.setString(1, name);
+                psClear.executeUpdate();
+            } else {
+                psChoosePos.setString(1, name);
+                try (ResultSet rs = psChoosePos.executeQuery()) {
+                    if (rs.next()) {
+                        positionForName = rs.getInt(1) + 1;
+                    }
+                }
+                if (LOG.isLoggable(Level.FINER)) {
+                    LOG.log(Level.FINER, "select new pos {0} for {1} in {2}",
+                            new Object[]{positionForName, objectId, name});
                 }
             }
-            LOG.log(Level.INFO,
-                    "select new pos " + newPos + " for " + objectId + " in " + name);
+
             psName.setString(1, name);
-            psName.setInt(2, newPos);
+            psName.setInt(2, positionForName);
             psName.setString(3, objectId);
             psName.executeUpdate();
-            return newPos;
+
+            if (clear) {
+                connection.commit();
+            }
+
+            return positionForName;
 
         } catch (SQLException err) {
             throw new ObjectManagerException(err);
         }
     }
 
-    void appendEmptyObject(String bucketId, String name) throws ObjectManagerException {
-        append(bucketId, BKEntryId.EMPTY_ENTRY_ID, name);
+    void appendEmptyObject(String bucketId, String name, boolean clear) throws ObjectManagerException {
+        writeOnlyObjectNameRef(bucketId, BKEntryId.EMPTY_ENTRY_ID, name, clear);
+    }
+
+    void concat(String bucketId, String sourceName, String destName) throws ObjectManagerException {
+        try (Connection connection = getConnectionForBucket(bucketId);
+                PreparedStatement psSelectNewPos = connection.prepareStatement(
+                        SELECT_NEW_POS);
+                PreparedStatement psAssignNewPosAndBlobName = connection.prepareStatement(
+                        REGISTER_BLOBNAME);
+                PreparedStatement psDeleteSource = connection.prepareStatement(
+                        DELETE_BLOBNAME);
+                PreparedStatement psLookupFromSource = connection.prepareStatement(
+                        LOOKUP_BLOB_BY_NAME_ORDER_BY_POS)) {
+
+            connection.setAutoCommit(false);
+
+            psSelectNewPos.setString(1, destName);
+            int newPos = 0;
+            try (ResultSet rs = psSelectNewPos.executeQuery()) {
+                if (rs.next()) {
+                    newPos = rs.getInt(1) + 1;
+                }
+            }
+            if (LOG.isLoggable(Level.FINER)) {
+                LOG.log(Level.FINER, "select new pos {0} for append to {1}", new Object[]{newPos, destName});
+            }
+
+            // already sorted by position
+            psLookupFromSource.setString(1, sourceName);
+            int count = 0;
+            try (ResultSet rs = psLookupFromSource.executeQuery()) {
+                while (rs.next()) {
+                    String objectId = rs.getString(1);
+                    psAssignNewPosAndBlobName.setString(1, destName);
+                    psAssignNewPosAndBlobName.setInt(2, newPos++);
+                    psAssignNewPosAndBlobName.setString(3, objectId);
+                    psAssignNewPosAndBlobName.addBatch();
+                    count++;
+                }
+            }
+            if (count == 0) {
+                throw new ObjectNotFoundException(sourceName);
+            }
+
+            psAssignNewPosAndBlobName.executeBatch();
+
+            // delete source
+            psDeleteSource.setString(1, sourceName);
+            psDeleteSource.executeUpdate();
+
+            psLookupFromSource.setString(1, destName);
+            connection.commit();
+        } catch (SQLException err) {
+            throw new ObjectManagerException(err);
+        }
     }
 
 }

@@ -19,6 +19,8 @@
  */
 package org.blobit.core.api;
 
+import java.util.Objects;
+
 /**
  * Metadata about a single blob
  *
@@ -37,6 +39,43 @@ public final class ObjectMetadata {
     @Override
     public String toString() {
         return "{" + "id=" + id + ", size=" + size + '}';
+    }
+
+    @Override
+    public int hashCode() {
+        int hash = 5;
+        hash = 89 * hash + Objects.hashCode(this.id);
+        hash = 89 * hash + (int) (this.size ^ (this.size >>> 32));
+        return hash;
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        final ObjectMetadata other = (ObjectMetadata) obj;
+        if (this.size != other.size) {
+            return false;
+        }
+        if (!Objects.equals(this.id, other.id)) {
+            return false;
+        }
+        return true;
+    }
+
+    public String getId() {
+        return id;
+    }
+
+    public long getSize() {
+        return size;
     }
 
 }

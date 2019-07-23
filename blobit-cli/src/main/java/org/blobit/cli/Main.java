@@ -51,7 +51,6 @@ public class Main {
                 .addCommand("gcbucket", new CommandGcBucket(cm))
                 .addCommand("listbuckets", new CommandListBuckets(cm))
                 .addCommand("put", new CommandPut(cm))
-                .addCommand("append", new CommandAppend(cm))
                 .addCommand("get", new CommandGet(cm))
                 .addCommand("stat", new CommandStat(cm))
                 .addCommand("help", new CommandHelp(cm))

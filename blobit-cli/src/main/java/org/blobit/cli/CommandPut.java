@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.ObjectManagerException;
+import org.blobit.core.api.PutOptions;
 import org.blobit.core.api.PutPromise;
 
 /**
@@ -42,7 +43,7 @@ import org.blobit.core.api.PutPromise;
 @Parameters(commandDescription = "Put a BLOB")
 public class CommandPut extends BucketCommand {
 
-    private static void writeOrScan(File theFile, String name, BucketHandle bucketHandle,
+    private void writeOrScan(File theFile, String name, BucketHandle bucketHandle,
             AtomicInteger totalFiles, AtomicLong totalBytes, List<PutPromise> results) throws IOException,
             InterruptedException, ObjectManagerException {
         if (theFile.isDirectory() && name == null) {
@@ -57,7 +58,7 @@ public class CommandPut extends BucketCommand {
         }
     }
 
-    private static void writeFile(File file, String name, BucketHandle bucketHandle,
+    private void writeFile(File file, String name, BucketHandle bucketHandle,
             AtomicInteger totalCount, AtomicLong totalWritten, List<PutPromise> results)
             throws IOException, InterruptedException, ObjectManagerException {
         if (name == null || name.isEmpty()) {
@@ -66,7 +67,10 @@ public class CommandPut extends BucketCommand {
         totalCount.incrementAndGet();
         try (InputStream ii = new BufferedInputStream(new FileInputStream(file))) {
             PutPromise put = bucketHandle
-                    .put(name, file.length(), ii);
+                    .put(name, file.length(), ii, PutOptions.builder()
+                            .overwrite(overwrite)
+                            .append(append)
+                            .build());
             System.out.println("PUT PROMISE: object id: '" + put.id + "' name: '" + name + "'");
             results.add(put);
             totalWritten.addAndGet(file.length());
@@ -87,6 +91,12 @@ public class CommandPut extends BucketCommand {
 
     @Parameter(names = "--max-entry-size", description = "Max extry size, in bytes, defaults to 65536")
     private int maxEntrySize = 65536;
+
+    @Parameter(names = "--overwrite", description = "Overwrite in case of existing named object")
+    public boolean overwrite = false;
+
+    @Parameter(names = "--append", description = "Append in case of existing named object")
+    public boolean append = false;
 
     @Parameter(names = "--replication", description = "Replication factor, defaults to 1")
     public int replication = 1;
