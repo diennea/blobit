@@ -36,25 +36,26 @@
         <url>https://github.com/diennea/blobit.git</url>        
         <connection>scm:git:https://github.com/diennea/blobit.git</connection>
         <developerConnection>scm:git:https://github.com/diennea/blobit.git</developerConnection>
-      <tag>HEAD</tag>
-  </scm>
+        <tag>HEAD</tag>
+    </scm>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>                
-        <libs.bookkeeper>4.9.0</libs.bookkeeper>
-        <libs.herddb>0.9.0</libs.herddb>   
-        <jetty.version>9.4.8.v20171121</jetty.version>
-        <libs.jersey>2.27</libs.jersey>             
+        <libs.bookkeeper>4.9.2</libs.bookkeeper>
+        <libs.herddb>0.11.0</libs.herddb>   
+        <jetty.version>9.4.18.v20190429</jetty.version>
+        <libs.jersey>2.29</libs.jersey>             
+        <libs.netty>4.1.37.Final</libs.netty>             
         <libs.commonspool>2.4.2</libs.commonspool>
         <libs.guava>21.0</libs.guava>
-        <libs.curator>2.12.0</libs.curator>
-        <libs.zookeeper>3.5.4-beta</libs.zookeeper>
+        <libs.curator>4.2.0</libs.curator>
+        <libs.zookeeper>3.5.5</libs.zookeeper>
         <libs.jcommmander>1.72</libs.jcommmander>
         <libs.spotbugsannotations>3.1.8</libs.spotbugsannotations>
-        <libs.spotbugsmaven>3.1.9</libs.spotbugsmaven>        
+        <libs.spotbugsmaven>3.1.12</libs.spotbugsmaven>        
     </properties>
     <build>
         <plugins>
-    <plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
                 <version>3.1.0</version>
