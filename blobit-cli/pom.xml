@@ -19,6 +19,18 @@
             <artifactId>jcommander</artifactId>
             <version>${libs.jcommmander}</version>
         </dependency>
+        <dependency>
+            <!-- not used directly, but by dependecies -->
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${libs.slf4j}</version>            
+        </dependency>
+        <dependency>
+            <!-- not used directly, but by dependecies -->
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-jdk14</artifactId>
+            <version>${libs.slf4j}</version>            
+        </dependency>
     </dependencies>
     <build>
         <plugins>
