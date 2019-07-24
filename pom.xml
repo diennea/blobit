@@ -52,6 +52,7 @@
         <libs.jcommmander>1.72</libs.jcommmander>
         <libs.spotbugsannotations>3.1.8</libs.spotbugsannotations>
         <libs.spotbugsmaven>3.1.12</libs.spotbugsmaven>        
+        <libs.slf4j>1.7.25</libs.slf4j>        
     </properties>
     <build>
         <plugins>
