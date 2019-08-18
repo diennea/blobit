@@ -209,7 +209,7 @@ public class BucketWriter {
                         return null;
                     } catch (ObjectManagerException err) {
                         throw err;
-                    }catch (Throwable err) {
+                    } catch (Throwable err) {
                         LOG.log(Level.SEVERE, "bad error while completing blob",
                                 err);
                         throw new RuntimeException(err);
