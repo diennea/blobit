@@ -19,6 +19,7 @@
  */
 package org.blobit.core.common;
 
+import static org.blobit.core.filters.NamedObjectFilters.nameStartsWith;
 import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -30,6 +31,7 @@ import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
@@ -79,7 +81,7 @@ public class NamesAPITest {
     }
 
     @Test
-    public void testAppendBookKeeper() throws Exception {
+    public void testClusterImpl() throws Exception {
         Properties dsProperties = new Properties();
         dsProperties.put(ServerConfiguration.PROPERTY_MODE,
                 ServerConfiguration.PROPERTY_MODE_LOCAL);
@@ -95,13 +97,13 @@ public class NamesAPITest {
                             .setZookeeperUrl(env.getAddress());
             try (ObjectManager manager = ObjectManagerFactory.
                     createObjectManager(configuration, datasource);) {
-                testAppends(manager);
+                testNamedApi(manager);
             }
         }
     }
 
     @Test
-    public void testAppendMemory() throws Exception {
+    public void testMemoryImpl() throws Exception {
 
         Configuration configuration =
                 new Configuration()
@@ -109,12 +111,12 @@ public class NamesAPITest {
                         .setConcurrentWriters(4);
         try (ObjectManager manager = ObjectManagerFactory.createObjectManager(
                 configuration, null);) {
-            testAppends(manager);
+            testNamedApi(manager);
         }
 
     }
 
-    private void testAppends(final ObjectManager manager) throws ObjectManagerException, InterruptedException,
+    private void testNamedApi(final ObjectManager manager) throws ObjectManagerException, InterruptedException,
             ExecutionException {
         manager.createBucket(BUCKET_ID, BUCKET_ID, BucketConfiguration.DEFAULT).
                 get();
@@ -378,7 +380,6 @@ public class NamesAPITest {
         assertEquals(obj2, toOverwrite1b.getObject(1).getId());
         assertEquals(obj2b, toOverwrite1b.getObject(2).getId());
 
-
         String obj3 = bucket.put("object-to-overwrite", TEST_DATA, 0, TEST_DATA.length, PutOptions.OVERWRITE).get();
         NamedObjectMetadata toOverwrite2 = bucket.statByName("object-to-overwrite");
         assertEquals(1, toOverwrite2.getNumObjects());
@@ -394,6 +395,107 @@ public class NamesAPITest {
         TestUtils.assertThrows(ObjectAlreadyExistsException.class, () -> {
             bucket.put("object-to-overwrite", TEST_DATA).get();
         });
+
+        bucket.put("/mydirectory/file1", TEST_DATA).get();
+        bucket.put("/mydirectory/file2", TEST_DATA).get();
+        bucket.put("/mydirectory/file2", TEST_DATA2, 0, TEST_DATA2.length, PutOptions.APPEND).get();
+        bucket.put("/mydirectory/file3", TEST_DATA).get();
+
+        List<NamedObjectMetadata> list = new ArrayList<>();
+        bucket.listByName(nameStartsWith("/mydirectory"), o -> {
+            list.add(o);
+            return true;
+        });
+        assertEquals(3, list.size());
+        for (NamedObjectMetadata md : list) {
+            switch (md.getName()) {
+                case "/mydirectory/file1":
+                case "/mydirectory/file3":
+                    assertEquals(TEST_DATA.length, md.getSize());
+                    assertEquals(1, md.getNumObjects());
+                    break;
+                case "/mydirectory/file2":
+                    assertEquals(TEST_DATA.length + TEST_DATA2.length, md.getSize());
+                    assertEquals(2, md.getNumObjects());
+                    break;
+                default:
+                    fail();
+            }
+        }
+
+        bucket.put("/mydirectory/file3", TEST_DATA2, 0, TEST_DATA2.length, PutOptions.APPEND).get();
+
+        List<NamedObjectMetadata> list2 = new ArrayList<>();
+        bucket.listByName(nameStartsWith("/mydirectory"), o -> {
+            list2.add(o);
+            return true;
+        });
+        assertEquals(3, list2.size());
+        for (NamedObjectMetadata md : list2) {
+            switch (md.getName()) {
+                case "/mydirectory/file1":
+                    assertEquals(TEST_DATA.length, md.getSize());
+                    assertEquals(1, md.getNumObjects());
+                    break;
+                case "/mydirectory/file2":
+                case "/mydirectory/file3":
+                    assertEquals(TEST_DATA.length + TEST_DATA2.length, md.getSize());
+                    assertEquals(2, md.getNumObjects());
+                    break;
+                default:
+                    fail();
+            }
+        }
+
+        List<NamedObjectMetadata> list3 = new ArrayList<>();
+        bucket.listByName(nameStartsWith("/empty-results"), o -> {
+            list3.add(o);
+            return true;
+        });
+        assertTrue(list3.isEmpty());
+
+        // single file, with one blob
+        List<NamedObjectMetadata> list4 = new ArrayList<>();
+        bucket.listByName(nameStartsWith("/mydirectory/file1"), o -> {
+            list4.add(o);
+            return true;
+        });
+        assertEquals(1, list4.size());
+        assertEquals(1, list4.get(0).getNumObjects());
+
+        // single file, with two blob
+        List<NamedObjectMetadata> list5 = new ArrayList<>();
+        bucket.listByName(nameStartsWith("/mydirectory/file3"), o -> {
+            list5.add(o);
+            return true;
+        });
+        assertEquals(1, list5.size());
+        assertEquals(2, list5.get(0).getNumObjects());
+
+        bucket.put("/mydirectory/empty-file", new byte[0]).get();
+
+        // single file, with one empty blob
+        List<NamedObjectMetadata> list6 = new ArrayList<>();
+        bucket.listByName(nameStartsWith("/mydirectory/empty-file"), o -> {
+            list6.add(o);
+            return true;
+        });
+        assertEquals(1, list6.size());
+        assertEquals(1, list6.get(0).getNumObjects());
+        assertEquals(0, list6.get(0).getSize());
+
+        // append an empty blobs
+        bucket.put("/mydirectory/empty-file", new byte[0], 0, 0, PutOptions.APPEND).get();
+
+        // single file, with two empty blobs
+        List<NamedObjectMetadata> list7 = new ArrayList<>();
+        bucket.listByName(nameStartsWith("/mydirectory/empty-file"), o -> {
+            list7.add(o);
+            return true;
+        });
+        assertEquals(1, list7.size());
+        assertEquals(2, list7.get(0).getNumObjects());
+        assertEquals(0, list7.get(0).getSize());
 
     }
 

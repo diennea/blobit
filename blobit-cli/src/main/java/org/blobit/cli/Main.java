@@ -53,6 +53,7 @@ public class Main {
                 .addCommand("put", new CommandPut(cm))
                 .addCommand("get", new CommandGet(cm))
                 .addCommand("stat", new CommandStat(cm))
+                .addCommand("ls", new CommandLs(cm))
                 .addCommand("help", new CommandHelp(cm))
                 .build();
         cm.jCommander = jc;

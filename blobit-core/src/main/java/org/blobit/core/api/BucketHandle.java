@@ -183,6 +183,17 @@ public interface BucketHandle {
     NamedObjectDeletePromise deleteByName(String name);
 
     /**
+     * Scans for a list of NamedObjects.Any action over metadata of the objects returned by this
+     * method won't be executed in any kind of transaction.
+     * The scan can be interrupted by returning 'false' from the NamedObjectConsumer callback.
+     *
+     * @param filter the filter
+     * @param consumer the consumer.
+     * @throws org.blobit.core.api.ObjectManagerException
+     */
+    void listByName(NamedObjectFilter filter, NamedObjectConsumer consumer) throws ObjectManagerException;
+
+    /**
      * Release space allocated by a bucket but no more in use. This method can be called concurrently from several
      * clients in the cluster.
      *

@@ -20,25 +20,7 @@
 package org.blobit.core.api;
 
 /**
- * A generic error
- *
- * @author enrico.olivelli
+ * A filter over a list of NamedObjects.
  */
-public class ObjectManagerException extends Exception {
-
-    public ObjectManagerException() {
-    }
-
-    public ObjectManagerException(String message) {
-        super(message);
-    }
-
-    public ObjectManagerException(String message, Throwable cause) {
-        super(message, cause);
-    }
-
-    public ObjectManagerException(Throwable cause) {
-        super(cause);
-    }
-
+public interface NamedObjectFilter {
 }

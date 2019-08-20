@@ -17,28 +17,25 @@
  under the License.
 
  */
-package org.blobit.core.api;
+package org.blobit.core.filters;
+
+import org.blobit.core.api.NamedObjectFilter;
 
 /**
- * A generic error
- *
- * @author enrico.olivelli
+ * Factory for filters
  */
-public class ObjectManagerException extends Exception {
+public abstract class NamedObjectFilters {
 
-    public ObjectManagerException() {
+    private NamedObjectFilters() {
     }
 
-    public ObjectManagerException(String message) {
-        super(message);
+    /**
+     * The name starts with a given prefix
+     *
+     * @param prefix the prefix
+     * @return the filter.
+     */
+    public static NamedObjectFilter nameStartsWith(String prefix) {
+        return new NamePrefixFilter(prefix);
     }
-
-    public ObjectManagerException(String message, Throwable cause) {
-        super(message, cause);
-    }
-
-    public ObjectManagerException(Throwable cause) {
-        super(cause);
-    }
-
 }

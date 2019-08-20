@@ -91,4 +91,9 @@ public final class NamedObjectMetadata {
         return true;
     }
 
+    @Override
+    public String toString() {
+        return "{" + "name=" + name + ", size=" + size + ", objects=" + objects + '}';
+    }
+
 }

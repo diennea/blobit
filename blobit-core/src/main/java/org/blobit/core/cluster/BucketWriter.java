@@ -199,8 +199,12 @@ public class BucketWriter {
                 (Long _entryId, Throwable u) -> {
                     pendingWrites.decrementAndGet();
                     if (u != null) {
-                        throw new ObjectManagerRuntimeException(
+                        if (u instanceof ObjectManagerException) {
+                            throw new ObjectManagerRuntimeException(u);
+                        } else {
+                          throw new ObjectManagerRuntimeException(
                                 new ObjectManagerException(u));
+                        }
                     }
                     try {
                         metadataStorageManager.registerObject(bucketId, id,
@@ -208,11 +212,10 @@ public class BucketWriter {
                                 blobId, name, putOptions.isOverwrite(), putOptions.isAppend());
                         return null;
                     } catch (ObjectManagerException err) {
-                        throw err;
+                        throw new ObjectManagerRuntimeException(err);
                     } catch (Throwable err) {
-                        LOG.log(Level.SEVERE, "bad error while completing blob",
-                                err);
-                        throw new RuntimeException(err);
+                        LOG.log(Level.SEVERE, "bad error while completing blob", err);
+                        throw new ObjectManagerRuntimeException(err);
                     }
                 }, callbacksExecutor);
         return new PutPromise(blobId, afterMetadata);

@@ -40,29 +40,35 @@ import org.blobit.core.api.PutPromise;
  *
  * @author eolivelli
  */
-@Parameters(commandDescription = "Put a BLOB")
+@Parameters(commandDescription = "Put a named object")
 public class CommandPut extends BucketCommand {
 
     private void writeOrScan(File theFile, String name, BucketHandle bucketHandle,
-            AtomicInteger totalFiles, AtomicLong totalBytes, List<PutPromise> results) throws IOException,
+                             AtomicInteger totalFiles, AtomicLong totalBytes, String prefixPath,
+                             List<PutPromise> results) throws IOException,
             InterruptedException, ObjectManagerException {
         if (theFile.isDirectory() && name == null) {
             File[] children = theFile.listFiles();
             if (children != null) {
+                String fileName = theFile.getName();
+                if (!fileName.equals(".")) {
+                    prefixPath = prefixPath + fileName + "/";
+                }
                 for (File child : children) {
-                    writeOrScan(child, null, bucketHandle, totalFiles, totalBytes, results);
+                    writeOrScan(child, null, bucketHandle, totalFiles, totalBytes, prefixPath, results);
                 }
             }
         } else {
-            writeFile(theFile, name, bucketHandle, totalFiles, totalBytes, results);
+            writeFile(theFile, name, bucketHandle, totalFiles, totalBytes, prefixPath, results);
         }
     }
 
     private void writeFile(File file, String name, BucketHandle bucketHandle,
-            AtomicInteger totalCount, AtomicLong totalWritten, List<PutPromise> results)
+                           AtomicInteger totalCount, AtomicLong totalWritten, String prefixPath,
+                           List<PutPromise> results)
             throws IOException, InterruptedException, ObjectManagerException {
         if (name == null || name.isEmpty()) {
-            name = file.getName();
+            name = prefixPath + file.getName();
         }
         totalCount.incrementAndGet();
         try (InputStream ii = new BufferedInputStream(new FileInputStream(file))) {
@@ -118,7 +124,11 @@ public class CommandPut extends BucketCommand {
         long _start = System.currentTimeMillis();
         AtomicLong totalBytes = new AtomicLong();
         AtomicInteger totalFiles = new AtomicInteger();
+
         if (file.isFile()) {
+            if (name == null) {
+                name = file.getName();
+            }
             System.out.println("PUT BUCKET '" + bucket + "' NAME '" + name + "' " + file.length()
                     + " bytes (maxEntrySize " + maxEntrySize + " bytes, replicationFactor: " + replication
                     + ", checksum:" + checksum + " deferredSync:" + deferredSync + ")");
@@ -129,12 +139,11 @@ public class CommandPut extends BucketCommand {
         } else {
             throw new IOException("File " + file + " does not exists");
         }
-
         doWithClient(client -> {
             BucketHandle bucketHandle = client.getBucket(bucket);
             File theFile = file;
             List<PutPromise> results = new ArrayList<>();
-            writeOrScan(theFile, name, bucketHandle, totalFiles, totalBytes, results);
+            writeOrScan(theFile, name, bucketHandle, totalFiles, totalBytes, "/", results);
             // really wait for all of the operations to finish
             for (PutPromise pp : results) {
                 pp.get();

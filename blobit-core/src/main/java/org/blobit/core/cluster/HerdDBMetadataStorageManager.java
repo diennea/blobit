@@ -42,10 +42,14 @@ import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.BucketMetadata;
 import org.blobit.core.api.Configuration;
 import org.blobit.core.api.LedgerMetadata;
+import org.blobit.core.api.NamedObjectConsumer;
+import org.blobit.core.api.NamedObjectFilter;
+import org.blobit.core.api.NamedObjectMetadata;
 import org.blobit.core.api.ObjectAlreadyExistsException;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectMetadata;
 import org.blobit.core.api.ObjectNotFoundException;
+import org.blobit.core.filters.NamePrefixFilter;
 
 /**
  * Stores metadata on HerdDB
@@ -64,8 +68,8 @@ public class HerdDBMetadataStorageManager {
  /* *** BUCKET *** */
  /* ************** */
     private static final String CREATE_BUCKETS_TABLE =
-            "CREATE TABLE " + BUCKET_TABLE + " (" + "    uuid STRING PRIMARY KEY," + "    bucket_id STRING,"
-            + "    status INTEGER," + "    tablespace_name STRING," + "    configuration STRING" + ")";
+            "CREATE TABLE " + BUCKET_TABLE + " (    uuid STRING PRIMARY KEY,    bucket_id STRING,"
+            + "    status INTEGER,    tablespace_name STRING,    configuration STRING)";
 
     private static final String SELECT_BUCKET =
             "SELECT bucket_id,uuid,status,tablespace_name,configuration FROM " + BUCKET_TABLE + " WHERE bucket_id=?";
@@ -88,8 +92,8 @@ public class HerdDBMetadataStorageManager {
  /* *** LEDGER *** */
  /* ************** */
     private static final String CREATE_LEDGERS_TABLE =
-            "CREATE TABLE " + LEDGER_TABLE + " (" + "    ledger_id LONG PRIMARY KEY," + "    creation_date TIMESTAMP,"
-            + "    bucket_uuid STRING" + ")";
+            "CREATE TABLE " + LEDGER_TABLE + " (    ledger_id LONG PRIMARY KEY,    creation_date TIMESTAMP,"
+            + "    bucket_uuid STRING)";
 
     private static final String REGISTER_LEDGER =
             "INSERT INTO " + LEDGER_TABLE + " (bucket_uuid,ledger_id,creation_date) VALUES (?,?,?)";
@@ -135,14 +139,17 @@ public class HerdDBMetadataStorageManager {
  /* **** NAMES**** */
  /* ************** */
     private static final String CREATE_BLOBNAMES_TABLE =
-            "CREATE TABLE " + BLOBNAMES_TABLE + " (name STRING NOT NULL," + "  pos LONG NOT NULL,"
-            + "  objectid STRING NOT NULL," + "  PRIMARY KEY (name, pos) )";
+            "CREATE TABLE " + BLOBNAMES_TABLE + " (name STRING NOT NULL,  pos LONG NOT NULL,"
+            + "  objectid STRING NOT NULL,  PRIMARY KEY (name, pos) )";
 
     private static final String REGISTER_BLOBNAME =
             "INSERT INTO " + BLOBNAMES_TABLE + " (name, pos, objectid) VALUES (?,?,?)";
 
     private static final String LOOKUP_BLOB_BY_NAME_ORDER_BY_POS =
-            "SELECT objectid" + " FROM " + BLOBNAMES_TABLE + " where name=? " + "ORDER BY pos";
+            "SELECT objectid FROM " + BLOBNAMES_TABLE + " where name=? ORDER BY pos";
+
+    private static final String SCAN_BLOB_NAMES_WITH_PREFIX_ORDER_BY_NAME_AND_POS =
+            "SELECT name, objectid FROM " + BLOBNAMES_TABLE + " where name like ? ORDER BY name, pos";
 
     private static final String SELECT_NEW_POS =
             "SELECT max(pos) FROM " + BLOBNAMES_TABLE + " where name = ?";
@@ -174,7 +181,7 @@ public class HerdDBMetadataStorageManager {
     private Map<String, BucketMetadata> buckets;
 
     public HerdDBMetadataStorageManager(DataSource datasource,
-            Configuration configuration) {
+                                        Configuration configuration) {
         this.bucketsTablespace = configuration.getBucketsTableSpace();
         this.datasource = datasource;
         this.bucketsTableSpacesReplicaCount = configuration.
@@ -203,8 +210,8 @@ public class HerdDBMetadataStorageManager {
     }
 
     public CompletableFuture<BucketMetadata> createBucket(String bucketId,
-            String tablespaceName,
-            BucketConfiguration configuration) {
+                                                          String tablespaceName,
+                                                          BucketConfiguration configuration) {
         CompletableFuture res = new CompletableFuture();
         try (Connection connection = datasource.getConnection();
                 PreparedStatement ps = connection.
@@ -322,10 +329,10 @@ public class HerdDBMetadataStorageManager {
     }
 
     public void registerObject(String bucketId,
-            long ledgerId, long entryId, int num_entries,
-            int entry_size,
-            long size, String objectId,
-            String name, boolean clear, boolean append) throws ObjectManagerException {
+                               long ledgerId, long entryId, int num_entries,
+                               int entry_size,
+                               long size, String objectId,
+                               String name, boolean clear, boolean append) throws ObjectManagerException {
         int positionForName = 0;
         try (Connection connection = getConnectionForBucket(bucketId);
                 PreparedStatement ps = connection.
@@ -335,8 +342,7 @@ public class HerdDBMetadataStorageManager {
                 PreparedStatement psChoosePos = connection.prepareStatement(
                         SELECT_NEW_POS);
                 PreparedStatement psClear = connection.prepareStatement(
-                        DELETE_BLOBNAME);
-                ) {
+                        DELETE_BLOBNAME);) {
 
             if (name != null && append && !clear) {
                 psChoosePos.setString(1, name);
@@ -387,7 +393,7 @@ public class HerdDBMetadataStorageManager {
     }
 
     public void deleteObject(String bucketId, long ledgerId, long entryId,
-            String name) throws ObjectManagerException {
+                             String name) throws ObjectManagerException {
 
         try (Connection connection = getConnectionForBucket(bucketId);
                 PreparedStatement ps = connection.prepareStatement(DELETE_BLOB);
@@ -459,7 +465,7 @@ public class HerdDBMetadataStorageManager {
     }
 
     private Connection getConnectionForBucket(String bucketId,
-            boolean autocommit) throws SQLException, ObjectManagerException {
+                                              boolean autocommit) throws SQLException, ObjectManagerException {
         BucketMetadata bucket = getBucket(bucketId);
         Connection con = getConnectionForBucketTableSpace(bucket);
         con.setAutoCommit(autocommit);
@@ -843,4 +849,64 @@ public class HerdDBMetadataStorageManager {
         }
     }
 
+    void listByName(String bucketId, NamedObjectFilter filter, NamedObjectConsumer consumer)
+            throws ObjectManagerException {
+        if (filter instanceof NamePrefixFilter) {
+            NamePrefixFilter pFilter = (NamePrefixFilter) filter;
+            String prefix = pFilter.getPrefix();
+            // prepare for a "name like PREFIX%" clause
+            prefix = prefix.replace("\\", "\\\\").replace("_", "\\_").replace("%", "\\%") + "%";
+            try (Connection connection = getConnectionForBucket(bucketId);
+                    PreparedStatement psLookupFromSource = connection.prepareStatement(
+                            SCAN_BLOB_NAMES_WITH_PREFIX_ORDER_BY_NAME_AND_POS)) {
+
+                psLookupFromSource.setString(1, prefix);
+
+                try (ResultSet rs = psLookupFromSource.executeQuery()) {
+                    // already sorted by name and pos
+                    String currentName = null;
+                    List<ObjectMetadata> currentBlobsForName = new ArrayList<>();
+                    long currentBlobSize = 0;
+                    while (rs.next()) {
+                        String name = rs.getString(1);
+                        String blobId = rs.getString(2);
+                        if (currentName == null || currentName.equals(name)) {
+                            // first name or same name
+                            currentName = name;
+                            BKEntryId parseId = BKEntryId.parseId(blobId);
+                            ObjectMetadata metadata = new ObjectMetadata(blobId, parseId.length);
+                            currentBlobSize += metadata.getSize();
+                            currentBlobsForName.add(metadata);
+                        } else {
+                            // new name, outout the current accumulated value
+                            NamedObjectMetadata output = new NamedObjectMetadata(currentName, currentBlobSize,
+                                    currentBlobsForName);
+                            boolean goOn = consumer.accept(output);
+                            if (!goOn) {
+                                break;
+                            }
+                            // start new accumulator
+                            currentName = name;
+                            currentBlobsForName = new ArrayList<>();
+                            BKEntryId parseId = BKEntryId.parseId(blobId);
+                            ObjectMetadata metadata = new ObjectMetadata(blobId, parseId.length);
+                            currentBlobSize = metadata.getSize();
+                            currentBlobsForName.add(metadata);
+                        }
+
+                    }
+                    if (!currentBlobsForName.isEmpty()) {
+                        NamedObjectMetadata output = new NamedObjectMetadata(currentName, currentBlobSize,
+                                currentBlobsForName);
+                        consumer.accept(output);
+                    }
+
+                }
+                return;
+            } catch (SQLException ex) {
+                throw new ObjectManagerException(ex);
+            }
+        }
+        throw new ObjectManagerException("Unsupported filter type " + filter);
+    }
 }

@@ -17,28 +17,31 @@
  under the License.
 
  */
-package org.blobit.core.api;
+package org.blobit.core.filters;
+
+import java.util.Objects;
+import org.blobit.core.api.NamedObjectFilter;
 
 /**
- * A generic error
- *
- * @author enrico.olivelli
+ * The object name 'starts with' the given filter.
  */
-public class ObjectManagerException extends Exception {
+public final class NamePrefixFilter implements NamedObjectFilter {
 
-    public ObjectManagerException() {
+    private final String prefix;
+
+    NamePrefixFilter(String prefix) {
+        Objects.requireNonNull(prefix, "Prefix cannot be null");
+        this.prefix = prefix;
     }
 
-    public ObjectManagerException(String message) {
-        super(message);
+    @Override
+    public String toString() {
+        return "NamePrefixFilter{" + "prefix=" + prefix + '}';
     }
 
-    public ObjectManagerException(String message, Throwable cause) {
-        super(message, cause);
+    public String getPrefix() {
+        return prefix;
     }
 
-    public ObjectManagerException(Throwable cause) {
-        super(cause);
-    }
 
 }

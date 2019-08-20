@@ -46,8 +46,10 @@ import org.blobit.core.api.GetPromise;
 import org.blobit.core.api.LedgerMetadata;
 import org.blobit.core.api.LocationInfo;
 import org.blobit.core.api.LocationInfo.ServerInfo;
+import org.blobit.core.api.NamedObjectConsumer;
 import org.blobit.core.api.NamedObjectDeletePromise;
 import org.blobit.core.api.NamedObjectDownloadPromise;
+import org.blobit.core.api.NamedObjectFilter;
 import org.blobit.core.api.NamedObjectGetPromise;
 import org.blobit.core.api.NamedObjectMetadata;
 import org.blobit.core.api.ObjectAlreadyExistsException;
@@ -57,6 +59,7 @@ import org.blobit.core.api.ObjectMetadata;
 import org.blobit.core.api.ObjectNotFoundException;
 import org.blobit.core.api.PutOptions;
 import org.blobit.core.api.PutPromise;
+import org.blobit.core.filters.NamePrefixFilter;
 
 /**
  * MetadataManager all in memory for unit tests
@@ -82,8 +85,8 @@ public class LocalManager implements ObjectManager {
 
     @Override
     public CompletableFuture<BucketMetadata> createBucket(String name,
-            String bucketTableSpaceName,
-            BucketConfiguration configuration) {
+                                                          String bucketTableSpaceName,
+                                                          BucketConfiguration configuration) {
 
         CompletableFuture<BucketMetadata> res = new CompletableFuture<>();
         MemBucket oldBucket = buckets.computeIfAbsent(name, (bname) -> {
@@ -144,7 +147,7 @@ public class LocalManager implements ObjectManager {
     }
 
     Collection<ObjectMetadata> listObjectsByLedger(String bucketId,
-            long ledgerId) throws ObjectManagerException {
+                                                   long ledgerId) throws ObjectManagerException {
         return getMemBucket(bucketId).getLedger(ledgerId).listObjects();
     }
 
@@ -377,9 +380,9 @@ public class LocalManager implements ObjectManager {
 
         @Override
         public NamedObjectDownloadPromise downloadByName(String name,
-                Consumer<Long> lengthCallback,
-                OutputStream output,
-                int offset, long length) {
+                                                         Consumer<Long> lengthCallback,
+                                                         OutputStream output,
+                                                         int offset, long length) {
             List<String> ids = null;
             try {
                 ids = objectNames.get(name);
@@ -445,10 +448,10 @@ public class LocalManager implements ObjectManager {
         }
 
         private void startDownloadSegment(List<MemEntryId> segments, int index,
-                long offsetInSegment,
-                long remainingLen,
-                OutputStream output,
-                CompletableFuture<?> result) {
+                                          long offsetInSegment,
+                                          long remainingLen,
+                                          OutputStream output,
+                                          CompletableFuture<?> result) {
             MemEntryId currentSegment = segments.get(index);
 
             long lengthForCurrentSegment = Math.min(remainingLen,
@@ -509,9 +512,9 @@ public class LocalManager implements ObjectManager {
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
         @Override
         public DownloadPromise download(String objectId,
-                Consumer<Long> lengthCallback,
-                OutputStream output,
-                long offset, long length) {
+                                        Consumer<Long> lengthCallback,
+                                        OutputStream output,
+                                        long offset, long length) {
             try {
                 GetPromise result = get(objectId);
                 final long realLen;
@@ -588,6 +591,28 @@ public class LocalManager implements ObjectManager {
                 result.completeExceptionally(err);
             }
             return result;
+        }
+
+        @Override
+        public void listByName(NamedObjectFilter filter, NamedObjectConsumer consumer) throws ObjectManagerException {
+            if (filter instanceof NamePrefixFilter) {
+                NamePrefixFilter pFilter = (NamePrefixFilter) filter;
+                String prefix = pFilter.getPrefix();
+                for (String name : objectNames.keySet()) {
+                    if (!name.startsWith(prefix)) {
+                        continue;
+                    }
+                    NamedObjectMetadata metadata = statByName(name);
+                    if (metadata != null) {
+                        boolean goOn = consumer.accept(metadata);
+                        if (!goOn) {
+                            break;
+                        }
+                    }
+                }
+                return;
+            }
+            throw new ObjectManagerException("Unsupported filter type " + filter);
         }
 
     }

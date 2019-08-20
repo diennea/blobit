@@ -20,25 +20,15 @@
 package org.blobit.core.api;
 
 /**
- * A generic error
- *
- * @author enrico.olivelli
+ * Consumers a run of NamedObject.
+ * @see BucketHandle#listByName(org.blobit.core.api.NamedObjectFilter, org.blobit.core.api.NamedObjectConsumer)
  */
-public class ObjectManagerException extends Exception {
-
-    public ObjectManagerException() {
-    }
-
-    public ObjectManagerException(String message) {
-        super(message);
-    }
-
-    public ObjectManagerException(String message, Throwable cause) {
-        super(message, cause);
-    }
-
-    public ObjectManagerException(Throwable cause) {
-        super(cause);
-    }
-
+public interface NamedObjectConsumer {
+    /**
+     * Accepts an object.
+     *
+     * @param object the metadata of the object.
+     * @return false in order to exit from the scan.
+     */
+    boolean accept(NamedObjectMetadata object);
 }

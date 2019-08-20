@@ -43,8 +43,10 @@ import org.blobit.core.api.DeletePromise;
 import org.blobit.core.api.DownloadPromise;
 import org.blobit.core.api.GetPromise;
 import org.blobit.core.api.LocationInfo;
+import org.blobit.core.api.NamedObjectConsumer;
 import org.blobit.core.api.NamedObjectDeletePromise;
 import org.blobit.core.api.NamedObjectDownloadPromise;
+import org.blobit.core.api.NamedObjectFilter;
 import org.blobit.core.api.NamedObjectGetPromise;
 import org.blobit.core.api.NamedObjectMetadata;
 import org.blobit.core.api.ObjectManager;
@@ -110,6 +112,11 @@ public class ClusterObjectManager implements ObjectManager {
         @Override
         public void concat(String sourceName, String destName) throws ObjectManagerException {
             metadataManager.concat(bucketId, sourceName, destName);
+        }
+
+        @Override
+        public void listByName(NamedObjectFilter filter, NamedObjectConsumer consumer) throws ObjectManagerException {
+            metadataManager.listByName(bucketId, filter, consumer);
         }
 
         @Override
