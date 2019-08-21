@@ -222,7 +222,7 @@ public class LocalManager implements ObjectManager {
             if (prevList == null) {
                 throw new ObjectNotFoundException(sourceName);
             }
-            List<String> compute = objectNames.compute(destName, (n, currentList) -> {
+            objectNames.compute(destName, (n, currentList) -> {
                 if (currentList == null) {
                     return new ArrayList<>(prevList);
                 } else {

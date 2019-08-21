@@ -201,7 +201,7 @@ public class ClusterObjectManager implements ObjectManager {
 
         @Override
         public ObjectMetadata stat(String objectId) {
-            return blobManager.stat(bucketId, objectId);
+            return BookKeeperBlobManager.stat(bucketId, objectId);
         }
 
         @Override
