@@ -37,6 +37,7 @@ import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.NamedObjectMetadata;
 import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerException;
+import org.blobit.core.api.PutOptions;
 import org.blobit.core.api.PutPromise;
 
 /**
@@ -173,7 +174,7 @@ public class SwiftAPIAdapter extends HttpServlet {
                             AsyncContext startAsync = req.startAsync();
                             // streaming directly from client to bookkeeper
                             PutPromise prom = bucket.put(name, expectedContentLen, startAsync.getRequest().
-                                    getInputStream());
+                                    getInputStream(), PutOptions.DEFAULT_OPTIONS);
                             prom.future.handle((v, error) -> {
 
                                 try {

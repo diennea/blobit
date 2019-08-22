@@ -41,7 +41,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>                
         <libs.bookkeeper>4.9.2</libs.bookkeeper>
-        <libs.herddb>0.11.0</libs.herddb>   
+        <libs.herddb>0.11.8</libs.herddb>   
         <jetty.version>9.4.18.v20190429</jetty.version>
         <libs.jersey>2.29</libs.jersey>             
         <libs.netty>4.1.37.Final</libs.netty>             
@@ -163,6 +163,13 @@
             </snapshots>            
             <url>https://dev.majordodo.org/nexus/content/repositories/snapshots/</url>                                       
         </repository>
+        <repository>
+            <id>dev.majordodo.org.releases</id>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <url>https://dev.majordodo.org/nexus/content/repositories/releases/</url>                                       
+        </repository>
     </repositories> 
    
     <profiles>
@@ -221,6 +228,7 @@
                         <version>3.8.0</version>
                         <configuration>
                             <encoding>${project.build.sourceEncoding}</encoding>
+                            <release>8</release>
                         </configuration>
                     </plugin>
                     <plugin>

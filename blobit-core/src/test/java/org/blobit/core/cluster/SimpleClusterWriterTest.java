@@ -42,6 +42,7 @@ import org.blobit.core.api.DownloadPromise;
 import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectManagerFactory;
+import org.blobit.core.api.PutOptions;
 import org.blobit.core.api.PutPromise;
 import org.junit.Rule;
 import org.junit.Test;
@@ -155,7 +156,7 @@ public class SimpleClusterWriterTest {
                     ByteArrayInputStream in =
                             new ByteArrayInputStream(TEST_DATA);
                     PutPromise putResult = bucket.
-                            put(null, TEST_DATA.length * 2, in);
+                            put(null, TEST_DATA.length * 2, in, PutOptions.DEFAULT_OPTIONS);
                     putResult.get();
                     fail();
                 } catch (ObjectManagerException err) {
@@ -163,7 +164,7 @@ public class SimpleClusterWriterTest {
                 }
 
                 ByteArrayInputStream in = new ByteArrayInputStream(TEST_DATA);
-                PutPromise putResult2 = bucket.put(null, TEST_DATA.length, in);
+                PutPromise putResult2 = bucket.put(null, TEST_DATA.length, in, PutOptions.DEFAULT_OPTIONS);
                 putResult2.get();
             }
         }
@@ -198,7 +199,7 @@ public class SimpleClusterWriterTest {
                 for (int size : testcases) {
                     ByteArrayInputStream in =
                             new ByteArrayInputStream(TEST_DATA);
-                    PutPromise putResult = bucket.put(null, size, in);
+                    PutPromise putResult = bucket.put(null, size, in, PutOptions.DEFAULT_OPTIONS);
                     results.add(putResult);
                 }
                 for (int i = 0; i < testcases.length; i++) {

@@ -39,42 +39,48 @@ public interface BucketHandle {
      * @param data
      * @return the org.blobit.core.api.PutPromise
      */
-    PutPromise put(String name, byte[] data);
+    default PutPromise put(String name, byte[] data) {
+        return put(name, data, 0, data.length, PutOptions.DEFAULT_OPTIONS);
+    }
 
     /**
      * Writes an object.This function is async, you have to check the result of the Future in order to get the ID of the
      * stored Object This method does not close the stream. In case of failure the status of the stream will be
      * undefined.
      *
-     * @param name the value of name
+     * @param name the value of name  (optional)
      * @param length number of bytes to read from the stream
-     * @param input
+     * @param input the stream. it won't be closed automatically.
+     * @param putOptions optoins
      * @return the org.blobit.core.api.PutPromise
      */
-    PutPromise put(String name, long length, InputStream input);
+    PutPromise put(String name, long length, InputStream input, PutOptions putOptions);
 
     /**
      * Writes an object.This function is async, you have to check the result of the Future in order to get the ID of the
      * stored Object
      *
-     * @param name the value of name
+     * @param name the value of name  (optional)
      * @param data array of bytes
      * @param offset offset from which to start writing bytes
      * @param len number of bytes to write
+     * @param putOptions optoins
      * @return the org.blobit.core.api.PutPromise
      */
-    PutPromise put(String name, byte[] data, int offset, int len);
+    PutPromise put(String name, byte[] data, int offset, int len, PutOptions putOptions);
 
     /**
-     * Appends an Object to a named object.
+     * Atomically concatenates one named object to another one.
+     * The source object will be implicitly deleted and
+     * all of the blobs will now be part of the destination object,
+     * appended to the tail.
      *
-     * @param objectId the id of an existing object
-     * @param name the name of an existing NamedObject
+     * @param sourceName the name of an existing object, it will be deleted
+     * @param destName the name of an existing object, or a new one
      *
-     * @return the ordinal position of the blob inside the sequence.
      * @throws ObjectManagerException
      */
-    int append(String objectId, String name) throws ObjectManagerException;
+    void concat(String sourceName, String destName) throws ObjectManagerException;
 
     /**
      * Retrieves the contents of an object. This function is async, you have to check the result of the Future in order
@@ -175,6 +181,17 @@ public interface BucketHandle {
      * @see #gc()
      */
     NamedObjectDeletePromise deleteByName(String name);
+
+    /**
+     * Scans for a list of NamedObjects.Any action over metadata of the objects returned by this
+     * method won't be executed in any kind of transaction.
+     * The scan can be interrupted by returning 'false' from the NamedObjectConsumer callback.
+     *
+     * @param filter the filter
+     * @param consumer the consumer.
+     * @throws org.blobit.core.api.ObjectManagerException
+     */
+    void listByName(NamedObjectFilter filter, NamedObjectConsumer consumer) throws ObjectManagerException;
 
     /**
      * Release space allocated by a bucket but no more in use. This method can be called concurrently from several

@@ -46,15 +46,20 @@ import org.blobit.core.api.GetPromise;
 import org.blobit.core.api.LedgerMetadata;
 import org.blobit.core.api.LocationInfo;
 import org.blobit.core.api.LocationInfo.ServerInfo;
+import org.blobit.core.api.NamedObjectConsumer;
 import org.blobit.core.api.NamedObjectDeletePromise;
 import org.blobit.core.api.NamedObjectDownloadPromise;
+import org.blobit.core.api.NamedObjectFilter;
 import org.blobit.core.api.NamedObjectGetPromise;
 import org.blobit.core.api.NamedObjectMetadata;
+import org.blobit.core.api.ObjectAlreadyExistsException;
 import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectMetadata;
 import org.blobit.core.api.ObjectNotFoundException;
+import org.blobit.core.api.PutOptions;
 import org.blobit.core.api.PutPromise;
+import org.blobit.core.filters.NamePrefixFilter;
 
 /**
  * MetadataManager all in memory for unit tests
@@ -80,8 +85,8 @@ public class LocalManager implements ObjectManager {
 
     @Override
     public CompletableFuture<BucketMetadata> createBucket(String name,
-            String bucketTableSpaceName,
-            BucketConfiguration configuration) {
+                                                          String bucketTableSpaceName,
+                                                          BucketConfiguration configuration) {
 
         CompletableFuture<BucketMetadata> res = new CompletableFuture<>();
         MemBucket oldBucket = buckets.computeIfAbsent(name, (bname) -> {
@@ -142,7 +147,7 @@ public class LocalManager implements ObjectManager {
     }
 
     Collection<ObjectMetadata> listObjectsByLedger(String bucketId,
-            long ledgerId) throws ObjectManagerException {
+                                                   long ledgerId) throws ObjectManagerException {
         return getMemBucket(bucketId).getLedger(ledgerId).listObjects();
     }
 
@@ -212,12 +217,25 @@ public class LocalManager implements ObjectManager {
         }
 
         @Override
-        public PutPromise put(String name, byte[] data) {
-            return put(name, data, 0, data.length);
+        public void concat(String sourceName, String destName) throws ObjectManagerException {
+            List<String> prevList = objectNames.get(sourceName);
+            if (prevList == null) {
+                throw new ObjectNotFoundException(sourceName);
+            }
+            objectNames.compute(destName, (n, currentList) -> {
+                if (currentList == null) {
+                    return new ArrayList<>(prevList);
+                } else {
+                    List<String> newList = new ArrayList<>(currentList);
+                    newList.addAll(prevList);
+                    return newList;
+                }
+            });
+            objectNames.remove(sourceName);
         }
 
         @Override
-        public PutPromise put(String name, long length, InputStream input) {
+        public PutPromise put(String name, long length, InputStream input, PutOptions putOptions) {
             DataInputStream ii = new DataInputStream(input);
             // we are in-memory, we can store only 'small' objects
             byte[] content = new byte[(int) length];
@@ -228,12 +246,12 @@ public class LocalManager implements ObjectManager {
                 res.completeExceptionally(err);
                 return new PutPromise(null, res);
             }
-            return put(name, content);
+            return put(name, content, 0, content.length, putOptions);
         }
 
         @Override
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
-        public PutPromise put(String name, byte[] data, int offset, int len) {
+        public PutPromise put(String name, byte[] data, int offset, int len, PutOptions putOptions) {
             try {
                 if (offset != 0 && len < data.length) {
                     byte[] copy = new byte[len];
@@ -244,7 +262,32 @@ public class LocalManager implements ObjectManager {
                         data);
                 /* NP_NONNULL_PARAM_VIOLATION: https://github.com/findbugsproject/findbugs/issues/79 */
                 if (name != null) {
-                    objectNames.put(name, Arrays.asList(res.toId()));
+                    if (putOptions.isOverwrite()) {
+                        List<String> prevList = objectNames.put(name, Arrays.asList(res.toId()));
+                        if (prevList != null) {
+                            // drop old unreferenced objects
+                            for (String objectId : prevList) {
+                                delete(objectId);
+                            }
+                        }
+                    } else if (putOptions.isAppend()) {
+                        objectNames.compute(name, (n, prevList) -> {
+                            if (prevList == null) {
+                                return Arrays.asList(res.toId());
+                            } else {
+                                // prepend prevList to the new list
+                                List<String> resList = new ArrayList<>(prevList);
+                                resList.add(res.toId());
+                                return resList;
+                            }
+                        });
+                    } else {
+                        List<String> list = Arrays.asList(res.toId());
+                        List<String> result = objectNames.computeIfAbsent(name, (n) -> list);
+                        if (list != result) {
+                            return new PutPromise(null, FutureUtils.exception(new ObjectAlreadyExistsException(name)));
+                        }
+                    }
                 }
                 return new PutPromise(res.toId(), CompletableFuture.
                         <Void>completedFuture(null));
@@ -318,7 +361,7 @@ public class LocalManager implements ObjectManager {
                 for (String id : ids) {
                     GetPromise get = this.get(id);
                     size += get.length;
-                    parts.add(new ObjectMetadata(id, size));
+                    parts.add(new ObjectMetadata(id, get.length));
                 }
                 return new NamedObjectMetadata(name,
                         size, parts);
@@ -337,9 +380,9 @@ public class LocalManager implements ObjectManager {
 
         @Override
         public NamedObjectDownloadPromise downloadByName(String name,
-                Consumer<Long> lengthCallback,
-                OutputStream output,
-                int offset, long length) {
+                                                         Consumer<Long> lengthCallback,
+                                                         OutputStream output,
+                                                         int offset, long length) {
             List<String> ids = null;
             try {
                 ids = objectNames.get(name);
@@ -405,10 +448,10 @@ public class LocalManager implements ObjectManager {
         }
 
         private void startDownloadSegment(List<MemEntryId> segments, int index,
-                long offsetInSegment,
-                long remainingLen,
-                OutputStream output,
-                CompletableFuture<?> result) {
+                                          long offsetInSegment,
+                                          long remainingLen,
+                                          OutputStream output,
+                                          CompletableFuture<?> result) {
             MemEntryId currentSegment = segments.get(index);
 
             long lengthForCurrentSegment = Math.min(remainingLen,
@@ -469,9 +512,9 @@ public class LocalManager implements ObjectManager {
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
         @Override
         public DownloadPromise download(String objectId,
-                Consumer<Long> lengthCallback,
-                OutputStream output,
-                long offset, long length) {
+                                        Consumer<Long> lengthCallback,
+                                        OutputStream output,
+                                        long offset, long length) {
             try {
                 GetPromise result = get(objectId);
                 final long realLen;
@@ -512,21 +555,6 @@ public class LocalManager implements ObjectManager {
             }
         }
 
-        @Override
-        public int append(String objectId, String name) throws ObjectManagerException {
-            return objectNames.compute(name, (_name, currentList) -> {
-                if (currentList != null) {
-                    List<String> newList = new ArrayList<>(
-                            currentList.size() + 1);
-                    newList.addAll(currentList);
-                    newList.add(objectId);
-                    return newList;
-                } else {
-                    return Arrays.asList(objectId);
-                }
-            }).size() - 1;
-        }
-
         @SuppressFBWarnings("NP_NONNULL_PARAM_VIOLATION")
         @Override
         public DeletePromise delete(String objectId) {
@@ -563,6 +591,28 @@ public class LocalManager implements ObjectManager {
                 result.completeExceptionally(err);
             }
             return result;
+        }
+
+        @Override
+        public void listByName(NamedObjectFilter filter, NamedObjectConsumer consumer) throws ObjectManagerException {
+            if (filter instanceof NamePrefixFilter) {
+                NamePrefixFilter pFilter = (NamePrefixFilter) filter;
+                String prefix = pFilter.getPrefix();
+                for (String name : objectNames.keySet()) {
+                    if (!name.startsWith(prefix)) {
+                        continue;
+                    }
+                    NamedObjectMetadata metadata = statByName(name);
+                    if (metadata != null) {
+                        boolean goOn = consumer.accept(metadata);
+                        if (!goOn) {
+                            break;
+                        }
+                    }
+                }
+                return;
+            }
+            throw new ObjectManagerException("Unsupported filter type " + filter);
         }
 
     }
