@@ -470,7 +470,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
 
     boolean dropLedger(long idledger) throws ObjectManagerException {
         if (activeWriters.containsKey(idledger)) {
-            LOG.log(Level.INFO, "cannot drop ledger used locally {0}", idledger);
+            LOG.log(Level.FINE, "cannot drop ledger used locally {0}", idledger);
             return false;
         }
         try {
