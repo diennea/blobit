@@ -40,6 +40,9 @@ public class Configuration {
     public static final String REPLICATION_FACTOR = "replication.factor";
     public static final int REPLICATION_FACTOR_DEFAULT = 1;
 
+    public static final String LEADER_INACTIVITY_TIME = "leader.inactivity.time";
+    public static final long LEADER_INACTIVITY_TIME_DEFAULT = 0;
+
     public static final String BUCKETS_TABLESPACE = "buckets.tablespace";
     public static final String BUCKETS_TABLESPACE_DEFAULT = "BUCKETS";
 
@@ -150,6 +153,16 @@ public class Configuration {
     public int getReplicationFactor() {
         return Integer.parseInt(properties.getProperty(REPLICATION_FACTOR,
                 REPLICATION_FACTOR_DEFAULT + ""));
+    }
+
+    public Configuration setLeaderInactivityTime(long inactivityTime) {
+        properties.put(LEADER_INACTIVITY_TIME, inactivityTime + "");
+        return this;
+    }
+
+    public long getLeaderInactivityTime() {
+        return Long.parseLong(properties.getProperty(LEADER_INACTIVITY_TIME,
+                LEADER_INACTIVITY_TIME_DEFAULT + ""));
     }
 
     public Configuration setMaxBytesPerLedger(long value) {
