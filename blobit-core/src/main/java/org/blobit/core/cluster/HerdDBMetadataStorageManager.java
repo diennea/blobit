@@ -225,7 +225,7 @@ public class HerdDBMetadataStorageManager {
             if (useTablespaces) {
                 ensureTablespace(tablespaceName,
                         configuration.getReplicaCount(),
-                        configuration.getLeaderInactivityTime());
+                        configuration.getMetadataLeaderInactivityTime());
                 connection.setSchema(bucketsTablespace);
             }
 
