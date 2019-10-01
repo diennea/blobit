@@ -28,7 +28,8 @@ public final class BucketConfiguration {
 
     public static final BucketConfiguration DEFAULT = new BucketConfiguration();
 
-    private int replicaCount = 1;
+    private int replicaCount = Configuration.REPLICATION_FACTOR_DEFAULT;
+    private long metadataLeaderInactivityTime = Configuration.LEADER_INACTIVITY_TIME_DEFAULT;
 
     public int getReplicaCount() {
         return replicaCount;
@@ -36,6 +37,14 @@ public final class BucketConfiguration {
 
     public void setReplicaCount(int replicaCount) {
         this.replicaCount = replicaCount;
+    }
+
+    public long getMetadataLeaderInactivityTime() {
+        return metadataLeaderInactivityTime;
+    }
+
+    public void setMetadataLeaderInactivityTime(long metadataLeaderInactivityTime) {
+        this.metadataLeaderInactivityTime = metadataLeaderInactivityTime;
     }
 
     public String serialize() {

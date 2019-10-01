@@ -175,6 +175,7 @@ public class HerdDBMetadataStorageManager {
     private final DataSource datasource;
     private final String bucketsTablespace;
     private final int bucketsTableSpacesReplicaCount;
+    private final long bucketsTableSpacesInactivityTime;
     private final boolean useTablespaces;
     private final boolean manageTablespaces;
 
@@ -184,14 +185,15 @@ public class HerdDBMetadataStorageManager {
                                         Configuration configuration) {
         this.bucketsTablespace = configuration.getBucketsTableSpace();
         this.datasource = datasource;
-        this.bucketsTableSpacesReplicaCount = configuration.
-                getReplicationFactor();
+        this.bucketsTableSpacesReplicaCount = configuration.getReplicationFactor();
+        this.bucketsTableSpacesInactivityTime = configuration.getLeaderInactivityTime();
         this.useTablespaces = configuration.isUseTablespaces();
         this.manageTablespaces = configuration.isManageTablespaces();
     }
 
-    private String createTableSpaceStatement(String schema, int replicaCount) {
-        return "CREATE TABLESPACE '" + schema + "','wait:60000','expectedreplicacount:" + replicaCount + "'";
+    private String createTableSpaceStatement(String schema, int replicaCount, long maxLeaderInactivityTime) {
+        return "CREATE TABLESPACE '" + schema + "','wait:60000','expectedreplicacount:" + replicaCount
+                + "','maxleaderinactivitytime:" + maxLeaderInactivityTime + "'";
     }
 
     private String dropTableSpaceStatement(String schema) {
@@ -200,7 +202,8 @@ public class HerdDBMetadataStorageManager {
 
     public void init() throws ObjectManagerException {
         try {
-            ensureTablespace(bucketsTablespace, bucketsTableSpacesReplicaCount, false);
+            ensureTablespace(bucketsTablespace, bucketsTableSpacesReplicaCount,
+                    bucketsTableSpacesInactivityTime, false);
             ensureTable(bucketsTablespace, BUCKET_TABLE, CREATE_BUCKETS_TABLE, false);
             reloadBuckets();
         } catch (SQLException err) {
@@ -220,7 +223,9 @@ public class HerdDBMetadataStorageManager {
                         INSERT_BUCKET);) {
 
             if (useTablespaces) {
-                ensureTablespace(tablespaceName, configuration.getReplicaCount());
+                ensureTablespace(tablespaceName,
+                        configuration.getReplicaCount(),
+                        configuration.getMetadataLeaderInactivityTime());
                 connection.setSchema(bucketsTablespace);
             }
 
@@ -480,11 +485,12 @@ public class HerdDBMetadataStorageManager {
         return con;
     }
 
-    private void ensureTablespace(String schema, int replicaCount) throws SQLException {
-        ensureTablespace(schema, replicaCount, true);
+    private void ensureTablespace(String schema, int replicaCount, long inactivityTime) throws SQLException {
+        ensureTablespace(schema, replicaCount, inactivityTime, true);
     }
 
-    private void ensureTablespace(String schema, int replicaCount, boolean failOnConcurrentCreation)
+    private void ensureTablespace(String schema, int replicaCount, long inactivityTime,
+                                  boolean failOnConcurrentCreation)
             throws SQLException {
         if (!useTablespaces || !manageTablespaces) {
             return;
@@ -495,7 +501,7 @@ public class HerdDBMetadataStorageManager {
             boolean existTablespace = checkTablespaceExistence(schema, metaData);
             if (!existTablespace) {
                 try (Statement s = connection.createStatement();) {
-                    s.executeUpdate(createTableSpaceStatement(schema, replicaCount));
+                    s.executeUpdate(createTableSpaceStatement(schema, replicaCount, inactivityTime));
                 } catch (SQLException e) {
                     /* Check if a concurrent process already created the tablespace */
                     if (failOnConcurrentCreation || !checkTablespaceExistence(schema, metaData)) {
