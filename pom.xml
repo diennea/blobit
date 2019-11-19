@@ -40,19 +40,19 @@
     </scm>
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>                
-        <libs.bookkeeper>4.9.2</libs.bookkeeper>
-        <libs.herddb>0.11.8</libs.herddb>   
+        <libs.bookkeeper>4.10.0</libs.bookkeeper>
+        <libs.herddb>0.14.0-SNAPSHOT</libs.herddb>
         <jetty.version>9.4.18.v20190429</jetty.version>
         <libs.jersey>2.29</libs.jersey>             
         <libs.netty>4.1.37.Final</libs.netty>             
         <libs.commonspool>2.4.2</libs.commonspool>
         <libs.guava>21.0</libs.guava>
         <libs.curator>4.2.0</libs.curator>
-        <libs.zookeeper>3.5.5</libs.zookeeper>
+        <libs.zookeeper>3.5.6</libs.zookeeper>
         <libs.jcommmander>1.72</libs.jcommmander>
         <libs.spotbugsannotations>3.1.8</libs.spotbugsannotations>
         <libs.spotbugsmaven>3.1.12</libs.spotbugsmaven>        
-        <libs.slf4j>1.7.25</libs.slf4j>        
+        <libs.slf4j>1.7.29</libs.slf4j>        
     </properties>
     <build>
         <plugins>
