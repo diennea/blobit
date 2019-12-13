@@ -44,7 +44,7 @@ public class Configuration {
     public static final long LEADER_INACTIVITY_TIME_DEFAULT = 0;
 
     public static final String BUCKETS_TABLESPACE = "buckets.tablespace";
-    public static final String BUCKETS_TABLESPACE_DEFAULT = "BUCKETS";
+    public static final String BUCKETS_TABLESPACE_DEFAULT = "buckets";
 
     public static final String USE_TABLESPACES = "usetablespaces";
     public static final String USE_TABLESPACES_DEFAULT = "true";
