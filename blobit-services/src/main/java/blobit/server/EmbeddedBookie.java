@@ -14,7 +14,7 @@
  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
  KIND, either express or implied.  See the License for the
  specific language governing permissions and limitations
- under the License.
+ under the License.˙
 
  */
 package blobit.server;
@@ -35,8 +35,11 @@ import org.apache.bookkeeper.client.BookKeeperAdmin;
 import org.apache.bookkeeper.common.util.ReflectionUtils;
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory;
 import org.apache.bookkeeper.proto.BookieServer;
+import org.apache.bookkeeper.server.conf.BookieConfiguration;
+import org.apache.bookkeeper.server.http.BKHttpServiceProvider;
+import org.apache.bookkeeper.server.service.HttpService;
 import org.apache.bookkeeper.stats.StatsProvider;
-import org.apache.bookkeeper.stats.codahale.CodahaleMetricsProvider;
+import org.apache.bookkeeper.stats.prometheus.PrometheusMetricsProvider;
 
 /**
  * Utility for starting embedded Apache BookKeeper Server (Bookie)
@@ -69,7 +72,7 @@ public class EmbeddedBookie implements AutoCloseable {
         conf.setMetadataServiceUri(metadataServiceUri);
         conf.setStatisticsEnabled(true);
         conf.setProperty("codahaleStatsJmxEndpoint", "BlobIt_Bookie");
-        conf.setStatsProviderClass(CodahaleMetricsProvider.class);
+        conf.setStatsProviderClass(PrometheusMetricsProvider.class);
 
         conf.setNumAddWorkerThreads(8);
         conf.setMaxPendingReadRequestPerThread(10000); // new in 4.6
@@ -111,6 +114,9 @@ public class EmbeddedBookie implements AutoCloseable {
         conf.setJournalFlushWhenQueueEmpty(true);
         conf.setAutoRecoveryDaemonEnabled(true);
         conf.setLedgerManagerFactoryClass(HierarchicalLedgerManagerFactory.class);
+        conf.setHttpServerEnabled(true);
+        conf.setProperty("httpServerClass", ServletHttpServer.class.getName());
+        conf.setProperty("prometheusStatsHttpEnable", "false"); // do not start an additional Jetty for metrics
 
         for (String key : configuration.keys()) {
             if (key.startsWith("bookie.")) {
@@ -152,7 +158,22 @@ public class EmbeddedBookie implements AutoCloseable {
         statsProvider = ReflectionUtils.newInstance(statsProviderClass);
         statsProvider.start(conf);
         bookieServer = new BookieServer(conf, statsProvider.getStatsLogger(""));
+
+        HttpService httpService = null;
+        LOG.log(Level.INFO, "Bookie httpServerEnabled:{0}", conf.isHttpServerEnabled());
+        if (conf.isHttpServerEnabled()) {
+            BKHttpServiceProvider provider = new BKHttpServiceProvider.Builder()
+                .setBookieServer(bookieServer)
+                .setServerConfiguration(conf)
+                .setStatsProvider(statsProvider)
+                .build();
+            httpService =
+                new HttpService(provider, new BookieConfiguration(conf), statsProvider.getStatsLogger(""));
+            httpService.start();
+        }
+
         bookieServer.start();
+
         for (int i = 0; i < 100; i++) {
             if (bookieServer.getBookie().isRunning()) {
                 LOG.info("Apache Bookkeeper started");
