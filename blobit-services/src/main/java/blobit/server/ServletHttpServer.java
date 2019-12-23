@@ -19,6 +19,7 @@
  */
 package blobit.server;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.bookkeeper.http.HttpServer;
@@ -29,6 +30,7 @@ import org.apache.bookkeeper.http.HttpServiceProvider;
  * In order to use this HttpServer implementation you have to start an instance of {@link ServletHttpServerServlet}
  * and map it to '/'.
  */
+@SuppressFBWarnings("ST_WRITE_TO_STATIC_FROM_INSTANCE_METHOD")
 public class ServletHttpServer implements HttpServer {
 
     private static final Logger LOG = Logger.getLogger(ServletHttpServer.class.getName());
