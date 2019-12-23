@@ -15,7 +15,7 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-jar-plugin</artifactId>
                 <version>3.0.2</version>
-                <executions>                   
+                <executions>
                     <execution>
                         <id>test-classes</id>
                         <phase>package</phase>
@@ -31,7 +31,7 @@
         <dependency>
             <groupId>org.apache.bookkeeper</groupId>
             <artifactId>bookkeeper-server</artifactId>
-            <version>${libs.bookkeeper}</version>  
+            <version>${libs.bookkeeper}</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
@@ -46,11 +46,11 @@
                     <artifactId>*</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>            
+        </dependency>
         <dependency>
             <groupId>org.apache.zookeeper</groupId>
             <artifactId>zookeeper</artifactId>
-            <version>${libs.zookeeper}</version>            
+            <version>${libs.zookeeper}</version>
             <exclusions>
                 <exclusion>
                     <groupId>org.slf4j</groupId>
@@ -58,6 +58,10 @@
                 </exclusion>
                 <exclusion>
                     <groupId>log4j</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.netty</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
                 <exclusion>
@@ -69,12 +73,12 @@
         <dependency>
             <groupId>org.apache.bookkeeper.stats</groupId>
             <artifactId>codahale-metrics-provider</artifactId>
-            <version>${libs.bookkeeper}</version>  
+            <version>${libs.bookkeeper}</version>
         </dependency>
         <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-all</artifactId>
-            <version>${libs.netty}</version>  
+            <version>${libs.netty}</version>
         </dependency>
         <dependency>
             <groupId>org.herddb</groupId>
@@ -93,24 +97,24 @@
                     <groupId>io.netty</groupId>
                     <artifactId>*</artifactId>
                 </exclusion>
-            </exclusions>            
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-pool2</artifactId>
-            <version>${libs.commonspool}</version>            
+            <version>${libs.commonspool}</version>
         </dependency>
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
-            <version>${libs.guava}</version>            
+            <version>${libs.guava}</version>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
             <artifactId>junit</artifactId>
             <version>4.12</version>
             <scope>test</scope>
-        </dependency>       
+        </dependency>
     </dependencies>
     <properties>
         <maven.compiler.source>1.8</maven.compiler.source>

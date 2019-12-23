@@ -37,6 +37,7 @@ import org.blobit.core.api.BucketHandle;
 import org.blobit.core.api.NamedObjectMetadata;
 import org.blobit.core.api.ObjectManager;
 import org.blobit.core.api.ObjectManagerException;
+import org.blobit.core.api.ObjectNotFoundException;
 import org.blobit.core.api.PutOptions;
 import org.blobit.core.api.PutPromise;
 
@@ -79,14 +80,13 @@ public class SwiftAPIAdapter extends HttpServlet {
                     return;
                 }
                 String container = remainingPath.substring(0, slash);
-                String objectId = remainingPath.substring(slash + 1);
-                String name = remainingPath;
+                String name = remainingPath.substring(slash + 1);
 
                 BucketHandle bucket = objectManager.getBucket(container);
 
                 try {
                     NamedObjectMetadata byName = bucket.statByName(name);
-                    LOG.log(Level.FINE, "[SWIFT] head object {0} as {1} -> {2}", new Object[]{objectId, name, byName});
+                    LOG.log(Level.FINE, "[SWIFT] head object {0} -> {1}", new Object[]{name, byName});
                     if (byName == null) {
                         resp.sendError(HttpServletResponse.SC_NOT_FOUND, "Not found " + requestUri);
                         return;
@@ -107,15 +107,14 @@ public class SwiftAPIAdapter extends HttpServlet {
                     return;
                 }
                 String container = remainingPath.substring(0, slash);
-                String objectId = remainingPath.substring(slash + 1);
-                String name = remainingPath;
+                String name = remainingPath.substring(slash + 1);
 
-                LOG.log(Level.INFO, "[SWIFT] get object {0} as {1}", new Object[]{objectId, name});
+                LOG.log(Level.INFO, "[SWIFT] get {0}", new Object[]{name});
                 BucketHandle bucket = objectManager.getBucket(container);
                 AsyncContext startAsync = req.startAsync();
                 bucket.downloadByName(name, (contentLength) -> {
-                    LOG.log(Level.INFO, "[SWIFT] get object {0} as {1} -> len {2} bytes",
-                            new Object[]{objectId, name, contentLength});
+                    LOG.log(Level.INFO, "[SWIFT] get object {0} -> len {1} bytes",
+                            new Object[]{name, contentLength});
                     resp.setContentLengthLong(contentLength);
                     resp.setStatus(HttpServletResponse.SC_OK);
                     try {
@@ -129,12 +128,16 @@ public class SwiftAPIAdapter extends HttpServlet {
                             try {
                                 HttpServletResponse response = (HttpServletResponse) startAsync.getResponse();
                                 if (error != null) {
-                                    LOG.log(Level.INFO, "[SWIFT] get object {0} as {1} finished, error {2}",
-                                            new Object[]{objectId, name, error});
-                                    response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, error + "");
+                                    if (error instanceof ObjectNotFoundException) {
+                                        response.sendError(HttpServletResponse.SC_NOT_FOUND);
+                                    } else {
+                                        LOG.log(Level.INFO, "[SWIFT] get object {0} finished, error {1}",
+                                                new Object[]{name, error});
+                                        response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+                                    }
                                 } else {
-                                    LOG.log(Level.FINER, "[SWIFT] get object {0} as {1} finished",
-                                            new Object[]{objectId, name});
+                                    LOG.log(Level.FINER, "[SWIFT] get object {0} finished",
+                                            new Object[]{name});
                                     response.setStatus(HttpServletResponse.SC_OK);
                                 }
                             } catch (Exception err) {
@@ -154,21 +157,19 @@ public class SwiftAPIAdapter extends HttpServlet {
                         FutureUtils.result(objectManager.createBucket(remainingPath, remainingPath,
                                 BucketConfiguration.DEFAULT));
                         System.out.println("[SWIFT] create bucket " + remainingPath);
-                        resp.setStatus(HttpServletResponse.SC_CREATED, "OK created bucket " + remainingPath);
+                        resp.setStatus(HttpServletResponse.SC_CREATED);
                     } else {
                         String container = remainingPath.substring(0, slash);
-                        String objectId = remainingPath.substring(slash + 1);
-                        String name = remainingPath;
-                        String resultId;
+                        String name = remainingPath.substring(slash + 1);
+
                         BucketHandle bucket = objectManager.getBucket(container);
                         long expectedContentLen = req.getContentLength();
                         LOG.log(Level.INFO, "[SWIFT] put name={0} container={1} {3} bytes} ",
-                                new Object[]{objectId, container, expectedContentLen});
+                                new Object[]{name, container, expectedContentLen});
                         if (expectedContentLen == -1L) {
                             // we must read the content, BlobIt needs to know the real size
                             try (InputStream in = req.getInputStream()) {
-                                byte[] payload = IOUtils.toByteArray(in);
-                                resultId = bucket.put(name, payload).get();
+                                IOUtils.toByteArray(in);
                             }
                         } else {
                             AsyncContext startAsync = req.startAsync();
@@ -180,15 +181,14 @@ public class SwiftAPIAdapter extends HttpServlet {
                                 try {
                                     HttpServletResponse response = (HttpServletResponse) startAsync.getResponse();
                                     if (error != null) {
-                                        LOG.log(Level.INFO, "[SWIFT] put object {0} as {1} finished, error {2}",
-                                                new Object[]{objectId, name, error});
+                                        LOG.log(Level.INFO, "[SWIFT] put object {0} finished, error {1}",
+                                                new Object[]{name, error});
                                         response.sendError(HttpServletResponse.SC_INTERNAL_SERVER_ERROR, error + "");
                                     } else {
-                                        LOG.log(Level.FINER, "[SWIFT] put object {0} as {1} finished",
-                                                new Object[]{objectId, name});
+                                        LOG.log(Level.FINER, "[SWIFT] put object {0} finished",
+                                                new Object[]{name});
                                         response.
-                                                setStatus(HttpServletResponse.SC_CREATED,
-                                                        "OK " + objectId + " as " + v);
+                                                setStatus(HttpServletResponse.SC_CREATED);
                                     }
                                 } catch (Exception err) {
                                     LOG.log(Level.SEVERE, "Error while putting object in streaming mode", err);
@@ -197,7 +197,6 @@ public class SwiftAPIAdapter extends HttpServlet {
                                 }
                                 return null;
                             });
-                            resultId = prom.id;
                         }
 
                     }

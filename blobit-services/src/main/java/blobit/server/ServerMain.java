@@ -280,13 +280,24 @@ public class ServerMain implements AutoCloseable {
             httpserver = new org.eclipse.jetty.server.Server(new InetSocketAddress(httphost, httpport));
             ContextHandlerCollection contexts = new ContextHandlerCollection();
             httpserver.setHandler(contexts);
+
+            File bookieApi = new File("web/bookie");
+            if (!bookieApi.isDirectory()) {
+                Files.createDirectories(bookieApi.toPath());
+            }
+            WebAppContext webAppBookie = new WebAppContext(bookieApi.getAbsolutePath(), "/");
+            webAppBookie.addServlet(new ServletHolder(new ServletHttpServerServlet()), "/");
+            contexts.addHandler(webAppBookie);
+
+
             File webUi = new File("web/api");
             if (!webUi.isDirectory()) {
                 Files.createDirectories(webUi.toPath());
             }
-            WebAppContext webApp = new WebAppContext(new File("web/api").getAbsolutePath(), "/api");
-            webApp.addServlet(new ServletHolder(new SwiftAPIAdapter(client)), "/");
-            contexts.addHandler(webApp);
+            WebAppContext switftApi = new WebAppContext(webUi.getAbsolutePath(), "/api");
+            switftApi.addServlet(new ServletHolder(new SwiftAPIAdapter(client)), "/");
+            contexts.addHandler(switftApi);
+
             uiurl = "http://" + httpadvertisedhost + ":" + httpadvertisedport + "/";
             System.out.println("Listening for client (http) connections on " + httphost + ":" + httpport);
             httpserver.start();

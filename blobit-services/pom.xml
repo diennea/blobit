@@ -54,7 +54,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.bookkeeper.stats</groupId>
-            <artifactId>codahale-metrics-provider</artifactId>
+            <artifactId>prometheus-metrics-provider</artifactId>
             <version>${libs.bookkeeper}</version>
         </dependency>
         <dependency>

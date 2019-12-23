@@ -19,11 +19,15 @@ package blobit.server;
  under the License.
 
  */
+import static org.hamcrest.CoreMatchers.containsString;
+import static org.junit.Assert.assertThat;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStream;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.Properties;
+import org.apache.commons.io.IOUtils;
 import org.apache.curator.test.TestingServer;
 import org.blobit.core.api.BucketConfiguration;
 import org.blobit.core.api.BucketHandle;
@@ -89,16 +93,20 @@ public class SimpleClusterTest {
                 System.out.println("waiting for boot");
             }
 
-            try (ObjectManager client = ServerMain.getRunningInstance().getClient();) {
-                client.createBucket("mybucket", "mybucket", BucketConfiguration.DEFAULT);
-                BucketHandle bucket = client.getBucket("mybucket");
-                String id = bucket.put("myblob", "test".getBytes(StandardCharsets.UTF_8)).get();
-                bucket.get(id).get();
-                bucket.getByName("myblob").get();
-            }
+            ObjectManager client = ServerMain.getRunningInstance().getClient();
+            client.createBucket("mybucket", "mybucket", BucketConfiguration.DEFAULT);
+            BucketHandle bucket = client.getBucket("mybucket");
+            String id = bucket.put("myblob", "test".getBytes(StandardCharsets.UTF_8)).get();
+            bucket.get(id).get();
+            bucket.getByName("myblob").get();
 
-//                Thread.sleep(Integer.MAX_VALUE);
-            ServerMain.getRunningInstance().close();
+            // TEST BOOKIE ENDPOINT is up
+            assertThat(IOUtils.toString(new URI("http://localhost:9846/heartbeat"), "UTF-8"), containsString("OK"));
+            // TEST METRICS (via Bookie ENDPOINT)
+            assertThat(IOUtils.toString(new URI("http://localhost:9846/metrics"), "UTF-8"), containsString("jvm_memory_direct_bytes_max"));
+            // TEST SWIFT API is up
+            assertThat(IOUtils.toString(new URI("http://localhost:9846/api/mybucket/myblob"), "UTF-8"), containsString("test"));
+
         } finally {
             if (ServerMain.getRunningInstance() != null) {
                 ServerMain.getRunningInstance().close();
