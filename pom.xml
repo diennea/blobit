@@ -44,11 +44,11 @@
         <libs.herddb>0.15.0</libs.herddb>
         <jetty.version>9.4.20.v20190813</jetty.version>
         <libs.jersey>2.29</libs.jersey>
-        <libs.netty>4.1.43.Final</libs.netty>
+        <libs.netty>4.1.45.Final</libs.netty>
         <libs.commonspool>2.4.2</libs.commonspool>
         <libs.guava>21.0</libs.guava>
         <libs.curator>4.2.0</libs.curator>
-        <libs.zookeeper>3.5.6</libs.zookeeper>
+        <libs.zookeeper>3.5.7</libs.zookeeper>
         <libs.jcommmander>1.72</libs.jcommmander>
         <libs.spotbugsannotations>3.1.8</libs.spotbugsannotations>
         <libs.spotbugsmaven>3.1.12</libs.spotbugsmaven>
