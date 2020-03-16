@@ -19,8 +19,8 @@
  */
 package org.blobit.core.api;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
-import org.codehaus.jackson.map.ObjectMapper;
 
 public final class BucketConfiguration {
 
