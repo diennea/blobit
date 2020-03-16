@@ -41,7 +41,7 @@
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <libs.bookkeeper>4.10.0</libs.bookkeeper>
-        <libs.herddb>0.14.0-SNAPSHOT</libs.herddb>
+        <libs.herddb>0.15.0</libs.herddb>
         <jetty.version>9.4.20.v20190813</jetty.version>
         <libs.jersey>2.29</libs.jersey>
         <libs.netty>4.1.43.Final</libs.netty>
