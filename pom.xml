@@ -36,7 +36,7 @@
         <url>https://github.com/diennea/blobit.git</url>
         <connection>scm:git:https://github.com/diennea/blobit.git</connection>
         <developerConnection>scm:git:https://github.com/diennea/blobit.git</developerConnection>
-        <tag>HEAD</tag>
+        <tag>release/0.3</tag>
     </scm>
     <properties>
         <maven.compiler.source>8</maven.compiler.source>
