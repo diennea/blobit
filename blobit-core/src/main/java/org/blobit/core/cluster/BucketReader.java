@@ -253,7 +253,7 @@ public class BucketReader {
     }
 
     public void close() {
-        LOG.log(Level.SEVERE, "closing {0}", this);
+        LOG.log(Level.FINER, "closing {0}", this);
         blobManager.scheduleReaderDisposal(this);
 
     }

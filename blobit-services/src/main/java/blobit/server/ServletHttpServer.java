@@ -39,7 +39,6 @@ public class ServletHttpServer implements HttpServer {
 
     /**
      * Open the access to the Bookie to other components inside the same JVM.
-     * @see ServletHttpServerImpl
      * @return the bookie or null.
      */
     public static HttpServiceProvider getBookie() {

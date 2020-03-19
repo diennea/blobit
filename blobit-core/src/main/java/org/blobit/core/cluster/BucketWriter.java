@@ -24,6 +24,7 @@ import io.netty.buffer.Unpooled;
 import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -60,6 +61,32 @@ public class BucketWriter {
             getName());
     static final String BK_METADATA_BUCKET_ID = "bucketId";
     static final String BK_METADATA_BUCKET_UUID = "bucketUUID";
+    static final String BK_METADATA_APPLICATION_NAME = "application";
+    static final byte[] BK_METADATA_APPLICATION_NAME_VALUE = "blobit".getBytes(StandardCharsets.UTF_8);
+    static final String BK_METADATA_CREATOR = "creator";
+    static final byte[] BK_METADATA_CREATOR_VALUE;
+    static {
+        String creator = computeCreatorValue();
+        BK_METADATA_CREATOR_VALUE = creator.getBytes(StandardCharsets.UTF_8);
+    }
+
+    protected static String computeCreatorValue() {
+        String creator = null;
+        try {
+            creator = InetAddress.getLocalHost().getCanonicalHostName();
+        } catch (Throwable t) {
+            LOG.log(Level.SEVERE, "Cannot get localhost name", t);
+            try {
+                creator = InetAddress.getLocalHost().getHostAddress();
+            } catch (Throwable t2) {
+                LOG.log(Level.SEVERE, "Cannot get localhost ip", t2);
+            }
+        }
+        if (creator == null) {
+            creator = "localhost";
+        }
+        return creator;
+    }
 
     private final ExecutorService callbacksExecutor;
     private final String bucketId;
@@ -109,6 +136,8 @@ public class BucketWriter {
                     StandardCharsets.UTF_8));
             ledgerMetadata.put(BK_METADATA_BUCKET_UUID, bucketUUID.getBytes(
                     StandardCharsets.UTF_8));
+            ledgerMetadata.put(BK_METADATA_APPLICATION_NAME, BK_METADATA_APPLICATION_NAME_VALUE);
+            ledgerMetadata.put(BK_METADATA_CREATOR, BK_METADATA_CREATOR_VALUE);
             this.deferredSync = deferredSync;
             this.lh = bookKeeper.
                     newCreateLedgerOp()
@@ -344,7 +373,7 @@ public class BucketWriter {
     private final Condition closeCompleted = closeLock.newCondition();
 
     public void close() {
-        LOG.log(Level.SEVERE, "closing {0}", this);
+        LOG.log(Level.FINER, "closing {0}", this);
         blobManager.scheduleWriterDisposal(this);
     }
 

@@ -29,10 +29,10 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import herddb.jdbc.HerdDBEmbeddedDataSource;
 import herddb.server.ServerConfiguration;
+import herddb.utils.CompareBytesUtils;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
 import java.util.Random;
@@ -147,9 +147,9 @@ public class NamesAPITest {
             assertEquals(TEST_DATA.length + TEST_DATA2.length, size.get());
             assertEquals(TEST_DATA.length + TEST_DATA2.length,
                     resultArray.length);
-            assertTrue(Arrays.equals(TEST_DATA, 0, TEST_DATA.length,
+            assertTrue(CompareBytesUtils.arraysEquals(TEST_DATA, 0, TEST_DATA.length,
                     resultArray, 0, TEST_DATA.length));
-            assertTrue(Arrays.equals(TEST_DATA2, 0, TEST_DATA2.length,
+            assertTrue(CompareBytesUtils.arraysEquals(TEST_DATA2, 0, TEST_DATA2.length,
                     resultArray, TEST_DATA.length,
                     TEST_DATA.length + TEST_DATA2.length));
         }
@@ -163,9 +163,9 @@ public class NamesAPITest {
             assertEquals(TEST_DATA.length + TEST_DATA2.length, size.get());
             assertEquals(TEST_DATA.length + TEST_DATA2.length,
                     resultArray.length);
-            assertTrue(Arrays.equals(TEST_DATA, 0, TEST_DATA.length,
+            assertTrue(CompareBytesUtils.arraysEquals(TEST_DATA, 0, TEST_DATA.length,
                     resultArray, 0, TEST_DATA.length));
-            assertTrue(Arrays.equals(TEST_DATA2, 0, TEST_DATA2.length,
+            assertTrue(CompareBytesUtils.arraysEquals(TEST_DATA2, 0, TEST_DATA2.length,
                     resultArray, TEST_DATA.length,
                     TEST_DATA.length + TEST_DATA2.length));
         }
@@ -179,7 +179,7 @@ public class NamesAPITest {
             byte[] resultArray = oo.toByteArray();
             assertEquals(TEST_DATA2.length, size.get());
             assertEquals(TEST_DATA2.length, resultArray.length);
-            assertTrue(Arrays.equals(TEST_DATA2, 0, TEST_DATA2.length,
+            assertTrue(CompareBytesUtils.arraysEquals(TEST_DATA2, 0, TEST_DATA2.length,
                     resultArray, 0, TEST_DATA2.length));
         }
 
@@ -192,7 +192,7 @@ public class NamesAPITest {
             byte[] resultArray = oo.toByteArray();
             assertEquals(TEST_DATA2.length, size.get());
             assertEquals(TEST_DATA2.length, resultArray.length);
-            assertTrue(Arrays.equals(TEST_DATA2, 0, TEST_DATA2.length,
+            assertTrue(CompareBytesUtils.arraysEquals(TEST_DATA2, 0, TEST_DATA2.length,
                     resultArray, 0, TEST_DATA2.length));
         }
 
@@ -225,10 +225,10 @@ public class NamesAPITest {
             byte[] resultArray = oo.toByteArray();
             assertEquals(5, size.get());
             assertEquals(5, resultArray.length);
-            assertTrue(Arrays.equals(TEST_DATA, TEST_DATA.length - 2,
+            assertTrue(CompareBytesUtils.arraysEquals(TEST_DATA, TEST_DATA.length - 2,
                     TEST_DATA.length,
                     resultArray, 0, 2));
-            assertTrue(Arrays.equals(TEST_DATA2, 0, 3,
+            assertTrue(CompareBytesUtils.arraysEquals(TEST_DATA2, 0, 3,
                     resultArray, 2, 5));
         }
 
@@ -242,9 +242,9 @@ public class NamesAPITest {
             assertEquals(TEST_DATA.length + TEST_DATA2.length, size.get());
             assertEquals(TEST_DATA.length + TEST_DATA2.length,
                     resultArray.length);
-            assertTrue(Arrays.equals(TEST_DATA, 0, TEST_DATA.length,
+            assertTrue(CompareBytesUtils.arraysEquals(TEST_DATA, 0, TEST_DATA.length,
                     resultArray, 0, TEST_DATA.length));
-            assertTrue(Arrays.equals(TEST_DATA2, 0, TEST_DATA2.length,
+            assertTrue(CompareBytesUtils.arraysEquals(TEST_DATA2, 0, TEST_DATA2.length,
                     resultArray, TEST_DATA.length,
                     TEST_DATA.length + TEST_DATA2.length));
         }
@@ -259,9 +259,9 @@ public class NamesAPITest {
             assertEquals(TEST_DATA.length + TEST_DATA2.length - 3, size.get());
             assertEquals(TEST_DATA.length + TEST_DATA2.length - 3,
                     resultArray.length);
-            assertTrue(Arrays.equals(TEST_DATA, 3, TEST_DATA.length,
+            assertTrue(CompareBytesUtils.arraysEquals(TEST_DATA, 3, TEST_DATA.length,
                     resultArray, 0, TEST_DATA.length - 3));
-            assertTrue(Arrays.equals(TEST_DATA2, 0, TEST_DATA2.length,
+            assertTrue(CompareBytesUtils.arraysEquals(TEST_DATA2, 0, TEST_DATA2.length,
                     resultArray, TEST_DATA.length - 3,
                     TEST_DATA.length + TEST_DATA2.length - 3));
         }

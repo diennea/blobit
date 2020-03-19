@@ -428,7 +428,7 @@ public class ClusterObjectManager implements ObjectManager {
     private void gcBucket(String bucketId) throws ObjectManagerException {
         Collection<Long> ledgers = metadataManager.
                 listDeletableLedgers(bucketId);
-        LOG.log(Level.SEVERE, "There are {0} deletable ledgers for bucket {1}",
+        LOG.log(Level.INFO, "There are {0} deletable ledgers for bucket {1}",
                 new Object[]{ledgers.size(), bucketId});
         for (long idledger : ledgers) {
             boolean ok = blobManager.dropLedger(idledger);
