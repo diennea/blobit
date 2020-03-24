@@ -120,7 +120,7 @@ public class LedgerLifeTest {
 
                 manager.gc();
 
-                assertEquals(0, metadataManager.listDeletableLedgers(BUCKET_ID).
+                assertEquals(0, metadataManager.listDeletableLedgers(BUCKET_ID, 0).
                         size());
 
                 bucket.delete(id).get();
@@ -140,13 +140,16 @@ public class LedgerLifeTest {
                     assertTrue(ledgers.size() >= 1);
                 }
 
-                assertEquals(1, metadataManager.listDeletableLedgers(BUCKET_ID).
+                assertEquals(1, metadataManager.listDeletableLedgers(BUCKET_ID, 0).
+                        size());
+                
+                assertEquals(0, metadataManager.listDeletableLedgers(BUCKET_ID, 1000 * 60 * 60).
                         size());
 
                 manager.gc();
 
                 // the ledger is still open, it cannot be dropped
-                assertEquals(1, metadataManager.listDeletableLedgers(BUCKET_ID).
+                assertEquals(1, metadataManager.listDeletableLedgers(BUCKET_ID, 0).
                         size());
 
                 // force close all ledgers
@@ -155,7 +158,7 @@ public class LedgerLifeTest {
                 // now the ledger can be dropped
                 manager.gc();
 
-                assertEquals(0, metadataManager.listDeletableLedgers(BUCKET_ID).
+                assertEquals(0, metadataManager.listDeletableLedgers(BUCKET_ID, 0).
                         size());
 
             }
@@ -217,7 +220,7 @@ public class LedgerLifeTest {
                 manager.gc();
 
                 assertEquals(0, metadataManager.listDeletableLedgers(
-                        BUCKET_ID).size());
+                        BUCKET_ID, 0).size());
 
                 bucket.delete(id).get();
 
@@ -237,13 +240,13 @@ public class LedgerLifeTest {
                 }
 
                 assertEquals(1, metadataManager.listDeletableLedgers(
-                        BUCKET_ID).size());
+                        BUCKET_ID, 0).size());
 
                 manager.gc();
 
                 // the ledger is still open, it cannot be dropped
                 assertEquals(1, metadataManager.listDeletableLedgers(
-                        BUCKET_ID).size());
+                        BUCKET_ID, 0).size());
 
                 // force close all ledgers
                 manager.getBlobManager().closeAllActiveWritersForTests();
@@ -252,7 +255,7 @@ public class LedgerLifeTest {
                 manager.gc();
 
                 assertEquals(0, metadataManager.listDeletableLedgers(
-                        BUCKET_ID).size());
+                        BUCKET_ID, 0).size());
 
             }
         }

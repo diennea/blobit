@@ -58,6 +58,12 @@ public class Configuration {
     public static final String MAX_ENTRY_SIZE = "max.entry.size";
     public static final int MAX_ENTRY_SIZE_DEFAULT = 64 * 1024;
 
+    public static final String LEDGER_MIN_TTL = "ledger.min.ttl";
+    public static final long LEDGER_MIN_TTL_DEFAULT = 1000L * 60 * 60 * 24;
+
+    public static final String WRITER_MAX_TTL = "writer.max.ttl";
+    public static final long WRITER_MAX_TTL_DEFAULT = 1000L * 60 * 60 * 12;
+
     public static final String CUNCURRENT_WRITERS = "concurrent.writers";
     public static final int CUNCURRENT_WRITERS_DEFAULT = 1;
 
@@ -183,6 +189,26 @@ public class Configuration {
     public int getMaxEntrySize() {
         return Integer.parseInt(properties.getProperty(MAX_ENTRY_SIZE,
                 MAX_ENTRY_SIZE_DEFAULT + ""));
+    }
+
+    public Configuration setLedgerMinTtl(long value) {
+        properties.put(LEDGER_MIN_TTL, value + "");
+        return this;
+    }
+
+    public long getLedgerMinTtl() {
+        return Long.parseLong(properties.getProperty(LEDGER_MIN_TTL,
+                LEDGER_MIN_TTL_DEFAULT + ""));
+    }
+
+    public Configuration setWriterMaxTtl(long value) {
+        properties.put(WRITER_MAX_TTL, value + "");
+        return this;
+    }
+
+    public long getWriterMaxTtl() {
+        return Long.parseLong(properties.getProperty(WRITER_MAX_TTL,
+                WRITER_MAX_TTL_DEFAULT + ""));
     }
 
     public Configuration setConcurrentWriters(int v) {

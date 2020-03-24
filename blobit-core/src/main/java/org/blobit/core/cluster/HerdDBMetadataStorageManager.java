@@ -108,7 +108,7 @@ public class HerdDBMetadataStorageManager {
             "SELECT bucket_uuid,ledger_id FROM " + LEDGER_TABLE + " WHERE bucket_uuid=?";
 
     private static final String LIST_DELETABLE_LEDGERS =
-            "SELECT ledger_id FROM " + LEDGER_TABLE + " WHERE NOT EXISTS (SELECT * FROM " + BLOB_TABLE
+            "SELECT ledger_id FROM " + LEDGER_TABLE + " WHERE creation_date<= ? AND NOT EXISTS (SELECT * FROM " + BLOB_TABLE
             + " b WHERE b.ledger_id=" + LEDGER_TABLE + ".ledger_id)";
 
 
@@ -298,17 +298,19 @@ public class HerdDBMetadataStorageManager {
         }
     }
 
-    public List<Long> listDeletableLedgers(String bucketId) throws ObjectManagerException {
+    public List<Long> listDeletableLedgers(String bucketId, long ttlMs) throws ObjectManagerException {
 
         try (Connection connection = getConnectionForBucket(bucketId);
                 PreparedStatement ps = connection.prepareStatement(
-                        LIST_DELETABLE_LEDGERS);
-                ResultSet rs = ps.executeQuery()) {
-            List<Long> res = new ArrayList<>();
-            while (rs.next()) {
-                res.add(rs.getLong(1));
+                        LIST_DELETABLE_LEDGERS);) {
+            ps.setTimestamp(1, new java.sql.Timestamp(System.currentTimeMillis() - ttlMs));
+            try (ResultSet rs = ps.executeQuery()) {
+                List<Long> res = new ArrayList<>();
+                while (rs.next()) {
+                    res.add(rs.getLong(1));
+                }
+                return res;
             }
-            return res;
         } catch (SQLException err) {
             throw new ObjectManagerException(err);
         }
