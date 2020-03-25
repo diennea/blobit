@@ -105,6 +105,7 @@ public class BucketWriter {
             WriteFlag.DEFERRED_SYNC);
     private final Long id;
     private AtomicLong nextEntryId = new AtomicLong();
+    private final long maxValidTime;
 
     public BucketWriter(String bucketId,
             BookKeeper bookKeeper,
@@ -114,11 +115,13 @@ public class BucketWriter {
             boolean enableChecksum,
             boolean deferredSync,
             HerdDBMetadataStorageManager metadataStorageManager,
-            BookKeeperBlobManager blobManager) throws ObjectManagerException {
+            BookKeeperBlobManager blobManager,
+            long maxValidTime) throws ObjectManagerException {
 
         LOG.log(Level.FINE, "Opening BucketWriter for bucket {0}", bucketId);
 
         try {
+            this.maxValidTime = maxValidTime;
             this.maxEntrySize = maxEntrySize;
             this.blobManager = blobManager;
             this.callbacksExecutor = blobManager.getCallbacksExecutor();
@@ -365,7 +368,8 @@ public class BucketWriter {
 
     public boolean isValid() {
         return valid
-                && maxBytesPerLedger >= writtenBytes.get();
+                && maxBytesPerLedger >= writtenBytes.get()
+                && System.currentTimeMillis() <= maxValidTime;
     }
 
     private volatile boolean closed = false;

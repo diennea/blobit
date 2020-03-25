@@ -87,6 +87,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
     private ConcurrentMap<Long, BucketWriter> activeWriters =
             new ConcurrentHashMap<>();
     private final Stats stats = new Stats();
+    private final long maxWriterTtl;
 
     CompletableFuture<? extends LocationInfo> getLocationInfo(BKEntryId bk) {
         CompletableFuture<BKLocationInfo> result = new CompletableFuture<>();
@@ -287,7 +288,8 @@ public class BookKeeperBlobManager implements AutoCloseable {
                     maxBytesPerLedger,
                     enableChecksum,
                     deferredSync, metadataStorageManager,
-                    BookKeeperBlobManager.this
+                    BookKeeperBlobManager.this,
+                    System.currentTimeMillis() + maxWriterTtl
             );
             activeWriters.put(writer.getId(), writer);
             DefaultPooledObject<BucketWriter> be = new DefaultPooledObject<>(
@@ -427,6 +429,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
             this.bookKeeper = BookKeeper
                     .forConfig(clientConfiguration)
                     .build();
+            this.maxWriterTtl = configuration.getWriterMaxTtl();
         } catch (IOException | InterruptedException | BKException ex) {
             throw new ObjectManagerException(ex);
         }

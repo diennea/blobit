@@ -70,10 +70,12 @@ public class ClusterObjectManager implements ObjectManager {
 
     private final BookKeeperBlobManager blobManager;
     private final HerdDBMetadataStorageManager metadataManager;
+    private final long ledgerMinTtl;
 
     public ClusterObjectManager(Configuration configuration,
             DataSource datasource) throws ObjectManagerException {
         super();
+        this.ledgerMinTtl = configuration.getEmptyLedgerMinTtl();
 
         metadataManager = new HerdDBMetadataStorageManager(datasource,
                 configuration);
@@ -427,7 +429,7 @@ public class ClusterObjectManager implements ObjectManager {
 
     private void gcBucket(String bucketId) throws ObjectManagerException {
         Collection<Long> ledgers = metadataManager.
-                listDeletableLedgers(bucketId);
+                listDeletableLedgers(bucketId, ledgerMinTtl);
         LOG.log(Level.INFO, "There are {0} deletable ledgers for bucket {1}",
                 new Object[]{ledgers.size(), bucketId});
         for (long idledger : ledgers) {

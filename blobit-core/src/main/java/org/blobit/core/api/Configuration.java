@@ -58,6 +58,12 @@ public class Configuration {
     public static final String MAX_ENTRY_SIZE = "max.entry.size";
     public static final int MAX_ENTRY_SIZE_DEFAULT = 64 * 1024;
 
+    public static final String EMPTY_LEDGER_MIN_TTL = "ledger.min.ttl";
+    public static final long EMPTY_LEDGER_MIN_TTL_DEFAULT = 1000L * 60 * 60 * 2;
+
+    public static final String WRITER_MAX_TTL = "writer.max.ttl";
+    public static final long WRITER_MAX_TTL_DEFAULT = 1000L * 60 * 60 * 1;
+
     public static final String CUNCURRENT_WRITERS = "concurrent.writers";
     public static final int CUNCURRENT_WRITERS_DEFAULT = 1;
 
@@ -183,6 +189,45 @@ public class Configuration {
     public int getMaxEntrySize() {
         return Integer.parseInt(properties.getProperty(MAX_ENTRY_SIZE,
                 MAX_ENTRY_SIZE_DEFAULT + ""));
+    }
+
+    public Configuration setEmptyLedgerMinTtl(long value) {
+        properties.put(EMPTY_LEDGER_MIN_TTL, value + "");
+        return this;
+    }
+
+    /**
+     * Grace period for an empty ledger before beeing deleted.
+     * For empty ledger we mean here any ledger who <b>logically</b>
+     * does not contain any non-deleted entry.
+     * See {@link #getWriterMaxTtl() }.
+     * Please also remember that the GC task usually runs in a separate process
+     * other than writers.
+     * @return current ledger min TTl
+     */
+    public long getEmptyLedgerMinTtl() {
+        return Long.parseLong(properties.getProperty(EMPTY_LEDGER_MIN_TTL,
+                EMPTY_LEDGER_MIN_TTL_DEFAULT + ""));
+    }
+
+    public Configuration setWriterMaxTtl(long value) {
+        properties.put(WRITER_MAX_TTL, value + "");
+        return this;
+    }
+
+    /**
+     * Maximum time we can keep a writer open.
+     * This value must be strictly less than {@link #getEmptyLedgerMinTtl() }
+     * in order to prevent race conditions between an writer whose
+     * every entry has been deleted and the GC task.
+     * The GC task won't delete active ledgers condidering a grace period of
+     * {@link #getEmptyLedgerMinTtl() }
+     * @return current ttl
+     * @see #getEmptyLedgerMinTtl()
+     */
+    public long getWriterMaxTtl() {
+        return Long.parseLong(properties.getProperty(WRITER_MAX_TTL,
+                WRITER_MAX_TTL_DEFAULT + ""));
     }
 
     public Configuration setConcurrentWriters(int v) {
