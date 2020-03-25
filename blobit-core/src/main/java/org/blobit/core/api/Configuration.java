@@ -197,7 +197,7 @@ public class Configuration {
     }
 
     /**
-     * Grace period for an empty ledger before beeing.
+     * Grace period for an empty ledger before beeing deleted.
      * For empty ledger we mean here any ledger who <b>logically</b>
      * does not contain any non-deleted entry.
      * See {@link #getWriterMaxTtl() }.
@@ -217,7 +217,7 @@ public class Configuration {
 
     /**
      * Maximum time we can keep a writer open.
-     * This value must be strictly than {@link #getEmptyLedgerMinTtl() }
+     * This value must be strictly less than {@link #getEmptyLedgerMinTtl() }
      * in order to prevent race conditions between an writer whose
      * every entry has been deleted and the GC task.
      * The GC task won't delete active ledgers condidering a grace period of
