@@ -75,7 +75,7 @@ public class ClusterObjectManager implements ObjectManager {
     public ClusterObjectManager(Configuration configuration,
             DataSource datasource) throws ObjectManagerException {
         super();
-        this.ledgerMinTtl = configuration.getLedgerMinTtl();
+        this.ledgerMinTtl = configuration.getEmptyLedgerMinTtl();
 
         metadataManager = new HerdDBMetadataStorageManager(datasource,
                 configuration);
