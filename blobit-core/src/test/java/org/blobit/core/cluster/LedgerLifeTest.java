@@ -142,7 +142,7 @@ public class LedgerLifeTest {
 
                 assertEquals(1, metadataManager.listDeletableLedgers(BUCKET_ID, 0).
                         size());
-                
+
                 assertEquals(0, metadataManager.listDeletableLedgers(BUCKET_ID, 1000 * 60 * 60).
                         size());
 
