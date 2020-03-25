@@ -68,6 +68,7 @@ public class LedgerLifeTest {
                             .setType(Configuration.TYPE_BOOKKEEPER)
                             .setUseTablespaces(false)
                             .setConcurrentWriters(10)
+                            .setEmptyLedgerMinTtl(0)
                             .setZookeeperUrl(env.getAddress());
             try (ClusterObjectManager manager =
                     (ClusterObjectManager) ObjectManagerFactory.
@@ -179,6 +180,7 @@ public class LedgerLifeTest {
                     new Configuration()
                             .setType(Configuration.TYPE_BOOKKEEPER)
                             .setConcurrentWriters(10)
+                            .setEmptyLedgerMinTtl(0)
                             .setZookeeperUrl(env.getAddress());
             try (ClusterObjectManager manager =
                     (ClusterObjectManager) ObjectManagerFactory.
