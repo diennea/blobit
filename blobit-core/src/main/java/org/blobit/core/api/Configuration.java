@@ -79,6 +79,9 @@ public class Configuration {
     public static final String ZOOKEEPER_URL = "zookeeper.url";
     public static final String ZOOKEEPER_URL_DEFAULT = "localhost:2181";
 
+    public static final String ZOOKEEPER_TIMEOUT = "zookeeper.timeout";
+    public static final int ZOOKEEPER_TIMEOUT_DEFAULT = 40000;
+
     public static final String BOOKKEEPER_ZK_LEDGERS_ROOT_PATH =
             "client.bookkeeper.zk.ledgers.root.path";
     public static final String BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT =
@@ -139,6 +142,15 @@ public class Configuration {
 
     public String getZookkeeperUrl() {
         return properties.getProperty(ZOOKEEPER_URL, ZOOKEEPER_URL_DEFAULT);
+    }
+
+    public Configuration setZookeeperTimeout(int timeout) {
+        properties.put(ZOOKEEPER_TIMEOUT, timeout);
+        return this;
+    }
+
+    public int getZookkeeperTimeout() {
+        return Integer.parseInt(properties.getProperty(ZOOKEEPER_TIMEOUT, ZOOKEEPER_TIMEOUT_DEFAULT + ""));
     }
 
     public Configuration setBucketsTableSpace(String value) {

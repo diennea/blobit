@@ -390,8 +390,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
                     "BlobIt client is using BookKeeper metadataservice URI: {0}",
                     metadataServiceURI);
             clientConfiguration.setMetadataServiceUri(metadataServiceURI);
-
-//            clientConfiguration.setUseV2WireProtocol(true);
+            clientConfiguration.setZkTimeout(configuration.getZookkeeperTimeout());
             for (String key : configuration.keys()) {
                 if (key.startsWith("bookkeeper.")) {
                     String rawKey = key.substring("bookkeeper.".length());
@@ -401,7 +400,7 @@ public class BookKeeperBlobManager implements AutoCloseable {
             }
             LOG.info(
                     "ObjectManager will use BookKeeper ensemble at " + configuration.
-                            getZookkeeperUrl() + ", that is BK configuration bookkeeper.metadataServiceUri="
+                            getZookkeeperUrl() + " (" + configuration.getZookkeeperTimeout() + " ms timeout), that is BK configuration bookkeeper.metadataServiceUri="
                     + clientConfiguration.
                             getMetadataServiceUriUnchecked());
 
