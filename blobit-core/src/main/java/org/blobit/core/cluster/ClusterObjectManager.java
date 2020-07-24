@@ -219,7 +219,7 @@ public class ClusterObjectManager implements ObjectManager {
         public NamedObjectDownloadPromise downloadByName(String name,
                 Consumer<Long> lengthCallback,
                 OutputStream output,
-                int offset, long length) {
+                long offset, long length) {
             List<String> ids = null;
             try {
                 ids = metadataManager.lookupObjectByName(bucketId, name);
