@@ -157,7 +157,7 @@ public interface BucketHandle {
      */
     NamedObjectDownloadPromise downloadByName(String name,
             Consumer<Long> lengthCallback,
-            OutputStream output, int offset,
+            OutputStream output, long offset,
             long length);
 
     /**
