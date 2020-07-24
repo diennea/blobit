@@ -391,7 +391,6 @@ public class BookKeeperBlobManager implements AutoCloseable {
                     metadataServiceURI);
             clientConfiguration.setMetadataServiceUri(metadataServiceURI);
             clientConfiguration.setZkTimeout(configuration.getZookkeeperTimeout());
-;//            clientConfiguration.setUseV2WireProtocol(true);
             for (String key : configuration.keys()) {
                 if (key.startsWith("bookkeeper.")) {
                     String rawKey = key.substring("bookkeeper.".length());
