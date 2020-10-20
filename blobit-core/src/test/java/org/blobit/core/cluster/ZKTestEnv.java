@@ -25,6 +25,7 @@ import java.nio.file.Path;
 import org.apache.bookkeeper.client.BookKeeperAdmin;
 import org.apache.bookkeeper.common.util.ReflectionUtils;
 import org.apache.bookkeeper.conf.ServerConfiguration;
+import org.apache.bookkeeper.discover.BookieServiceInfo;
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory;
 import org.apache.bookkeeper.proto.BookieServer;
 import org.apache.bookkeeper.stats.StatsProvider;
@@ -85,7 +86,7 @@ public class ZKTestEnv implements AutoCloseable {
         StatsProvider statsProvider = ReflectionUtils.newInstance(
                 statsProviderClass);
         statsProvider.start(conf);
-        this.bookie = new BookieServer(conf, statsProvider.getStatsLogger(""));
+        this.bookie = new BookieServer(conf, statsProvider.getStatsLogger(""), BookieServiceInfo.NO_INFO);
         this.bookie.start();
         TestUtils.waitForCondition(bookie::isRunning, NOOP, 100);
         System.out.println("[BOOKIE] started at " + bookie);

@@ -419,7 +419,7 @@ public class BucketWriter {
             blobManager.scheduleWriterDisposal(this);
             return false;
         } else {
-            LOG.log(Level.INFO, "Disposing {0}", this);
+            LOG.log(Level.FINE, "Disposing {0}", this);
             closeLock.lock();
             try {
                 try {

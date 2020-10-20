@@ -81,7 +81,7 @@ public class BucketReader {
             throw new ObjectManagerException(ex);
         }
 
-        LOG.log(Level.INFO, "Opened BucketReader for ledger {0}", ledgerId);
+        LOG.log(Level.FINE, "Opened BucketReader for ledger {0}", ledgerId);
     }
 
     public CompletableFuture<byte[]> readObject(long entryId, long last,
