@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 import org.apache.bookkeeper.bookie.Bookie;
 import org.apache.bookkeeper.client.BookKeeperAdmin;
 import org.apache.bookkeeper.common.util.ReflectionUtils;
+import org.apache.bookkeeper.discover.BookieServiceInfo;
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory;
 import org.apache.bookkeeper.proto.BookieServer;
 import org.apache.bookkeeper.server.conf.BookieConfiguration;
@@ -157,7 +158,7 @@ public class EmbeddedBookie implements AutoCloseable {
                 conf.getStatsProviderClass();
         statsProvider = ReflectionUtils.newInstance(statsProviderClass);
         statsProvider.start(conf);
-        bookieServer = new BookieServer(conf, statsProvider.getStatsLogger(""));
+        bookieServer = new BookieServer(conf, statsProvider.getStatsLogger(""), BookieServiceInfo.NO_INFO);
 
         HttpService httpService = null;
         LOG.log(Level.INFO, "Bookie httpServerEnabled:{0}", conf.isHttpServerEnabled());
