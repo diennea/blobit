@@ -43,15 +43,17 @@
         <maven.compiler.target>8</maven.compiler.target>
         <maven.compiler.release>8</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <libs.bookkeeper>4.10.0</libs.bookkeeper>
-        <libs.herddb>0.15.0</libs.herddb>
+        <libs.bookkeeper>4.11.1</libs.bookkeeper>
+        <libs.herddb>0.21.0</libs.herddb>
         <jetty.version>9.4.20.v20190813</jetty.version>
         <libs.jersey>2.29</libs.jersey>
-        <libs.netty>4.1.45.Final</libs.netty>
+        <libs.netty>4.1.53.Final</libs.netty>
         <libs.commonspool>2.4.2</libs.commonspool>
         <libs.guava>21.0</libs.guava>
         <libs.curator>4.2.0</libs.curator>
-        <libs.zookeeper>3.5.7</libs.zookeeper>
+        <libs.zookeeper>3.6.2</libs.zookeeper>
+	<libs.metricscore>3.2.5</libs.metricscore>
+        <libs.snappy>1.1.7</libs.snappy>
         <libs.jcommmander>1.72</libs.jcommmander>
         <libs.spotbugsannotations>3.1.8</libs.spotbugsannotations>
         <libs.spotbugsmaven>4.0.0</libs.spotbugsmaven>
