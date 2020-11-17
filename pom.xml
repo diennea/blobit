@@ -50,7 +50,7 @@
         <libs.netty>4.1.53.Final</libs.netty>
         <libs.commonspool>2.4.2</libs.commonspool>
         <libs.guava>21.0</libs.guava>
-        <libs.curator>4.2.0</libs.curator>
+        <libs.curator>5.1.0</libs.curator>
         <libs.zookeeper>3.6.2</libs.zookeeper>
 	<libs.metricscore>3.2.5</libs.metricscore>
         <libs.snappy>1.1.7</libs.snappy>
