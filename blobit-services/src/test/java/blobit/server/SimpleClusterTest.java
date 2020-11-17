@@ -56,60 +56,61 @@ public class SimpleClusterTest {
 
         try (TestingServer zookeeperServer = new TestingServer(-1, folder.newFolder("zk"));) {
             zookeeperServer.start();
+            try {
+                File tmpConfFile = folder.newFile("test.server_cluster.properties");
 
-            File tmpConfFile = folder.newFile("test.server_cluster.properties");
+                try (InputStream in = SimpleClusterTest.class.getResourceAsStream("/conf/test.server_cluster.properties")) {
+                    Properties props = new Properties();
+                    props.load(in);
 
-            try (InputStream in = SimpleClusterTest.class.getResourceAsStream("/conf/test.server_cluster.properties")) {
-                Properties props = new Properties();
-                props.load(in);
+                    props.put(ServerConfiguration.PROPERTY_BASEDIR, folder.newFolder().getAbsolutePath());
+                    props.put(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, zookeeperServer.getConnectString());
+                    props.put(ServerConfiguration.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH, "/custom-path");
 
-                props.put(ServerConfiguration.PROPERTY_BASEDIR, folder.newFolder().getAbsolutePath());
-                props.put(ServerConfiguration.PROPERTY_ZOOKEEPER_ADDRESS, zookeeperServer.getConnectString());
-                props.put(ServerConfiguration.PROPERTY_BOOKKEEPER_ZK_LEDGERS_ROOT_PATH, "/custom-path");
+                    props.put("herddb." + herddb.server.ServerConfiguration.PROPERTY_BASEDIR, folder.newFolder().
+                            getAbsolutePath());
+                    props.put("herddb." + herddb.server.ServerConfiguration.PROPERTY_MODE,
+                            herddb.server.ServerConfiguration.PROPERTY_MODE_CLUSTER);
 
-                props.put("herddb." + herddb.server.ServerConfiguration.PROPERTY_BASEDIR, folder.newFolder().
-                        getAbsolutePath());
-                props.put("herddb." + herddb.server.ServerConfiguration.PROPERTY_MODE,
-                        herddb.server.ServerConfiguration.PROPERTY_MODE_CLUSTER);
+                    // client configuration of the BlobIt client started inside the server (For the HTTP API)
+                    props.put(Configuration.ZOOKEEPER_URL, zookeeperServer.getConnectString());
+                    props.put(Configuration.BOOKKEEPER_ZK_LEDGERS_ROOT_PATH, "/custom-path");
 
-                // client configuration of the BlobIt client started inside the server (For the HTTP API)
-                props.put(Configuration.ZOOKEEPER_URL, zookeeperServer.getConnectString());
-                props.put(Configuration.BOOKKEEPER_ZK_LEDGERS_ROOT_PATH, "/custom-path");
-
-                props.put(ServerConfiguration.PROPERTY_BOOKKEEPER_START, "true");
-                props.put("bookie.allowLoopback", "true");
-                try (FileOutputStream oo = new FileOutputStream(tmpConfFile)) {
-                    props.store(oo, "");
+                    props.put(ServerConfiguration.PROPERTY_BOOKKEEPER_START, "true");
+                    props.put("bookie.allowLoopback", "true");
+                    try (FileOutputStream oo = new FileOutputStream(tmpConfFile)) {
+                        props.store(oo, "");
+                    }
+                    System.out.println("props: " + props);
                 }
-                System.out.println("props: " + props);
-            }
-            Thread runner = new Thread(() -> {
-                ServerMain.main(tmpConfFile.getAbsolutePath());
-            });
-            runner.start();
-            while (ServerMain.getRunningInstance() == null
-                    || !ServerMain.getRunningInstance().isStarted()) {
-                Thread.sleep(1000);
-                System.out.println("waiting for boot");
-            }
+                Thread runner = new Thread(() -> {
+                    ServerMain.main(tmpConfFile.getAbsolutePath());
+                });
+                runner.start();
+                while (ServerMain.getRunningInstance() == null
+                        || !ServerMain.getRunningInstance().isStarted()) {
+                    Thread.sleep(1000);
+                    System.out.println("waiting for boot");
+                }
 
-            ObjectManager client = ServerMain.getRunningInstance().getClient();
-            client.createBucket("mybucket", "mybucket", BucketConfiguration.DEFAULT);
-            BucketHandle bucket = client.getBucket("mybucket");
-            String id = bucket.put("myblob", "test".getBytes(StandardCharsets.UTF_8)).get();
-            bucket.get(id).get();
-            bucket.getByName("myblob").get();
+                ObjectManager client = ServerMain.getRunningInstance().getClient();
+                client.createBucket("mybucket", "mybucket", BucketConfiguration.DEFAULT);
+                BucketHandle bucket = client.getBucket("mybucket");
+                String id = bucket.put("myblob", "test".getBytes(StandardCharsets.UTF_8)).get();
+                bucket.get(id).get();
+                bucket.getByName("myblob").get();
 
-            // TEST BOOKIE ENDPOINT is up
-            assertThat(IOUtils.toString(new URI("http://localhost:9846/heartbeat"), "UTF-8"), containsString("OK"));
-            // TEST METRICS (via Bookie ENDPOINT)
-            assertThat(IOUtils.toString(new URI("http://localhost:9846/metrics"), "UTF-8"), containsString("jvm_memory_direct_bytes_max"));
-            // TEST SWIFT API is up
-            assertThat(IOUtils.toString(new URI("http://localhost:9846/api/mybucket/myblob"), "UTF-8"), containsString("test"));
+                // TEST BOOKIE ENDPOINT is up
+                assertThat(IOUtils.toString(new URI("http://localhost:9846/heartbeat"), "UTF-8"), containsString("OK"));
+                // TEST METRICS (via Bookie ENDPOINT)
+                assertThat(IOUtils.toString(new URI("http://localhost:9846/metrics"), "UTF-8"), containsString("jvm_memory_direct_bytes_max"));
+                // TEST SWIFT API is up
+                assertThat(IOUtils.toString(new URI("http://localhost:9846/api/mybucket/myblob"), "UTF-8"), containsString("test"));
 
-        } finally {
-            if (ServerMain.getRunningInstance() != null) {
-                ServerMain.getRunningInstance().close();
+            } finally {
+                if (ServerMain.getRunningInstance() != null) {
+                    ServerMain.getRunningInstance().close();
+                }
             }
         }
 
