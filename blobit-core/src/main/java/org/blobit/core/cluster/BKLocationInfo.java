@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.bookkeeper.client.api.LedgerMetadata;
-import org.apache.bookkeeper.net.BookieSocketAddress;
+import org.apache.bookkeeper.net.BookieId;
 import org.blobit.core.api.LocationInfo;
 
 /**
@@ -54,11 +54,10 @@ public class BKLocationInfo implements LocationInfo {
             return Collections.emptyList();
         }
         long entryNum = (offset + 1) / bk.entrySize;
-        List<BookieSocketAddress> ensembleAt = metadata.getEnsembleAt(entryNum);
+        List<BookieId> ensembleAt = metadata.getEnsembleAt(entryNum);
         return ensembleAt
                 .stream()
-                .map(ba -> new BKServerInfo(ba.getHostName() + ":" + ba.
-                getPort()))
+                .map((BookieId ba) -> new BKServerInfo(ba.getId()))
                 .collect(Collectors.toList());
     }
 
