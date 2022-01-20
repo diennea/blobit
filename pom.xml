@@ -44,19 +44,19 @@
         <maven.compiler.release>8</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <libs.bookkeeper>4.14.4</libs.bookkeeper>
-        <libs.herddb>0.21.0</libs.herddb>
-        <jetty.version>9.4.20.v20190813</jetty.version>
-        <libs.jersey>2.29</libs.jersey>
-        <libs.netty>4.1.53.Final</libs.netty>
-        <libs.commonspool>2.4.2</libs.commonspool>
-        <libs.guava>21.0</libs.guava>
-        <libs.curator>5.1.0</libs.curator>
-        <libs.zookeeper>3.6.2</libs.zookeeper>
-	<libs.metricscore>3.2.5</libs.metricscore>
-        <libs.snappy>1.1.7</libs.snappy>
-        <libs.jcommmander>1.72</libs.jcommmander>
-        <libs.spotbugsannotations>3.1.8</libs.spotbugsannotations>
-        <libs.spotbugsmaven>4.0.0</libs.spotbugsmaven>
+        <libs.herddb>0.24.0</libs.herddb>
+        <jetty.version>9.4.44.v20210927</jetty.version>
+        <libs.jersey>2.34</libs.jersey>
+        <libs.netty>4.1.72.Final</libs.netty>
+        <libs.commonspool>2.11.1</libs.commonspool>
+        <libs.guava>31.0.1-jre</libs.guava>
+        <libs.curator>5.2.0</libs.curator>
+        <libs.zookeeper>3.7.0</libs.zookeeper>
+	<libs.metricscore>4.2.7</libs.metricscore>
+        <libs.snappy>1.1.8.4</libs.snappy>
+        <libs.jcommmander>1.82</libs.jcommmander>
+        <libs.spotbugsannotations>4.5.3</libs.spotbugsannotations>
+        <libs.spotbugsmaven>4.5.3.0</libs.spotbugsmaven>
         <libs.slf4j>1.7.33</libs.slf4j>
     </properties>
     <build>
