@@ -43,7 +43,7 @@
         <maven.compiler.target>8</maven.compiler.target>
         <maven.compiler.release>8</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <libs.bookkeeper>4.11.1</libs.bookkeeper>
+        <libs.bookkeeper>4.14.4</libs.bookkeeper>
         <libs.herddb>0.21.0</libs.herddb>
         <jetty.version>9.4.20.v20190813</jetty.version>
         <libs.jersey>2.29</libs.jersey>
@@ -57,7 +57,7 @@
         <libs.jcommmander>1.72</libs.jcommmander>
         <libs.spotbugsannotations>3.1.8</libs.spotbugsannotations>
         <libs.spotbugsmaven>4.0.0</libs.spotbugsmaven>
-        <libs.slf4j>1.7.29</libs.slf4j>
+        <libs.slf4j>1.7.33</libs.slf4j>
     </properties>
     <build>
         <plugins>
