@@ -19,6 +19,7 @@
  */
 package org.blobit.core.cluster;
 
+import static org.blobit.core.util.TestUtils.NOOP;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -35,6 +36,7 @@ import org.blobit.core.api.LocationInfo;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectManagerFactory;
 import org.blobit.core.api.ObjectMetadata;
+import org.blobit.core.util.TestUtils;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -156,8 +158,15 @@ public class LedgerLifeTest {
                 // force close all ledgers
                 manager.getBlobManager().closeAllActiveWritersForTests();
 
+                Thread.sleep(10000);
+
                 // now the ledger can be dropped
                 manager.gc();
+
+                TestUtils.waitForCondition(() -> {
+                    int ntablespaces = metadataManager.listDeletableLedgers(BUCKET_ID, 0).size();
+                    return ntablespaces == 0;
+                }, NOOP, 100);
 
                 assertEquals(0, metadataManager.listDeletableLedgers(BUCKET_ID, 0).
                         size());
@@ -253,8 +262,15 @@ public class LedgerLifeTest {
                 // force close all ledgers
                 manager.getBlobManager().closeAllActiveWritersForTests();
 
+                Thread.sleep(10000);
+
                 // now the ledger can be dropped
                 manager.gc();
+
+                TestUtils.waitForCondition(() -> {
+                    int ntablespaces = metadataManager.listDeletableLedgers(BUCKET_ID, 0).size();
+                    return ntablespaces == 0;
+                }, NOOP, 100);
 
                 assertEquals(0, metadataManager.listDeletableLedgers(
                         BUCKET_ID, 0).size());

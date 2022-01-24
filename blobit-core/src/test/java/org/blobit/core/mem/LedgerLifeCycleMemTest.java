@@ -19,6 +19,7 @@
  */
 package org.blobit.core.mem;
 
+import static org.blobit.core.util.TestUtils.NOOP;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
@@ -33,6 +34,7 @@ import org.blobit.core.api.LedgerMetadata;
 import org.blobit.core.api.ObjectManagerException;
 import org.blobit.core.api.ObjectManagerFactory;
 import org.blobit.core.api.ObjectMetadata;
+import org.blobit.core.util.TestUtils;
 import org.junit.Assert;
 import org.junit.Test;
 
@@ -111,6 +113,11 @@ public class LedgerLifeCycleMemTest {
             assertEquals(1, manager.listDeletableLedgers(BUCKET_ID).size());
 
             manager.gc();
+
+            TestUtils.waitForCondition(() -> {
+                    int ntablespaces = manager.listDeletableLedgers(BUCKET_ID).size();
+                    return ntablespaces == 0;
+            }, NOOP, 100);
 
             assertEquals(0, manager.listDeletableLedgers(BUCKET_ID).size());
 
