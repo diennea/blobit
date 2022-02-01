@@ -453,10 +453,14 @@ public class ClusterObjectManager implements ObjectManager {
         blobManager.close();
     }
 
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+            value = "EI_EXPOSE_REP")
     public BookKeeperBlobManager getBlobManager() {
         return blobManager;
     }
 
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+            value = "EI_EXPOSE_REP")
     public HerdDBMetadataStorageManager getMetadataManager() {
         return metadataManager;
     }

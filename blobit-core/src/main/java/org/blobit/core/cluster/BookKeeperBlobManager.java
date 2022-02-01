@@ -360,6 +360,8 @@ public class BookKeeperBlobManager implements AutoCloseable {
         }
     }
 
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+            value = "EI_EXPOSE_REP2")
     public BookKeeperBlobManager(Configuration configuration,
             HerdDBMetadataStorageManager metadataStorageManager) throws ObjectManagerException {
         try {

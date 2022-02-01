@@ -107,6 +107,8 @@ public class BucketWriter {
     private AtomicLong nextEntryId = new AtomicLong();
     private final long maxValidTime;
 
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+            value = "EI_EXPOSE_REP2")
     public BucketWriter(String bucketId,
             BookKeeper bookKeeper,
             int replicationFactor,

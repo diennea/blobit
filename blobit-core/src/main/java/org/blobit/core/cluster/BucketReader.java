@@ -53,6 +53,8 @@ public class BucketReader {
     private final BookKeeperBlobManager blobManager;
     private static final byte[] DUMMY_PWD = new byte[0];
 
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+        value = "EI_EXPOSE_REP2")
     public BucketReader(ReadHandle lh,
             BookKeeperBlobManager blobManager) throws ObjectManagerException {
         this.lh = lh;
@@ -61,6 +63,8 @@ public class BucketReader {
         this.owningHandle = false;
     }
 
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+        value = "EI_EXPOSE_REP2")
     public BucketReader(long ledgerId, BookKeeper bookKeeper,
             BookKeeperBlobManager blobManager) throws ObjectManagerException {
 
