@@ -473,11 +473,8 @@ public class BookKeeperBlobManager implements AutoCloseable {
     }
 
     boolean dropLedger(long idledger) throws ObjectManagerException {
-        LOG.log(Level.INFO, "Active writers in dropledger = {0}", activeWriters);
-        LOG.log(Level.INFO, "Writers in dropledger = {0}", writers);
-
         if (activeWriters.containsKey(idledger)) {
-            LOG.log(Level.INFO, "cannot drop ledger used locally {0}", idledger);
+            LOG.log(Level.FINE, "cannot drop ledger used locally {0}", idledger);
             return false;
         }
         try {
@@ -489,7 +486,6 @@ public class BookKeeperBlobManager implements AutoCloseable {
         } catch (BKException err) {
             throw new ObjectManagerException(err);
         } catch (InterruptedException err) {
-            LOG.log(Level.SEVERE, " ", err);
             Thread.currentThread().interrupt();
             return false;
         }
@@ -529,14 +525,11 @@ public class BookKeeperBlobManager implements AutoCloseable {
     }
 
     Future<?> scheduleWriterDisposal(BucketWriter writer) {
-        LOG.log(Level.INFO, "Scheduling writer disposal {0}", writer);
         if (writer.isClosed()) {
             return FutureUtils.Void();
         }
         return threadpool.submit(() -> {
-            boolean release = writer.releaseResources();
-            LOG.log(Level.INFO, "release resource = {0}", release);
-            if (release) {
+            if (writer.releaseResources()) {
                 activeWriters.remove(writer.getId(), writer);
             }
         });
@@ -556,11 +549,13 @@ public class BookKeeperBlobManager implements AutoCloseable {
         List<BucketWriter> actualWriters = new ArrayList<>(activeWriters.
                 values());
         writers.clear();
-        LOG.log(Level.INFO, "List active writers {0}", actualWriters);
-        for (BucketWriter writer : actualWriters) {
+        actualWriters.forEach(writer -> {
             writer.awaitTermination();
-            LOG.log(Level.INFO, "Writer {0} is closed", writer);
-        }
+        });
+    }
+
+    int getActiveWritersSize() {
+        return activeWriters.size();
     }
 
     public Stats getStats() {

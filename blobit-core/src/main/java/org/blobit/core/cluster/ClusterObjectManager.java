@@ -436,9 +436,9 @@ public class ClusterObjectManager implements ObjectManager {
             boolean ok = blobManager.dropLedger(idledger);
             if (ok) {
                 metadataManager.deleteLedger(bucketId, idledger);
-            } else if (LOG.isLoggable(Level.INFO)) {
+            } else if (LOG.isLoggable(Level.FINE)) {
                 // this is very common for a ledger that it is currently in use
-                LOG.log(Level.INFO, "Drop ledger {0} failed", idledger);
+                LOG.log(Level.FINE, "Drop ledger {0} failed", idledger);
             }
         }
     }

@@ -158,15 +158,12 @@ public class LedgerLifeTest {
                 // force close all ledgers
                 manager.getBlobManager().closeAllActiveWritersForTests();
 
-                Thread.sleep(10000);
+                TestUtils.waitForCondition(() -> {
+                    return manager.getBlobManager().getActiveWritersSize() == 0;
+                }, NOOP, 100);
 
                 // now the ledger can be dropped
                 manager.gc();
-
-                TestUtils.waitForCondition(() -> {
-                    int ntablespaces = metadataManager.listDeletableLedgers(BUCKET_ID, 0).size();
-                    return ntablespaces == 0;
-                }, NOOP, 100);
 
                 assertEquals(0, metadataManager.listDeletableLedgers(BUCKET_ID, 0).
                         size());
@@ -217,12 +214,12 @@ public class LedgerLifeTest {
                     Collection<LedgerMetadata> ledgers = metadataManager.
                             listLedgersbyBucketId(BUCKET_ID);
                     for (LedgerMetadata l : ledgers) {
-//                        System.out.println("LedgerMetadata:" + l);
+    //                        System.out.println("LedgerMetadata:" + l);
                         Collection<ObjectMetadata> blobs = metadataManager.
                                 listObjectsByLedger(BUCKET_ID, l.getId());
-//                        for (ObjectMetadata blob : blobs) {
-//                            System.out.println("blob: " + blob);
-//                        }
+    //                        for (ObjectMetadata blob : blobs) {
+    //                            System.out.println("blob: " + blob);
+    //                        }
                         assertEquals(1, blobs.size());
                     }
                     assertTrue(ledgers.size() >= 1);
@@ -239,12 +236,12 @@ public class LedgerLifeTest {
                     Collection<LedgerMetadata> ledgers = metadataManager.
                             listLedgersbyBucketId(BUCKET_ID);
                     for (LedgerMetadata l : ledgers) {
-//                        System.out.println("LedgerMetadata:" + l);
+    //                        System.out.println("LedgerMetadata:" + l);
                         Collection<ObjectMetadata> blobs = metadataManager.
                                 listObjectsByLedger(BUCKET_ID, l.getId());
-//                        for (ObjectMetadata blob : blobs) {
-//                            System.out.println("blob: " + blob);
-//                        }
+    //                        for (ObjectMetadata blob : blobs) {
+    //                            System.out.println("blob: " + blob);
+    //                        }
                         assertEquals(0, blobs.size());
                     }
                     assertTrue(ledgers.size() >= 1);
@@ -262,15 +259,11 @@ public class LedgerLifeTest {
                 // force close all ledgers
                 manager.getBlobManager().closeAllActiveWritersForTests();
 
-                Thread.sleep(10000);
-
+                TestUtils.waitForCondition(() -> {
+                    return manager.getBlobManager().getActiveWritersSize() == 0;
+                }, NOOP, 100);
                 // now the ledger can be dropped
                 manager.gc();
-
-                TestUtils.waitForCondition(() -> {
-                    int ntablespaces = metadataManager.listDeletableLedgers(BUCKET_ID, 0).size();
-                    return ntablespaces == 0;
-                }, NOOP, 100);
 
                 assertEquals(0, metadataManager.listDeletableLedgers(
                         BUCKET_ID, 0).size());

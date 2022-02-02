@@ -115,8 +115,7 @@ public class LedgerLifeCycleMemTest {
             manager.gc();
 
             TestUtils.waitForCondition(() -> {
-                    int ntablespaces = manager.listDeletableLedgers(BUCKET_ID).size();
-                    return ntablespaces == 0;
+                return manager.listDeletableLedgers(BUCKET_ID).isEmpty();
             }, NOOP, 100);
 
             assertEquals(0, manager.listDeletableLedgers(BUCKET_ID).size());

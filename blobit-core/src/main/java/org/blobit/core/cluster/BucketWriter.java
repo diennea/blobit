@@ -417,11 +417,11 @@ public class BucketWriter {
      */
     boolean releaseResources() {
         if (pendingWrites.get() > 0) {
-            LOG.log(Level.INFO, "Rescheduling for dispose {0}", this);
+            LOG.log(Level.FINE, "Rescheduling for dispose {0}", this);
             blobManager.scheduleWriterDisposal(this);
             return false;
         } else {
-            LOG.log(Level.INFO, "Disposing {0}", this);
+            LOG.log(Level.FINE, "Disposing {0}", this);
             closeLock.lock();
             try {
                 try {
@@ -437,7 +437,7 @@ public class BucketWriter {
                     /* Change closing state */
                     closed = true;
 
-                    LOG.log(Level.INFO, "Signalling disposed {0}", this);
+                    LOG.log(Level.FINE, "Signalling disposed {0}", this);
 
                     /* Signal that close finished to eventual waiters */
                     closeCompleted.signalAll();
