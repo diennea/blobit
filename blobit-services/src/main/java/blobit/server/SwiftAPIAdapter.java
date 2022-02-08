@@ -57,6 +57,8 @@ public class SwiftAPIAdapter extends HttpServlet {
     @SuppressFBWarnings("SE_BAD_FIELD")
     private final ObjectManager objectManager;
 
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+            value = "EI_EXPOSE_REP2")
     public SwiftAPIAdapter(ObjectManager objectManager) {
         this.objectManager = objectManager;
     }

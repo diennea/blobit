@@ -45,6 +45,8 @@ public class ZooKeeperMainWrapper implements AutoCloseable {
 
     private static ZooKeeperMainWrapper runningInstance;
 
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+            value = "EI_EXPOSE_REP2")
     public ZooKeeperMainWrapper(Properties configuration) {
         this.configuration = configuration;
         this.pidFileLocker = new PidFileLocker(Paths.get(System.getProperty("user.dir", ".")).toAbsolutePath());

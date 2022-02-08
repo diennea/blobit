@@ -38,5 +38,12 @@ jobs:
           restore-keys: 'cache'
       - name: 'Build with Maven'
         run: mvn -B checkstyle:check install spotbugs:check -Dmaven.test.redirectTestOutputToFile=true -Dherddb.file.requirefsync=false --file pom.xml
+      - name: 'Archive surefire outputs'
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v2
+        with:
+          name: surefire-output
+          path: /home/runner/work/blobit/blobit/blobit-*/target/surefire-reports/*
+          retention-days: 5
       - name: 'Remove Snapshots Before Caching'
         run: find ~/.m2 -name '*SNAPSHOT' | xargs rm -Rf

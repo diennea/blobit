@@ -360,6 +360,8 @@ public class BookKeeperBlobManager implements AutoCloseable {
         }
     }
 
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+            value = "EI_EXPOSE_REP2")
     public BookKeeperBlobManager(Configuration configuration,
             HerdDBMetadataStorageManager metadataStorageManager) throws ObjectManagerException {
         try {
@@ -547,9 +549,13 @@ public class BookKeeperBlobManager implements AutoCloseable {
         List<BucketWriter> actualWriters = new ArrayList<>(activeWriters.
                 values());
         writers.clear();
-        for (BucketWriter writer : actualWriters) {
+        actualWriters.forEach(writer -> {
             writer.awaitTermination();
-        }
+        });
+    }
+
+    int getActiveWritersSize() {
+        return activeWriters.size();
     }
 
     public Stats getStats() {

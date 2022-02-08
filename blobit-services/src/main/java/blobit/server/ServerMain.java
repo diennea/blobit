@@ -140,7 +140,8 @@ public class ServerMain implements AutoCloseable {
     private ObjectManager client;
     private HerdDBDataSource datasource;
 
-
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+            value = "EI_EXPOSE_REP2")
     public ServerMain(Properties configuration) {
         this.configuration = configuration;
         this.pidFileLocker = new PidFileLocker(Paths.get(System.getProperty("user.dir", ".")).toAbsolutePath());
@@ -194,6 +195,8 @@ public class ServerMain implements AutoCloseable {
     }
 
 
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+            value = "EI_EXPOSE_REP")
     public ObjectManager getClient() {
         return client;
     }

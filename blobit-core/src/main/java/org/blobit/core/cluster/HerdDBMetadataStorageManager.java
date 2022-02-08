@@ -181,6 +181,8 @@ public class HerdDBMetadataStorageManager {
 
     private Map<String, BucketMetadata> buckets;
 
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+            value = "EI_EXPOSE_REP")
     public HerdDBMetadataStorageManager(DataSource datasource,
                                         Configuration configuration) {
         this.bucketsTablespace = configuration.getBucketsTableSpace();

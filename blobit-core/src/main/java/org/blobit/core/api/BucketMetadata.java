@@ -30,6 +30,8 @@ public class BucketMetadata {
     public static final int STATUS_MARKED_FOR_DELETION = 1;
     public static final int STATUS_ACTIVE = 0;
 
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+            value = "EI_EXPOSE_REP2")
     public BucketMetadata(String bucketId,
             String uuid,
             int status,
@@ -54,6 +56,8 @@ public class BucketMetadata {
         return bucketId;
     }
 
+    @edu.umd.cs.findbugs.annotations.SuppressFBWarnings(
+            value = "EI_EXPOSE_REP")
     public BucketConfiguration getConfiguration() {
         return configuration;
     }
