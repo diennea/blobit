@@ -194,7 +194,6 @@
             </activation>
             <modules>
                 <module>blobit-core</module>
-                <module>blobit-cli-lite</module>
                 <module>blobit-cli</module>
                 <module>blobit-services</module>
             </modules>
@@ -203,7 +202,6 @@
             <id>benchmarks</id>
             <modules>
                 <module>blobit-core</module>
-                <module>blobit-cli-lite</module>
                 <module>blobit-cli</module>
                 <module>blobit-services</module>
                 <module>blobit-benchmarks</module>
@@ -217,7 +215,6 @@
             </activation>
             <modules>
                 <module>blobit-core</module>
-                <module>blobit-cli-lite</module>
                 <module>blobit-cli</module>
                 <module>blobit-services</module>
             </modules>
