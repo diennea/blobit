@@ -5,7 +5,7 @@
     <artifactId>blobit</artifactId>
     <version>0.6.0-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <name>blobIt</name>
+    <name>BlobIt</name>
     <url>http://blobit.org</url>
     <description>A distributed large object storage</description>
     <licenses>
@@ -52,7 +52,7 @@
         <libs.guava>31.0.1-jre</libs.guava>
         <libs.curator>5.2.0</libs.curator>
         <libs.zookeeper>3.7.0</libs.zookeeper>
-	<libs.metricscore>4.2.7</libs.metricscore>
+        <libs.metricscore>4.2.7</libs.metricscore>
         <libs.snappy>1.1.8.4</libs.snappy>
         <libs.jcommmander>1.82</libs.jcommmander>
         <libs.spotbugsannotations>4.5.3</libs.spotbugsannotations>
@@ -194,6 +194,7 @@
             </activation>
             <modules>
                 <module>blobit-core</module>
+                <module>blobit-cli-lite</module>
                 <module>blobit-cli</module>
                 <module>blobit-services</module>
             </modules>
@@ -202,6 +203,7 @@
             <id>benchmarks</id>
             <modules>
                 <module>blobit-core</module>
+                <module>blobit-cli-lite</module>
                 <module>blobit-cli</module>
                 <module>blobit-services</module>
                 <module>blobit-benchmarks</module>
@@ -215,6 +217,7 @@
             </activation>
             <modules>
                 <module>blobit-core</module>
+                <module>blobit-cli-lite</module>
                 <module>blobit-cli</module>
                 <module>blobit-services</module>
             </modules>
