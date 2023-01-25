@@ -7,6 +7,7 @@
         <version>0.5.1-SNAPSHOT</version>
     </parent>
     <artifactId>blobit-cli</artifactId>
+    <name>BlobIt CLI</name>
     <packaging>jar</packaging>
     <dependencies>
         <dependency>
@@ -43,7 +44,7 @@
                         <phase>package</phase>
                         <goals>
                             <goal>shade</goal>
-                        </goals>                        
+                        </goals>
                     </execution>
                 </executions>
                 <configuration>
@@ -57,7 +58,9 @@
                             </excludes>
                         </filter>
                     </filters>
-                </configuration>   
+                    <shadedArtifactAttached>true</shadedArtifactAttached>
+                    <shadedClassifierName>uber</shadedClassifierName>
+                </configuration>
             </plugin>
             <plugin>
                 <artifactId>maven-jar-plugin</artifactId>
