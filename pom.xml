@@ -5,7 +5,7 @@
     <artifactId>blobit</artifactId>
     <version>0.6.0-SNAPSHOT</version>
     <packaging>pom</packaging>
-    <name>blobIt</name>
+    <name>BlobIt</name>
     <url>http://blobit.org</url>
     <description>A distributed large object storage</description>
     <licenses>
@@ -52,7 +52,7 @@
         <libs.guava>31.0.1-jre</libs.guava>
         <libs.curator>5.2.0</libs.curator>
         <libs.zookeeper>3.7.0</libs.zookeeper>
-	<libs.metricscore>4.2.7</libs.metricscore>
+        <libs.metricscore>4.2.7</libs.metricscore>
         <libs.snappy>1.1.8.4</libs.snappy>
         <libs.jcommmander>1.82</libs.jcommmander>
         <libs.spotbugsannotations>4.5.3</libs.spotbugsannotations>
@@ -154,12 +154,12 @@
             <!-- temporary with are hosted at Majordodo house -->
             <id>dev.majordodo.org</id>
             <name>Majordodo Public Repository</name>
-            <url>https://dev.majordodo.org/nexus/content/repositories/releases/</url>
+            <url>https://dev.majordodo.org/nexus/repository/releases/</url>
         </repository>
         <snapshotRepository>
             <id>dev.majordodo.org.snapshots</id>
             <name>Majordodo Public Repository</name>
-            <url>https://dev.majordodo.org/nexus/content/repositories/snapshots/</url>
+            <url>https://dev.majordodo.org/nexus/repository/snapshots/</url>
         </snapshotRepository>
     </distributionManagement>
     <repositories>
@@ -175,14 +175,14 @@
             <snapshots>
                 <enabled>true</enabled>
             </snapshots>
-            <url>https://dev.majordodo.org/nexus/content/repositories/snapshots/</url>
+            <url>https://dev.majordodo.org/nexus/repository/snapshots/</url>
         </repository>
         <repository>
             <id>dev.majordodo.org.releases</id>
             <snapshots>
                 <enabled>false</enabled>
             </snapshots>
-            <url>https://dev.majordodo.org/nexus/content/repositories/releases/</url>
+            <url>https://dev.majordodo.org/nexus/repository/releases/</url>
         </repository>
     </repositories>
 
