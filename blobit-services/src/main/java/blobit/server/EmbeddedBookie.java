@@ -30,12 +30,12 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-import org.apache.bookkeeper.bookie.Bookie;
+import org.apache.bookkeeper.bookie.BookieImpl;
 import org.apache.bookkeeper.client.BookKeeperAdmin;
+import org.apache.bookkeeper.common.component.Lifecycle;
 import org.apache.bookkeeper.common.util.ReflectionUtils;
-import org.apache.bookkeeper.discover.BookieServiceInfo;
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory;
-import org.apache.bookkeeper.proto.BookieServer;
+import org.apache.bookkeeper.server.EmbeddedServer;
 import org.apache.bookkeeper.server.conf.BookieConfiguration;
 import org.apache.bookkeeper.server.http.BKHttpServiceProvider;
 import org.apache.bookkeeper.server.service.HttpService;
@@ -52,7 +52,7 @@ public class EmbeddedBookie implements AutoCloseable {
     private static final Logger LOG = Logger.getLogger(EmbeddedBookie.class.getName());
     private final ServerConfiguration configuration;
     private final Path baseDirectory;
-    private BookieServer bookieServer;
+    private EmbeddedServer embeddedServer;
     private StatsProvider statsProvider;
 
     public EmbeddedBookie(Path baseDirectory, ServerConfiguration configuration) {
@@ -91,9 +91,9 @@ public class EmbeddedBookie implements AutoCloseable {
             if (_port == null) {
                 _port = NetworkUtils.assignFirstFreePort();
                 LOG.log(Level.SEVERE, "As configuration parameter "
-                        + ServerConfiguration.PROPERTY_BOOKKEEPER_BOOKIE_PORT
-                        + " is {0},I have choosen to listen on port {1}."
-                        + " Set to a positive number in order to use a fixed port",
+                                + ServerConfiguration.PROPERTY_BOOKKEEPER_BOOKIE_PORT
+                                + " is {0},I have choosen to listen on port {1}."
+                                + " Set to a positive number in order to use a fixed port",
                         new Object[]{Integer.toString(port), Integer.toString(_port)});
                 persistLocalBookiePort(bookie_dir, _port);
             }
@@ -146,7 +146,7 @@ public class EmbeddedBookie implements AutoCloseable {
         boolean forceformat = configuration.getBoolean("bookie.forceformat", false);
         LOG.log(Level.CONFIG, "bookie.forceformat={0}", forceformat);
         if (forceformat) {
-            result = Bookie.format(conf, false, forceformat);
+            result = BookieImpl.format(conf, false, forceformat);
             if (result) {
                 LOG.info("Bookie.format: formatter applied to local bookie");
             } else {
@@ -157,34 +157,33 @@ public class EmbeddedBookie implements AutoCloseable {
         Class<? extends StatsProvider> statsProviderClass =
                 conf.getStatsProviderClass();
         statsProvider = ReflectionUtils.newInstance(statsProviderClass);
-        statsProvider.start(conf);
-        bookieServer = new BookieServer(conf, statsProvider.getStatsLogger(""), BookieServiceInfo.NO_INFO);
+
+        BookieConfiguration bkConf = new BookieConfiguration(conf);
+        embeddedServer = EmbeddedServer.builder(bkConf)
+                .statsProvider(statsProvider)
+                .build();
 
         HttpService httpService = null;
         LOG.log(Level.INFO, "Bookie httpServerEnabled:{0}", conf.isHttpServerEnabled());
         if (conf.isHttpServerEnabled()) {
             BKHttpServiceProvider provider = new BKHttpServiceProvider.Builder()
-                .setBookieServer(bookieServer)
-                .setServerConfiguration(conf)
-                .setStatsProvider(statsProvider)
-                .build();
+                    .setBookieServer(embeddedServer.getBookieService().getServer())
+                    .setServerConfiguration(conf)
+                    .setStatsProvider(statsProvider)
+                    .build();
             httpService =
-                new HttpService(provider, new BookieConfiguration(conf), statsProvider.getStatsLogger(""));
+                    new HttpService(provider, new BookieConfiguration(conf), statsProvider.getStatsLogger(""));
             httpService.start();
         }
 
-        bookieServer.start();
-
-        for (int i = 0; i < 100; i++) {
-            if (bookieServer.getBookie().isRunning()) {
-                LOG.info("Apache Bookkeeper started");
-                break;
-            }
-            Thread.sleep(500);
+        if (waitForBookieServiceState(Lifecycle.State.STARTED)) {
+            LOG.info("bookie started");
+        } else {
+            LOG.warning("bookie start timed out");
         }
+
         long _stop = System.currentTimeMillis();
         LOG.severe("Booting Apache Bookkeeper finished. Time " + (_stop - _start) + " ms");
-
     }
 
     private void dumpBookieConfiguration(Path bookie_dir, org.apache.bookkeeper.conf.ServerConfiguration conf) throws
@@ -192,7 +191,7 @@ public class EmbeddedBookie implements AutoCloseable {
         // dump actual BookKeeper configuration in order to use bookkeeper shell
         Path actual_bookkeeper_configuration = bookie_dir.resolve("embedded.bookie.properties");
         StringBuilder builder = new StringBuilder();
-        for (Iterator<String> key_it = conf.getKeys(); key_it.hasNext();) {
+        for (Iterator<String> key_it = conf.getKeys(); key_it.hasNext(); ) {
             String key = key_it.next();
             Object value = conf.getProperty(key);
             if (value instanceof Collection) {
@@ -208,16 +207,18 @@ public class EmbeddedBookie implements AutoCloseable {
 
     @Override
     public void close() {
-        if (bookieServer != null) {
+        if (embeddedServer != null) {
             LOG.info("Apache Bookkeeper stopping");
             try {
-                bookieServer.shutdown();
-
-                bookieServer.join();
+                if (waitForBookieServiceState(Lifecycle.State.STOPPED)) {
+                    LOG.info("bookie stopped");
+                } else {
+                    LOG.warning("bookie stop timed out");
+                }
             } catch (InterruptedException err) {
                 Thread.currentThread().interrupt();
             } finally {
-                bookieServer = null;
+                embeddedServer = null;
             }
         }
         if (statsProvider != null) {
@@ -263,5 +264,16 @@ public class EmbeddedBookie implements AutoCloseable {
         message.append("\n\n");
         message.append(port);
         Files.write(file, message.toString().getBytes(StandardCharsets.UTF_8), StandardOpenOption.CREATE_NEW);
+    }
+
+    private boolean waitForBookieServiceState(Lifecycle.State expectedState) throws InterruptedException {
+        for (int i = 0; i < 100; i++) {
+            Lifecycle.State currentState = embeddedServer.getBookieService().lifecycleState();
+            if (currentState == expectedState) {
+                return true;
+            }
+            Thread.sleep(500);
+        }
+        return false;
     }
 }

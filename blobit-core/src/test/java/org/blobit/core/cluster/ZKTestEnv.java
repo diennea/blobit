@@ -20,21 +20,24 @@
 package org.blobit.core.cluster;
 
 import static org.blobit.core.api.Configuration.BOOKKEEPER_ZK_LEDGERS_ROOT_PATH_DEFAULT;
-import static org.blobit.core.util.TestUtils.NOOP;
 import java.nio.file.Path;
 import org.apache.bookkeeper.client.BookKeeperAdmin;
+import org.apache.bookkeeper.common.component.Lifecycle;
 import org.apache.bookkeeper.common.util.ReflectionUtils;
 import org.apache.bookkeeper.conf.ServerConfiguration;
-import org.apache.bookkeeper.discover.BookieServiceInfo;
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory;
-import org.apache.bookkeeper.proto.BookieServer;
+import org.apache.bookkeeper.server.EmbeddedServer;
+import org.apache.bookkeeper.server.conf.BookieConfiguration;
 import org.apache.bookkeeper.stats.StatsProvider;
-import org.blobit.core.util.TestUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class ZKTestEnv implements AutoCloseable {
 
+    private static final Logger LOG = LoggerFactory.getLogger(ZKTestEnv.class.getName());
+
     TestingZookeeperServerEmbedded zkServer;
-    BookieServer bookie;
+    EmbeddedServer embeddedServer;
     Path path;
 
     public ZKTestEnv(Path path) throws Exception {
@@ -44,7 +47,7 @@ public class ZKTestEnv implements AutoCloseable {
     }
 
     public void startBookie() throws Exception {
-        if (bookie != null) {
+        if (embeddedServer != null) {
             throw new Exception("bookie already started!");
         }
         ServerConfiguration conf = new ServerConfiguration();
@@ -54,7 +57,7 @@ public class ZKTestEnv implements AutoCloseable {
         Path targetDir = path.resolve("bookie_data");
         conf.setZkServers("localhost:1282");
         conf.setLedgerDirNames(new String[]{targetDir.toAbsolutePath().
-            toString()});
+                toString()});
         conf.
                 setLedgerManagerFactoryClass(
                         HierarchicalLedgerManagerFactory.class);
@@ -86,14 +89,22 @@ public class ZKTestEnv implements AutoCloseable {
         StatsProvider statsProvider = ReflectionUtils.newInstance(
                 statsProviderClass);
         statsProvider.start(conf);
-        this.bookie = new BookieServer(conf, statsProvider.getStatsLogger(""), BookieServiceInfo.NO_INFO);
-        this.bookie.start();
-        TestUtils.waitForCondition(bookie::isRunning, NOOP, 100);
-        System.out.println("[BOOKIE] started at " + bookie);
+
+        BookieConfiguration bkConf = new BookieConfiguration(conf);
+        this.embeddedServer = EmbeddedServer.builder(bkConf)
+                .statsProvider(statsProvider)
+                .build();
+        embeddedServer.getLifecycleComponentStack().start();
+
+        if (waitForBookieServiceState(Lifecycle.State.STARTED)) {
+            System.out.println("[BOOKIE] started at " + embeddedServer.getBookieService().getServer().getBookieId());
+        } else {
+            LOG.warn("bookie start timed out");
+        }
     }
 
-    public BookieServer getBookie() {
-        return bookie;
+    public EmbeddedServer getBookie() {
+        return embeddedServer;
     }
 
     public String getAddress() {
@@ -109,16 +120,23 @@ public class ZKTestEnv implements AutoCloseable {
     }
 
     public void stopBookie() throws Exception {
-        bookie.shutdown();
-        bookie.join();
-        bookie = null;
+        if (embeddedServer != null) {
+            embeddedServer.getLifecycleComponentStack().close();
+            if (!waitForBookieServiceState(Lifecycle.State.CLOSED)) {
+                LOG.warn("bookie stop timed out");
+            }
+            embeddedServer = null;
+        }
     }
 
     @Override
     public void close() throws Exception {
         try {
-            if (bookie != null) {
-                bookie.shutdown();
+            if (embeddedServer != null) {
+                embeddedServer.getLifecycleComponentStack().close();
+                if (!waitForBookieServiceState(Lifecycle.State.CLOSED)) {
+                    LOG.warn("bookie stop timed out");
+                }
             }
         } catch (Throwable t) {
         }
@@ -128,6 +146,17 @@ public class ZKTestEnv implements AutoCloseable {
             }
         } catch (Throwable t) {
         }
+    }
+
+    private boolean waitForBookieServiceState(Lifecycle.State expectedState) throws InterruptedException {
+        for (int i = 0; i < 100; i++) {
+            Lifecycle.State currentState = embeddedServer.getBookieService().lifecycleState();
+            if (currentState == expectedState) {
+                return true;
+            }
+            Thread.sleep(500);
+        }
+        return false;
     }
 
 }
