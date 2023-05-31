@@ -37,8 +37,6 @@ import org.apache.bookkeeper.common.util.ReflectionUtils;
 import org.apache.bookkeeper.meta.HierarchicalLedgerManagerFactory;
 import org.apache.bookkeeper.server.EmbeddedServer;
 import org.apache.bookkeeper.server.conf.BookieConfiguration;
-import org.apache.bookkeeper.server.http.BKHttpServiceProvider;
-import org.apache.bookkeeper.server.service.HttpService;
 import org.apache.bookkeeper.stats.StatsProvider;
 import org.apache.bookkeeper.stats.prometheus.PrometheusMetricsProvider;
 
@@ -158,23 +156,12 @@ public class EmbeddedBookie implements AutoCloseable {
                 conf.getStatsProviderClass();
         statsProvider = ReflectionUtils.newInstance(statsProviderClass);
 
+        LOG.log(Level.INFO, "Bookie httpServerEnabled:{0}", conf.isHttpServerEnabled());
+
         BookieConfiguration bkConf = new BookieConfiguration(conf);
         embeddedServer = EmbeddedServer.builder(bkConf)
                 .statsProvider(statsProvider)
                 .build();
-
-        HttpService httpService = null;
-        LOG.log(Level.INFO, "Bookie httpServerEnabled:{0}", conf.isHttpServerEnabled());
-        if (conf.isHttpServerEnabled()) {
-            BKHttpServiceProvider provider = new BKHttpServiceProvider.Builder()
-                    .setBookieServer(embeddedServer.getBookieService().getServer())
-                    .setServerConfiguration(conf)
-                    .setStatsProvider(statsProvider)
-                    .build();
-            httpService =
-                    new HttpService(provider, new BookieConfiguration(conf), statsProvider.getStatsLogger(""));
-            httpService.start();
-        }
 
         if (waitForBookieServiceState(Lifecycle.State.STARTED)) {
             LOG.info("bookie started");
