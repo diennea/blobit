@@ -23,6 +23,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.apache.bookkeeper.http.HttpServer;
+import org.apache.bookkeeper.http.HttpServerConfiguration;
 import org.apache.bookkeeper.http.HttpServiceProvider;
 
 /**
@@ -39,6 +40,7 @@ public class ServletHttpServer implements HttpServer {
 
     /**
      * Open the access to the Bookie to other components inside the same JVM.
+     *
      * @return the bookie or null.
      */
     public static HttpServiceProvider getBookie() {
@@ -53,6 +55,16 @@ public class ServletHttpServer implements HttpServer {
 
     @Override
     public boolean startServer(int i) {
+        return startServer(i, null);
+    }
+
+    @Override
+    public boolean startServer(int i, String s) {
+        return startServer(i, s, null);
+    }
+
+    @Override
+    public boolean startServer(int i, String s, HttpServerConfiguration httpServerConfiguration) {
         // NO-OP
         return true;
     }
