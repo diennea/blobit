@@ -4,7 +4,7 @@
     <parent>
         <groupId>org.blobit</groupId>
         <artifactId>blobit</artifactId>
-        <version>0.5.1-SNAPSHOT</version>
+        <version>0.5.1</version>
     </parent>
     <artifactId>blobit-cli</artifactId>
     <name>BlobIt CLI</name>
