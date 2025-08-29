@@ -40,7 +40,7 @@ jobs:
         run: mvn -B checkstyle:check install spotbugs:check -Dmaven.test.redirectTestOutputToFile=true -Dherddb.file.requirefsync=false --file pom.xml
       - name: 'Archive surefire outputs'
         if: ${{ failure() }}
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: surefire-output
           path: /home/runner/work/blobit/blobit/blobit-*/target/surefire-reports/*
